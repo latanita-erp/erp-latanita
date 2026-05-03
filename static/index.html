@@ -101,6 +101,7 @@
                         <p>Catálogo y cálculos automáticos de precios</p>
                     </div>
                     <div class="actions">
+                        <button class="btn btn-primary" style="background-color: var(--success-color);" onclick="window.open('static/print.html', '_blank')">🖨️ Imprimir Lista</button>
                         <input type="file" id="excel-file" accept=".xlsx, .xls" hidden>
                         <button class="btn btn-secondary" onclick="document.getElementById('excel-file').click()">📥 Importar Excel</button>
                         <button class="btn btn-primary" onclick="toggleModal('modal-add-product')">➕ Nuevo Producto</button>
