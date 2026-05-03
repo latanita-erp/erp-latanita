@@ -53,7 +53,7 @@ class Login(BaseModel):
 
 @app.post("/api/login")
 def login(data: Login):
-    if data.username == "admin" and data.password == "admin123":
+    if data.username == "cboveda" and data.password == "Xeneize1198$":
         return {"success": True, "token": "fake-jwt-token-123"}
     raise HTTPException(status_code=401, detail="Credenciales incorrectas")
 
