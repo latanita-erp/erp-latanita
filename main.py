@@ -11,7 +11,7 @@ from sqlalchemy import create_engine, text
 app = FastAPI()
 
 password = urllib.parse.quote_plus('Xeneize2531$')
-DB_URI = f"postgresql+pg8000://postgres:{password}@db.juzwfwgonamxyuvoxgbj.supabase.co:5432/postgres"
+DB_URI = f"postgresql+pg8000://postgres:{password}@db.juzwfwgonamxyuvoxgbj.supabase.co:6543/postgres"
 
 engine = create_engine(DB_URI, pool_pre_ping=True)
 
