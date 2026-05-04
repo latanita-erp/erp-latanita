@@ -7,8 +7,8 @@ password = urllib.parse.quote_plus('Xeneize2531$')
 # Try session pooler
 # Try direct IPv6
 uris = [
-    f"postgresql+pg8000://postgres.juzwfwgonamxyuvoxgbj:{password}@aws-0-sa-east-1.pooler.supabase.com:5432/postgres",
-    f"postgresql+pg8000://postgres:{password}@db.juzwfwgonamxyuvoxgbj.supabase.co:5432/postgres",
+    f"postgresql+pg8000://postgres.juzwfwgonamxyuvoxgbj:{password}@aws-0-sa-east-1.pooler.supabase.com:6543/postgres",
+    f"postgresql+pg8000://postgres:{password}@db.juzwfwgonamxyuvoxgbj.supabase.co:6543/postgres",
 ]
 
 for uri in uris:
