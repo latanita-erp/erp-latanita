@@ -258,6 +258,53 @@
         </div>
     </div>
 
+    <!-- MODAL EDITAR PRODUCTO -->
+<div id="modal-edit-product" class="modal-overlay hidden">
+    <div class="modal-content glass-panel" style="max-width: 450px;">
+        <div class="modal-header">
+            <h2>Editar Producto</h2>
+            <button class="close-btn" onclick="toggleModal('modal-edit-product')">×</button>
+        </div>
+
+        <form id="edit-product-form">
+            <input type="hidden" id="edit-product-id">
+
+            <div class="input-group">
+                <label>Nombre</label>
+                <input type="text" id="edit-product-name" readonly>
+            </div>
+
+            <div class="input-group">
+                <label>Tipo</label>
+                <input type="text" id="edit-product-type" readonly>
+            </div>
+
+            <div class="input-group">
+                <label>Costo Actual ($)</label>
+                <input type="number" step="0.01" id="edit-product-cost" required>
+            </div>
+
+            <div class="input-group">
+                <label>Margen (%)</label>
+                <input type="number" step="0.01" id="edit-product-margin" required>
+            </div>
+
+            <div class="input-group">
+                <label>Precio Anterior ($/kg)</label>
+                <input type="text" id="edit-product-old-price" readonly>
+            </div>
+
+            <div class="input-group">
+                <label>Nuevo Precio ($/kg)</label>
+                <input type="text" id="edit-product-new-price" readonly>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block mt-2">Guardar Cambios</button>
+        </form>
+    </div>
+</div>
+
+
    <!-- MODAL EDIT CASH -->
 <div id="modal-edit-cash" class="modal-overlay hidden">
     <div class="modal-content glass-panel" style="max-width: 400px;">
