@@ -54,15 +54,15 @@ document.addEventListener('DOMContentLoaded', () => {
 function toggleModal(id) {
     const modal = document.getElementById(id);
 
-    // Mostrar / ocultar overlay
-    modal.classList.toggle("hidden");
-
-    // Asegurar que el modal-content reciba clics
-    const content = modal.querySelector(".modal-content");
-    if (content) {
-        content.style.pointerEvents = "auto";
+    if (modal.classList.contains("hidden")) {
+        modal.classList.remove("hidden");
+        modal.classList.add("active");
+    } else {
+        modal.classList.add("hidden");
+        modal.classList.remove("active");
     }
 }
+
 
 
 // --- LOGIN ---
