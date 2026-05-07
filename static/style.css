@@ -194,3 +194,19 @@ input:focus, select:focus { border-color: var(--primary-color); }
     cursor: pointer;
 }
 
+/* ============================
+   FIX DEFINITIVO PARA MODALES
+   ============================ */
+
+.modal-overlay {
+    display: none !important;
+}
+
+.modal-overlay.active {
+    display: flex !important;
+}
+
+.modal-content {
+    pointer-events: auto !important;
+    z-index: 3000 !important;
+}
