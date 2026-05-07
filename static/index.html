@@ -138,33 +138,41 @@
                 </header>
 
                 <div class="glass-panel mb-2">
-                    <h3>Nuevo Cierre de Caja</h3>
-                    <form id="cash-form" class="grid-form">
-                        <div class="input-group">
-                            <label>Fecha</label>
-                            <input type="date" id="cash-date" onclick="this.showPicker()" required>
-                        </div>
-                        <div class="input-group">
-                            <label>Día</label>
-                            <input type="text" id="cash-weekday" readonly>
-                        </div>
-                        <div class="input-group">
-                            <label>Efectivo ($)</label>
-                            <input type="number" step="0.01" id="cash-cash" required>
-                        </div>
-                        <div class="input-group">
-                            <label>Tarjeta ($)</label>
-                            <input type="number" step="0.01" id="cash-card" required>
-                        </div>
-                        <div class="input-group">
-                            <label>Gastos ($)</label>
-                            <input type="number" step="0.01" id="cash-expenses" required>
-                        </div>
-                        <div class="input-group flex-end">
-                            <button type="submit" class="btn btn-primary">Guardar Cierre</button>
-                        </div>
-                    </form>
-                </div>
+    <h3>Nuevo Cierre de Caja</h3>
+    <form id="cash-form" class="grid-form">
+        
+        <div class="input-group">
+            <label>Fecha</label>
+            <input type="date" id="cash-date" onclick="this.showPicker()" required>
+        </div>
+
+        <div class="input-group">
+            <label>Día</label>
+            <input type="text" id="cash-weekday" readonly>
+        </div>
+
+        <div class="input-group">
+            <label>Efectivo ($)</label>
+            <input type="number" step="0.01" id="cash-cash" required>
+        </div>
+
+        <div class="input-group">
+            <label>Tarjeta ($)</label>
+            <input type="number" step="0.01" id="cash-card" required>
+        </div>
+
+        <div class="input-group">
+            <label>Gastos ($)</label>
+            <input type="number" step="0.01" id="cash-expenses" required>
+        </div>
+
+        <div class="input-group flex-end">
+            <button type="submit" class="btn btn-primary">Guardar Cierre</button>
+        </div>
+
+    </form>
+</div>
+
 
                 <div class="glass-panel">
                     <h3>Historial Reciente</h3>
