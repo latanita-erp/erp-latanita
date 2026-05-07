@@ -63,9 +63,6 @@ function toggleModal(id) {
     }
 }
 
-
-
-
 // --- LOGIN ---
 document.getElementById('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -113,7 +110,16 @@ async function loadData(view) {
 // --- PRODUCTOS ---
 async function fetchProducts() {
     const res = await fetch('/api/products');
-    state.products = await res.json();
+    const data = await res.json();
+
+    // Convertir cost y margin a número SIEMPRE
+    state.products = data.map(p => ({
+        ...p,
+        cost: parseFloat(p.cost),
+        margin: parseFloat(p.margin),
+        price_kg: parseFloat(p.price_kg)
+    }));
+
     renderProducts();
 }
 
