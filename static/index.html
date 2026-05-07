@@ -250,32 +250,50 @@
         </div>
     </div>
 
-    <!-- MODAL EDIT CASH -->
-    <div id="modal-edit-cash" class="modal-overlay hidden">
-        <div class="modal-content glass-panel" style="max-width: 400px;">
-            <div class="modal-header">
-                <h2>Caja: <span id="edit-cash-date"></span></h2>
-                <button class="close-btn" onclick="toggleModal('modal-edit-cash')">×</button>
-            </div>
-            <form id="edit-cash-form">
-                <input type="hidden" id="edit-cash-id">
-                <div class="input-group">
-                    <label>Efectivo ($)</label>
-                    <input type="number" step="0.01" id="edit-cash-cash" required>
-                </div>
-                <div class="input-group">
-                    <label>Tarjeta ($)</label>
-                    <input type="number" step="0.01" id="edit-cash-card" required>
-                </div>
-                <div class="input-group">
-                    <label>Gastos ($)</label>
-                    <input type="number" step="0.01" id="edit-cash-expenses" required>
-                </div>
-                <button type="submit" class="btn btn-primary btn-block mt-2">Guardar Cambios</button>
-            </form>
+   <!-- MODAL EDIT CASH -->
+<div id="modal-edit-cash" class="modal-overlay hidden">
+    <div class="modal-content glass-panel" style="max-width: 400px;">
+        <div class="modal-header">
+            <h2>Caja: <span id="edit-cash-date"></span></h2>
+            <button class="close-btn" onclick="toggleModal('modal-edit-cash')">×</button>
         </div>
+        <form id="edit-cash-form">
+            <input type="hidden" id="edit-cash-id">
+            <div class="input-group">
+                <label>Efectivo ($)</label>
+                <input type="number" step="0.01" id="edit-cash-cash" required>
+            </div>
+            <div class="input-group">
+                <label>Tarjeta ($)</label>
+                <input type="number" step="0.01" id="edit-cash-card" required>
+            </div>
+            <div class="input-group">
+                <label>Gastos ($)</label>
+                <input type="number" step="0.01" id="edit-cash-expenses" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block mt-2">Guardar Cambios</button>
+        </form>
     </div>
+</div>
 
-    <script src="static/script.js"></script>
+<!-- ⭐ SCRIPT PARA COMPLETAR EL DÍA AUTOMÁTICAMENTE ⭐ -->
+<script>
+document.getElementById("cash-date").addEventListener("change", function () {
+    const value = this.value;
+    if (!value) {
+        document.getElementById("cash-weekday").value = "";
+        return;
+    }
+
+    const date = new Date(value + "T00:00:00");
+
+    const weekdays = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
+    const dayName = weekdays[date.getDay()];
+
+    document.getElementById("cash-weekday").value = dayName;
+});
+</script>
+
+<script src="static/script.js"></script>
 </body>
 </html>
