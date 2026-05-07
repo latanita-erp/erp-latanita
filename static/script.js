@@ -119,24 +119,24 @@ function renderProducts() {
     state.products.forEach(p => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-    <td class="prod-name"><strong>${p.name}</strong></td>
-    <td class="prod-type">${p.type}</td>
-    <td class="prod-cost" data-value="${p.cost}">$${formatMoney(p.cost)}</td>
-    <td class="prod-margin" data-value="${p.margin}">${p.margin}%</td>
-    <td class="prod-pricekg" data-value="${p.price_kg}"><strong>$${formatMoney(p.price_kg)}</strong></td>
-    <td class="prod-price100" data-value="${p.price_100g}">$${formatMoney(p.price_100g)}</td>
-    <td class="prod-price150" data-value="${p.price_150g}">$${formatMoney(p.price_150g)}</td>
-    <td class="prod-price250" data-value="${p.price_250g}">$${formatMoney(p.price_250g)}</td>
-    <td style="display: flex; gap: 0.5rem;">
-        <button class="btn btn-secondary" onclick="openEditProduct(${p.id})">✏️ Editar</button>
-        <button class="btn btn-danger" onclick="deleteProduct(${p.id})">🗑️</button>
-    </td>
-`;
-
+            <td class="prod-name"><strong>${p.name}</strong></td>
+            <td class="prod-type">${p.type}</td>
+            <td class="prod-cost" data-value="${p.cost}">$${formatMoney(p.cost)}</td>
+            <td class="prod-margin" data-value="${p.margin}">${p.margin}%</td>
+            <td class="prod-pricekg" data-value="${p.price_kg}"><strong>$${formatMoney(p.price_kg)}</strong></td>
+            <td class="prod-price100" data-value="${p.price_100g}">$${formatMoney(p.price_100g)}</td>
+            <td class="prod-price150" data-value="${p.price_150g}">$${formatMoney(p.price_150g)}</td>
+            <td class="prod-price250" data-value="${p.price_250g}">$${formatMoney(p.price_250g)}</td>
+            <td style="display: flex; gap: 0.5rem;">
+                <button class="btn btn-secondary" onclick="openEditProduct(${p.id})">✏️ Editar</button>
+                <button class="btn btn-danger" onclick="deleteProduct(${p.id})">🗑️</button>
+            </td>
+        `;
         tbody.appendChild(tr);
     });
 }
 
+// --- AGREGAR PRODUCTO ---
 document.getElementById('add-product-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const payload = {
@@ -155,6 +155,7 @@ document.getElementById('add-product-form').addEventListener('submit', async (e)
     fetchProducts();
 });
 
+// --- ELIMINAR PRODUCTO ---
 async function deleteProduct(id) {
     if(confirm('¿Eliminar producto?')) {
         await fetch(`/api/products/${id}`, { method: 'DELETE' });
@@ -162,6 +163,7 @@ async function deleteProduct(id) {
     }
 }
 
+// --- IMPORTAR EXCEL ---
 async function handleExcelUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -186,6 +188,58 @@ async function handleExcelUpload(e) {
     }
     e.target.value = ''; // reset input
 }
+
+// --- EDITAR PRODUCTO (NUEVO) ---
+function calculatePrices(cost, margin) {
+    const base = cost * (1 + margin / 100);
+    const priceKg = Math.ceil(base / 100) * 100;
+    return priceKg;
+}
+
+function updateNewPrice() {
+    const cost = parseFloat(document.getElementById("edit-product-cost").value) || 0;
+    const margin = parseFloat(document.getElementById("edit-product-margin").value) || 0;
+
+    const newPrice = calculatePrices(cost, margin);
+    document.getElementById("edit-product-new-price").value = newPrice;
+}
+
+function openEditProduct(id) {
+    const p = state.products.find(x => x.id === id);
+
+    document.getElementById("edit-product-id").value = p.id;
+    document.getElementById("edit-product-name").value = p.name;
+    document.getElementById("edit-product-type").value = p.type;
+    document.getElementById("edit-product-cost").value = p.cost;
+    document.getElementById("edit-product-margin").value = p.margin;
+    document.getElementById("edit-product-old-price").value = p.price_kg;
+
+    updateNewPrice();
+    toggleModal("modal-edit-product");
+}
+
+document.getElementById("edit-product-cost").addEventListener("input", updateNewPrice);
+document.getElementById("edit-product-margin").addEventListener("input", updateNewPrice);
+
+document.getElementById("edit-product-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const id = document.getElementById("edit-product-id").value;
+    const cost = parseFloat(document.getElementById("edit-product-cost").value);
+    const margin = parseFloat(document.getElementById("edit-product-margin").value);
+
+    const payload = { cost, margin };
+
+    await fetch(`/api/products/${id}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    });
+
+    toggleModal('modal-edit-product');
+    fetchProducts();
+});
+
 
 // --- PROVEEDORES ---
 async function openSuppliers(productId, productName) {
