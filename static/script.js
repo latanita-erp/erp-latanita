@@ -53,14 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // --- UI UTILS ---
 function toggleModal(id) {
     const modal = document.getElementById(id);
-
-    if (modal.classList.contains("hidden")) {
-        modal.classList.remove("hidden");
-        modal.classList.add("active");
-    } else {
-        modal.classList.add("hidden");
-        modal.classList.remove("active");
-    }
+    modal.classList.toggle("active");
 }
 
 // --- LOGIN ---
