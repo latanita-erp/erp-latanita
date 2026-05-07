@@ -68,73 +68,73 @@
     <div id="content">Cargando precios...</div>
 
     <script>
-        function formatMoney(val) {
-            return val.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        }
+    function formatMoney(val) {
+        return val.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
 
-        async function loadPrices() {
-            document.getElementById('print-date').innerText =
-                "Actualizado: " + new Date().toLocaleDateString('es-AR') + " " +
-                new Date().toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'});
+    async function loadPrices() {
+        document.getElementById('print-date').innerText =
+            "Actualizado: " + new Date().toLocaleDateString('es-AR') + " " +
+            new Date().toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'});
 
-            try {
-                const res = await fetch('/api/products');
-                const products = await res.json();
+        try {
+            const res = await fetch('/api/products');
+            const products = await res.json();
 
-                // Filtrar solo FIAMBRES y QUESOS
-                const filtered = products.filter(p =>
-                    p.type?.toLowerCase() === "fiambre" ||
-                    p.type?.toLowerCase() === "queso"
-                );
+            // Filtrar solo FIAMBRES y QUESOS
+            const filtered = products.filter(p =>
+                p.type?.toLowerCase() === "fiambre" ||
+                p.type?.toLowerCase() === "queso"
+            );
 
-                // Ordenar por tipo y nombre
-                filtered.sort((a, b) => {
-                    if (a.type !== b.type) return a.type.localeCompare(b.type);
-                    return a.name.localeCompare(b.name);
-                });
+            // Ordenar por tipo y nombre
+            filtered.sort((a, b) => {
+                if (a.type !== b.type) return a.type.localeCompare(b.type);
+                return a.name.localeCompare(b.name);
+            });
 
-                let html = `
-                    <table>
-                        <thead>
-                            <tr>
-                                <th class="name-col">Descripción</th>
-                                <th>Tipo</th>
-                                <th>100 g</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                `;
-
-                filtered.forEach(p => {
-                    html += `
+            let html = `
+                <table>
+                    <thead>
                         <tr>
-                            <td class="name-col"><strong>${p.name}</strong></td>
-                            <td>${p.type}</td>
-                            <td>$${formatMoney(p.price_100g)}</td>
+                            <th class="name-col">Descripción</th>
+                            <th>Tipo</th>
+                            <th>100 g</th>
                         </tr>
-                    `;
-                });
+                    </thead>
+                    <tbody>
+            `;
 
+            filtered.forEach(p => {
                 html += `
-                        </tbody>
-                    </table>
+                    <tr>
+                        <td class="name-col"><strong>${p.name}</strong></td>
+                        <td>${p.type}</td>
+                        <td>$${formatMoney(p.price_100g)}</td>
+                    </tr>
                 `;
+            });
 
-                document.getElementById('content').innerHTML = html;
+            html += `
+                    </tbody>
+                </table>
+            `;
 
-                requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-        window.print();
-    });
-});
+            document.getElementById('content').innerHTML = html;
 
+            // 👇 ESTA ES LA CLAVE
+            // Forzamos un ciclo de renderizado REAL antes de imprimir
+            setTimeout(() => {
+                window.print();
+            }, 800);
 
-            } catch (err) {
-                document.getElementById('content').innerHTML = "Error al cargar la lista.";
-            }
+        } catch (err) {
+            document.getElementById('content').innerHTML = "Error al cargar la lista.";
         }
+    }
 
-        window.onload = loadPrices;
-    </script>
+    window.onload = loadPrices;
+</script>
+
 </body>
 </html>
