@@ -243,6 +243,79 @@ document.getElementById("edit-product-form").addEventListener("submit", async (e
     fetchProducts();
 });
 
+// --- LISTADO 100g (FIAMBRES Y QUESOS) – A4 COMPACTO ---
+async function generatePriceList100g() {
+    // Filtrar solo FIAMBRES y QUESOS
+    const filtered = state.products.filter(p =>
+        p.type.toLowerCase() === "fiambre" ||
+        p.type.toLowerCase() === "queso"
+    );
+
+    // Ordenar por tipo y luego por nombre
+    filtered.sort((a, b) => {
+        if (a.type !== b.type) return a.type.localeCompare(b.type);
+        return a.name.localeCompare(b.name);
+    });
+
+    // HTML COMPACTO PARA UNA HOJA A4
+    let html = `
+        <div style="font-family: Arial, sans-serif;">
+
+            <h1 style="text-align:center; font-size:18px; margin-bottom:4px;">
+                Lista de precios por 100 gramos
+            </h1>
+
+            <h3 style="text-align:center; font-size:14px; margin-top:0; margin-bottom:12px;">
+                Fiambres y Quesos – La Tanita
+            </h3>
+
+            <table style="width:100%; border-collapse:collapse; font-size:11px;">
+                <thead>
+                    <tr>
+                        <th style="text-align:left; padding:4px; border-bottom:1px solid #aaa;">Producto</th>
+                        <th style="text-align:left; padding:4px; border-bottom:1px solid #aaa;">Tipo</th>
+                        <th style="text-align:right; padding:4px; border-bottom:1px solid #aaa;">100 g</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    filtered.forEach(p => {
+        html += `
+            <tr>
+                <td style="padding:4px;">${p.name}</td>
+                <td style="padding:4px;">${p.type}</td>
+                <td style="padding:4px; text-align:right;">$${p.price_100g}</td>
+            </tr>
+        `;
+    });
+
+    html += `
+                </tbody>
+            </table>
+
+            <p style="text-align:center; font-size:10px; margin-top:12px; color:#555;">
+                Precios actualizados automáticamente – Panadería y Fiambrería La Tanita
+            </p>
+
+        </div>
+    `;
+
+    // Enviar al backend para generar PDF
+    const res = await fetch("/api/generate-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ html })
+    });
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "lista_100g.pdf";
+    a.click();
+}
 
 // --- PROVEEDORES ---
 async function openSuppliers(productId, productName) {
