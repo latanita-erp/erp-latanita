@@ -141,6 +141,40 @@ def create_product(p: Product):
         return {"success": True, "id": res.scalar()}
 
 
+@app.put("/api/products/{id}")
+def update_product(id: int, p: Product):
+    # Recalcular precios con el nuevo costo y margen
+    prices = calculate_prices(p.cost, p.margin)
+
+    with engine.connect() as conn:
+        conn.execute(
+            text(
+                """
+                UPDATE products
+                SET cost = :cost,
+                    margin = :margin,
+                    price_kg = :pkg,
+                    price_100g = :p100,
+                    price_150g = :p150,
+                    price_250g = :p250
+                WHERE id = :id
+                """
+            ),
+            {
+                "id": id,
+                "cost": p.cost,
+                "margin": p.margin,
+                "pkg": prices["price_kg"],
+                "p100": prices["price_100g"],
+                "p150": prices["price_150g"],
+                "p250": prices["price_250g"],
+            },
+        )
+        conn.commit()
+
+    return {"success": True}
+
+
 @app.delete("/api/products/{id}")
 def delete_product(id: int):
     with engine.connect() as conn:
@@ -150,6 +184,7 @@ def delete_product(id: int):
         )
         conn.commit()
     return {"success": True}
+
 
 
 # ---------- Proveedores por producto ----------
