@@ -74,7 +74,7 @@ def calculate_prices(cost, margin):
 @app.get("/api/products")
 def get_products():
     with engine.connect() as conn:
-        res = conn.execute(text("SELECT * FROM products ORDER BY id DESC")).mappings().all()
+        res = conn.execute(text("SELECT * FROM products ORDER BY type ASC, name ASC")).mappings().all()
         return [dict(r) for r in res]
 
 @app.post("/api/products")
@@ -99,7 +99,10 @@ def delete_product(id: int):
 @app.get("/api/products/{id}/suppliers")
 def get_product_suppliers(id: int):
     with engine.connect() as conn:
-        res = conn.execute(text("SELECT * FROM product_suppliers WHERE product_id=:id"), {"id": id}).mappings().all()
+        res = conn.execute(
+            text("SELECT * FROM product_suppliers WHERE product_id=:id ORDER BY supplier_name ASC, cost ASC"),
+            {"id": id}
+        ).mappings().all()
         return [dict(r) for r in res]
 
 @app.post("/api/products/{id}/suppliers")
