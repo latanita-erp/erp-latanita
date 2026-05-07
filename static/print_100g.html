@@ -122,7 +122,12 @@
 
                 document.getElementById('content').innerHTML = html;
 
-                setTimeout(() => window.print(), 400);
+                requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+        window.print();
+    });
+});
+
 
             } catch (err) {
                 document.getElementById('content').innerHTML = "Error al cargar la lista.";
