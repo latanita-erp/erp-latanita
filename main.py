@@ -10,8 +10,8 @@ from sqlalchemy import create_engine, text
 
 app = FastAPI()
 
-password = urllib.parse.quote_plus('Xeneize2531$')
-DB_URI = f"postgresql+pg8000://postgres.juzwfwgonamxyuvoxgbj:{password}@aws-0-sa-east-1.pooler.supabase.com:5432/postgres"
+password = urllib.parse.quote_plus('Xeneize1198!')
+DB_URI = f"postgresql+pg8000://postgres.juzwfwgonamxyuvoxgbj:{password}@aws-1-sa-east-1.pooler.supabase.com:6543/postgres"
 
 
 engine = create_engine(DB_URI, pool_pre_ping=True)
