@@ -53,14 +53,17 @@ document.addEventListener('DOMContentLoaded', () => {
 // --- UI UTILS ---
 function toggleModal(id) {
     const modal = document.getElementById(id);
-    if (modal.classList.contains('hidden')) {
-        modal.classList.remove('hidden');
-        modal.classList.add('active'); // modal overlay has display:flex when active
-    } else {
-        modal.classList.add('hidden');
-        modal.classList.remove('active');
+
+    // Mostrar / ocultar overlay
+    modal.classList.toggle("hidden");
+
+    // Asegurar que el modal-content reciba clics
+    const content = modal.querySelector(".modal-content");
+    if (content) {
+        content.style.pointerEvents = "auto";
     }
 }
+
 
 // --- LOGIN ---
 document.getElementById('login-form').addEventListener('submit', async (e) => {
