@@ -119,19 +119,20 @@ function renderProducts() {
     state.products.forEach(p => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td><strong>${p.name}</strong></td>
-            <td>${p.type}</td>
-            <td>$${formatMoney(p.cost)}</td>
-            <td>${p.margin}%</td>
-            <td><strong>$${formatMoney(p.price_kg)}</strong></td>
-            <td>$${formatMoney(p.price_100g)}</td>
-            <td>$${formatMoney(p.price_150g)}</td>
-            <td>$${formatMoney(p.price_250g)}</td>
-            <td style="display: flex; gap: 0.5rem;">
-                <button class="btn btn-secondary" onclick="openSuppliers(${p.id}, '${p.name.replace(/'/g, "\\'")}')">🚚 Proveedores</button>
-                <button class="btn btn-danger" onclick="deleteProduct(${p.id})">🗑️</button>
-            </td>
-        `;
+    <td class="prod-name"><strong>${p.name}</strong></td>
+    <td class="prod-type">${p.type}</td>
+    <td class="prod-cost" data-value="${p.cost}">$${formatMoney(p.cost)}</td>
+    <td class="prod-margin" data-value="${p.margin}">${p.margin}%</td>
+    <td class="prod-pricekg" data-value="${p.price_kg}"><strong>$${formatMoney(p.price_kg)}</strong></td>
+    <td class="prod-price100" data-value="${p.price_100g}">$${formatMoney(p.price_100g)}</td>
+    <td class="prod-price150" data-value="${p.price_150g}">$${formatMoney(p.price_150g)}</td>
+    <td class="prod-price250" data-value="${p.price_250g}">$${formatMoney(p.price_250g)}</td>
+    <td style="display: flex; gap: 0.5rem;">
+        <button class="btn btn-secondary" onclick="openEditProduct(${p.id})">✏️ Editar</button>
+        <button class="btn btn-danger" onclick="deleteProduct(${p.id})">🗑️</button>
+    </td>
+`;
+
         tbody.appendChild(tr);
     });
 }
