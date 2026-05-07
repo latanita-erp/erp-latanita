@@ -142,9 +142,11 @@ def create_product(p: Product):
 
 
 @app.put("/api/products/{id}")
-def update_product(id: int, p: Product):
-    # Recalcular precios con el nuevo costo y margen
-    prices = calculate_prices(p.cost, p.margin)
+def update_product(id: int, data: dict):
+    cost = data.get("cost")
+    margin = data.get("margin")
+
+    prices = calculate_prices(cost, margin)
 
     with engine.connect() as conn:
         conn.execute(
@@ -162,8 +164,8 @@ def update_product(id: int, p: Product):
             ),
             {
                 "id": id,
-                "cost": p.cost,
-                "margin": p.margin,
+                "cost": cost,
+                "margin": margin,
                 "pkg": prices["price_kg"],
                 "p100": prices["price_100g"],
                 "p150": prices["price_150g"],
@@ -173,7 +175,6 @@ def update_product(id: int, p: Product):
         conn.commit()
 
     return {"success": True}
-
 
 @app.delete("/api/products/{id}")
 def delete_product(id: int):
