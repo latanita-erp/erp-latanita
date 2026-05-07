@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Lista 100g - La Tanita</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 12mm;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            color: #000;
+            background: #fff;
+            margin: 0;
+            padding: 0;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #000;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+        }
+        .header img {
+            max-width: 80px;
+        }
+        .header h1 {
+            margin: 5px 0 0 0;
+            font-size: 20px;
+        }
+        .header h2 {
+            margin: 0;
+            font-size: 16px;
+        }
+        .date {
+            text-align: right;
+            font-size: 11px;
+            margin-bottom: 8px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+        }
+        th, td {
+            border: 1px solid #9ca3af;
+            padding: 4px 6px;
+            text-align: right;
+        }
+        th {
+            background-color: #f3f4f6;
+            font-weight: bold;
+        }
+        td.name-col, th.name-col {
+            text-align: left;
+            width: 55%;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="logo.jpg" alt="La Tanita" onerror="this.style.display='none'">
+        <h1>Panadería y Fiambrería La Tanita</h1>
+        <h2>Lista de Precios por 100 gramos</h2>
+    </div>
+
+    <div class="date" id="print-date"></div>
+    <div id="content">Cargando precios...</div>
+
+    <script>
+        function formatMoney(val) {
+            return val.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        async function loadPrices() {
+            document.getElementById('print-date').innerText =
+                "Actualizado: " + new Date().toLocaleDateString('es-AR') + " " +
+                new Date().toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'});
+
+            try {
+                const res = await fetch('/api/products');
+                const products = await res.json();
+
+                // Filtrar solo FIAMBRES y QUESOS
+                const filtered = products.filter(p =>
+                    p.type?.toLowerCase() === "fiambre" ||
+                    p.type?.toLowerCase() === "queso"
+                );
+
+                // Ordenar por tipo y nombre
+                filtered.sort((a, b) => {
+                    if (a.type !== b.type) return a.type.localeCompare(b.type);
+                    return a.name.localeCompare(b.name);
+                });
+
+                let html = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th class="name-col">Descripción</th>
+                                <th>Tipo</th>
+                                <th>100 g</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                filtered.forEach(p => {
+                    html += `
+                        <tr>
+                            <td class="name-col"><strong>${p.name}</strong></td>
+                            <td>${p.type}</td>
+                            <td>$${formatMoney(p.price_100g)}</td>
+                        </tr>
+                    `;
+                });
+
+                html += `
+                        </tbody>
+                    </table>
+                `;
+
+                document.getElementById('content').innerHTML = html;
+
+                setTimeout(() => window.print(), 400);
+
+            } catch (err) {
+                document.getElementById('content').innerHTML = "Error al cargar la lista.";
+            }
+        }
+
+        window.onload = loadPrices;
+    </script>
+</body>
+</html>
