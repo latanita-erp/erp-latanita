@@ -96,11 +96,11 @@
                 const res = await fetch('/api/products');
                 const products = await res.json();
 
-                // Filtrar solo fiambres y quesos
-                const filtered = products.filter(p =>
-                    p.type?.toLowerCase() === 'fiambres' ||
-                    p.type?.toLowerCase() === 'quesos'
-                );
+                // Filtrar fiambres y quesos (flexible)
+                const filtered = products.filter(p => {
+                    const t = (p.type || "").toLowerCase();
+                    return t.includes("fiam") || t.includes("ques");
+                });
 
                 // Agrupar por tipo
                 const grouped = {};
@@ -113,17 +113,20 @@
                 const types = Object.keys(grouped).sort();
 
                 let html = '';
+
                 types.forEach(type => {
                     html += `<div class="type-group">`;
                     html += `<div class="type-title">${type.toUpperCase()}</div>`;
-                    html += `<table>
-                                <thead>
-                                    <tr>
-                                        <th class="name-col">Descripción</th>
-                                        <th>100 g</th>
-                                    </tr>
-                                </thead>
-                                <tbody>`;
+                    html += `
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th class="name-col">Descripción</th>
+                                    <th>100 g</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
 
                     grouped[type]
                         .sort((a, b) => a.name.localeCompare(b.name))
@@ -136,7 +139,10 @@
                             `;
                         });
 
-                    html += `</tbody></table></div>`;
+                    html += `
+                            </tbody>
+                        </table>
+                    </div>`;
                 });
 
                 document.getElementById('content').innerHTML = html;
@@ -152,4 +158,3 @@
     </script>
 </body>
 </html>
-
