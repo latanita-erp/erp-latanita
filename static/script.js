@@ -53,6 +53,8 @@ document.addEventListener('DOMContentLoaded', () => {
 // --- UI UTILS ---
 function toggleModal(id) {
     const modal = document.getElementById(id);
+    if (!modal) return;
+
     modal.classList.toggle("active");
 }
 
