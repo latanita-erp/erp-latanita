@@ -207,6 +207,19 @@ function updateNewPrice() {
     document.getElementById("edit-product-new-price").value = newPrice;
 }
 
+// NUEVO: calcular precio promo automáticamente
+function updatePromoPrice() {
+    const price250 = Number(document.getElementById("edit-product-price250").value);
+    const promo = Number(document.getElementById("edit-product-promotion").value);
+
+    if (promo > 0) {
+        const final = price250 * (1 - promo / 100);
+        document.getElementById("edit-product-price250-promo").value = final.toFixed(2);
+    } else {
+        document.getElementById("edit-product-price250-promo").value = "";
+    }
+}
+
 function openEditProduct(id) {
     const p = state.products.find(x => x.id === id);
 
@@ -217,6 +230,20 @@ function openEditProduct(id) {
     document.getElementById("edit-product-margin").value = p.margin;
     document.getElementById("edit-product-old-price").value = p.price_kg;
 
+    // NUEVO: cargar precio 250 g
+    document.getElementById("edit-product-price250").value = p.price_250g;
+
+    // NUEVO: cargar promoción
+    document.getElementById("edit-product-promotion").value = p.promotion || 0;
+
+    // NUEVO: calcular precio promo si existe
+    if (p.promotion > 0) {
+        const final = p.price_250g * (1 - p.promotion / 100);
+        document.getElementById("edit-product-price250-promo").value = final.toFixed(2);
+    } else {
+        document.getElementById("edit-product-price250-promo").value = "";
+    }
+
     updateNewPrice();
     toggleModal("modal-edit-product");
 }
@@ -224,14 +251,19 @@ function openEditProduct(id) {
 document.getElementById("edit-product-cost").addEventListener("input", updateNewPrice);
 document.getElementById("edit-product-margin").addEventListener("input", updateNewPrice);
 
+// NUEVO: escuchar cambios en el % de descuento
+document.getElementById("edit-product-promotion").addEventListener("input", updatePromoPrice);
+
 document.getElementById("edit-product-form").addEventListener("submit", async (e) => {
     e.preventDefault();
 
     const id = document.getElementById("edit-product-id").value;
     const cost = parseFloat(document.getElementById("edit-product-cost").value);
     const margin = parseFloat(document.getElementById("edit-product-margin").value);
+    const promotion = Number(document.getElementById("edit-product-promotion").value);
 
-    const payload = { cost, margin };
+    // NUEVO: incluir promoción en el payload
+    const payload = { cost, margin, promotion };
 
     await fetch(`/api/products/${id}`, {
         method: 'PUT',
