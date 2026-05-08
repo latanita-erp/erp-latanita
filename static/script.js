@@ -354,9 +354,9 @@ async function generateTechnicalList() {
             <tr>
                 <td style="padding:4px;">${p.name}</td>
                 <td style="padding:4px;">${p.type}</td>
-                <td style="padding:4px; text-align:right;">$${p.cost}</td>
-                <td style="padding:4px; text-align:right;">$${p.price_kg}</td>
-                <td style="padding:4px; text-align:right;">${p.margin}%</td>
+                <td style="padding:4px; text-align:right;">$${p.$${Number(p.cost).toFixed(2)}cost}</td>
+                <td style="padding:4px; text-align:right;">$${Number(p.price_kg).toFixed(2)}</td>
+                <td style="padding:4px; text-align:right;">${p.marg${Math.round(p.margin)} %in}%</td>
             </tr>
         `;
     });
