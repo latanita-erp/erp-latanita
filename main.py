@@ -509,3 +509,22 @@ def get_dashboard():
         "payment_methods": payment_methods,
     }
 
+from fastapi.responses import StreamingResponse
+import pdfkit
+import io
+
+@app.post("/api/generate-pdf")
+def generate_pdf(data: dict):
+    html = data.get("html", "")
+
+    if not html:
+        raise HTTPException(status_code=400, detail="HTML vacío")
+
+    # Generar PDF en memoria
+    pdf_bytes = pdfkit.from_string(html, False)
+
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": "inline; filename=lista.pdf"}
+    )
