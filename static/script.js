@@ -95,6 +95,22 @@ document.getElementById('logout-btn').addEventListener('click', () => {
     window.location.reload();
 });
 
+// --- TOAST DE MENSAJES (ÉXITO / ERROR) ---
+function showToast(msg, type = "success") {
+    const toast = document.createElement("div");
+    toast.className = `toast ${type}`;
+    toast.innerText = msg;
+
+    document.body.appendChild(toast);
+
+    setTimeout(() => toast.classList.add("visible"), 50);
+    setTimeout(() => {
+        toast.classList.remove("visible");
+        setTimeout(() => toast.remove(), 300);
+    }, 2500);
+}
+
+
 // --- CARGA DE DATOS ---
 async function loadData(view) {
     if (view === 'products') await fetchProducts();
@@ -283,44 +299,72 @@ document.getElementById("edit-product-form").addEventListener("submit", async (e
 // =====================================================
 let lastMassUpdateBackup = null;
 
-// =====================================================
-// ⭐ AUMENTO MASIVO DE MÁRGENES (CON BACKUP AUTOMÁTICO)
-// =====================================================
+// --- AJUSTE MASIVO DE MÁRGENES (MEJORADO) ---
 document.getElementById("mass-margin-form").addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    const increase = parseFloat(document.getElementById("mass-margin-value").value);
-    if (isNaN(increase)) return;
+    const btn = e.submitter;
+    const value = parseFloat(document.getElementById("mass-margin-value").value);
 
-    // 1) ⭐ GUARDAR BACKUP ANTES DE AUMENTAR
-    lastMassUpdateBackup = state.products.map(p => ({
-        id: p.id,
-        margin: p.margin,
-        price_kg: p.price_kg
-    }));
-
-    // 2) ⭐ APLICAR AUMENTO MASIVO
-    for (const p of state.products) {
-
-        const newMargin = p.margin + increase;
-
-        const base = p.cost * (1 + newMargin / 100);
-        const newPriceKg = Math.ceil(base / 100) * 100;
-
-        await fetch(`/api/products/${p.id}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                cost: p.cost,
-                margin: newMargin,
-                price_kg: newPriceKg
-            })
-        });
+    if (isNaN(value)) {
+        showToast("Ingresá un número válido", "error");
+        return;
     }
 
-    toggleModal("modal-mass-margin");
-    fetchProducts();
+    // 🔒 Deshabilitar botón para evitar doble clic
+    btn.disabled = true;
+    btn.innerText = "Aplicando...";
+
+    try {
+        // Guardar backup antes de modificar
+        window.massBackup = state.products.map(p => ({
+            id: p.id,
+            oldMargin: p.margin,
+            oldPriceKg: p.price_kg
+        }));
+
+        // Aplicar aumento a cada producto
+        for (const p of state.products) {
+            const newMargin = p.margin + value;
+            const newPriceKg = p.cost * (1 + newMargin / 100);
+
+            await fetch(`/api/products/${p.id}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${state.token}`
+                },
+                body: JSON.stringify({
+                    margin: newMargin,
+                    price_kg: newPriceKg
+                })
+            });
+        }
+
+        // 🔄 Recargar productos
+        await loadData("products");
+
+        // ✔ Cerrar modal
+        toggleModal("modal-mass-margin");
+
+        // ✔ Mostrar mensaje de éxito
+        showToast(`Ajuste aplicado correctamente (+${value}%)`, "success");
+
+        // 🔊 Sonido opcional
+        const audio = new Audio("static/success.mp3");
+        audio.volume = 0.3;
+        audio.play();
+
+    } catch (err) {
+        console.error(err);
+        showToast("Error aplicando el ajuste", "error");
+    }
+
+    // 🔓 Restaurar botón
+    btn.disabled = false;
+    btn.innerText = "Aplicar Aumento";
 });
+
 
 // =====================================================
 // ⭐ DESHACER ÚLTIMO AUMENTO MASIVO
