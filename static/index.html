@@ -42,11 +42,20 @@
                 <img src="static/logo.jpg" alt="Logo La Tanita" onerror="this.style.display='none'" style="max-width: 80px; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.3); margin-bottom: 0.8rem;">
                 <br>La Tanita
             </div>
-            <nav>
-                <button class="nav-btn active" data-target="dashboard">📊 Dashboard</button>
-                <button class="nav-btn" data-target="products">📦 Productos</button>
-                <button class="nav-btn" data-target="cash">💰 Caja Diaria</button>
-            </nav>
+           <nav>
+    <button class="nav-btn active" data-target="dashboard">📊 Dashboard</button>
+    <button class="nav-btn" data-target="products">📦 Productos</button>
+    <button class="nav-btn" data-target="cash">💰 Caja Diaria</button>
+
+    <!-- SEPARADOR ELEGANTE -->
+    <hr class="menu-divider" style="margin: 1rem 0; border: none; border-top: 1px solid #ffffff33;">
+
+    <!-- LISTADOS -->
+    <button class="nav-btn" onclick="generateGeneralList()">📄 Listado General</button>
+    <button class="nav-btn" onclick="generatePriceList100g()">📄 Listado 100 g</button>
+    <button class="nav-btn" onclick="generateTechnicalList()">📄 Listado Técnico</button>
+</nav>
+
             <div class="sidebar-footer">
                 <button id="logout-btn" class="btn btn-danger btn-block">Cerrar Sesión</button>
             </div>
