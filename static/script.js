@@ -338,34 +338,36 @@ function generateTechnicalList() {
         });
     }
 
+    // 👉 ARMAMOS EL HTML COMPLETO ANTES DE ABRIR LA VENTANA
     let html = `
-        <html>
-        <head>
-            <title>Lista Técnica</title>
-        </head>
-        <body style="font-family: Arial, sans-serif; padding:20px;">
+    <html>
+    <head>
+        <title>Lista Técnica</title>
+    </head>
+    <body style="font-family: Arial, sans-serif; padding:20px;">
 
-            <h1 style="text-align:center; font-size:20px; margin-bottom:4px;">
-                Lista Técnica de Productos
-            </h1>
+        <h1 style="text-align:center; font-size:20px; margin-bottom:4px;">
+            Lista Técnica de Productos
+        </h1>
 
-            <h3 style="text-align:center; font-size:14px; margin-top:0; margin-bottom:12px;">
-                Costo – Precio por Kilo – Margen
-            </h3>
+        <h3 style="text-align:center; font-size:14px; margin-top:0; margin-bottom:12px;">
+            Costo – Precio por Kilo – Margen
+        </h3>
 
-            <table style="width:100%; border-collapse:collapse; font-size:13px;">
-                <thead>
-                    <tr>
-                        <th style="text-align:left; padding:6px; border-bottom:1px solid #aaa;">Producto</th>
-                        <th style="text-align:left; padding:6px; border-bottom:1px solid #aaa;">Tipo</th>
-                        <th style="text-align:right; padding:6px; border-bottom:1px solid #aaa;">Costo</th>
-                        <th style="text-align:right; padding:6px; border-bottom:1px solid #aaa;">Precio KG</th>
-                        <th style="text-align:right; padding:6px; border-bottom:1px solid #aaa;">Margen</th>
-                    </tr>
-                </thead>
-                <tbody>
+        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+            <thead>
+                <tr>
+                    <th style="text-align:left; padding:6px; border-bottom:1px solid #aaa;">Producto</th>
+                    <th style="text-align:left; padding:6px; border-bottom:1px solid #aaa;">Tipo</th>
+                    <th style="text-align:right; padding:6px; border-bottom:1px solid #aaa;">Costo</th>
+                    <th style="text-align:right; padding:6px; border-bottom:1px solid #aaa;">Precio KG</th>
+                    <th style="text-align:right; padding:6px; border-bottom:1px solid #aaa;">Margen</th>
+                </tr>
+            </thead>
+            <tbody>
     `;
 
+    // 👉 ACA SE AGREGAN LOS DATOS (ANTES NO SE ESTABAN INSERTANDO)
     sorted.forEach(p => {
         html += `
             <tr>
@@ -379,25 +381,22 @@ function generateTechnicalList() {
     });
 
     html += `
-                </tbody>
-            </table>
+            </tbody>
+        </table>
 
-            <p style="text-align:center; font-size:11px; margin-top:12px; color:#555;">
-                Informe técnico – Panadería y Fiambrería La Tanita
-            </p>
+        <script>
+            window.onload = function() {
+                window.print();
+            };
+        </script>
 
-            <script>
-                window.onload = function() {
-                    window.print();
-                };
-            </script>
-
-        </body>
-        </html>
+    </body>
+    </html>
     `;
 
-    // 👉 Igual que el listado general: abrir en nueva pestaña y auto‑print
+    // 👉 AHORA SÍ: ABRIMOS LA VENTANA Y ESCRIBIMOS EL HTML COMPLETO
     const newWindow = window.open("", "_blank");
+    newWindow.document.open();
     newWindow.document.write(html);
     newWindow.document.close();
 }
