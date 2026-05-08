@@ -5,7 +5,7 @@
     <title>Lista de Precios - La Tanita</title>
     <style>
         @page {
-            size: 216mm 330mm; /* Tamaño Oficio Argentina / Legal */
+            size: 216mm 330mm; /* Oficio / Legal */
             margin: 15mm;
         }
         body {
@@ -27,6 +27,10 @@
         .header h1 {
             margin: 5px 0 0 0;
             font-size: 24px;
+        }
+        .header h2 {
+            margin: 0;
+            font-size: 18px;
         }
         .date {
             text-align: right;
@@ -62,7 +66,7 @@
         }
         td.name-col, th.name-col {
             text-align: left;
-            width: 45%;
+            width: 40%;
         }
     </style>
 </head>
@@ -81,7 +85,10 @@
         }
 
         async function loadPrices() {
-            document.getElementById('print-date').innerText = "Actualizado: " + new Date().toLocaleDateString('es-AR') + " " + new Date().toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'});
+            document.getElementById('print-date').innerText =
+                "Actualizado: " + new Date().toLocaleDateString('es-AR') + " " +
+                new Date().toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'});
+
             try {
                 const res = await fetch('/api/products');
                 const products = await res.json();
@@ -90,11 +97,10 @@
                 const grouped = {};
                 products.forEach(p => {
                     const type = p.type || 'Otros';
-                    if(!grouped[type]) grouped[type] = [];
+                    if (!grouped[type]) grouped[type] = [];
                     grouped[type].push(p);
                 });
 
-                // Ordenar tipos alfabeticamente
                 const types = Object.keys(grouped).sort();
 
                 let html = '';
@@ -106,32 +112,39 @@
                                     <tr>
                                         <th class="name-col">Descripción</th>
                                         <th>1 Kg</th>
-                                        <th>100 gr</th>
-                                        <th>150 gr</th>
-                                        <th>250 gr</th>
+                                        <th>100 g</th>
+                                        <th>150 g</th>
+                                        <th>250 g</th>
+                                        <th>250 g Promo</th>
                                     </tr>
                                 </thead>
                                 <tbody>`;
-                    
-                    // Ordenar productos alfabeticamente
-                    grouped[type].sort((a,b) => a.name.localeCompare(b.name)).forEach(p => {
-                        html += `<tr>
+
+                    grouped[type]
+                        .sort((a, b) => a.name.localeCompare(b.name))
+                        .forEach(p => {
+                            const promo = p.promotion || 0;
+                            const final250 = p.price_250g * (1 - promo / 100);
+
+                            html += `
+                                <tr>
                                     <td class="name-col"><strong>${p.name}</strong></td>
                                     <td>$${formatMoney(p.price_kg)}</td>
                                     <td>$${formatMoney(p.price_100g)}</td>
                                     <td>$${formatMoney(p.price_150g)}</td>
                                     <td>$${formatMoney(p.price_250g)}</td>
-                                 </tr>`;
-                    });
-                    
+                                    <td>$${formatMoney(final250)}</td>
+                                </tr>
+                            `;
+                        });
+
                     html += `   </tbody>
                              </table>
                              </div>`;
                 });
 
                 document.getElementById('content').innerHTML = html;
-                
-                // Disparar la impresión después de cargar
+
                 setTimeout(() => {
                     window.print();
                 }, 500);
@@ -145,3 +158,4 @@
     </script>
 </body>
 </html>
+
