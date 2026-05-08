@@ -183,3 +183,27 @@ input:focus, select:focus { border-color: var(--primary-color); }
     font-size: 1.5rem;
     cursor: pointer;
 }
+
+/* --- TOAST DE MENSAJES (ÉXITO / ERROR) --- */
+.toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #4caf50;
+    color: white;
+    padding: 12px 18px;
+    border-radius: 6px;
+    opacity: 0;
+    transform: translateY(0);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    z-index: 9999;
+    font-weight: 600;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+}
+.toast.error {
+    background: #e53935;
+}
+.toast.visible {
+    opacity: 1;
+    transform: translateY(5px);
+}
