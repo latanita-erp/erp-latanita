@@ -339,7 +339,11 @@ function generateTechnicalList() {
     }
 
     let html = `
-        <div style="font-family: Arial, sans-serif; padding:20px;">
+        <html>
+        <head>
+            <title>Lista Técnica</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; padding:20px;">
 
             <h1 style="text-align:center; font-size:20px; margin-bottom:4px;">
                 Lista Técnica de Productos
@@ -382,16 +386,21 @@ function generateTechnicalList() {
                 Informe técnico – Panadería y Fiambrería La Tanita
             </p>
 
-        </div>
+            <script>
+                window.onload = function() {
+                    window.print();
+                };
+            </script>
+
+        </body>
+        </html>
     `;
 
-    // 👉 Igual que el listado general: abrir en nueva pestaña
+    // 👉 Igual que el listado general: abrir en nueva pestaña y auto‑print
     const newWindow = window.open("", "_blank");
     newWindow.document.write(html);
     newWindow.document.close();
 }
-
-
 
 // --- PROVEEDORES ---
 async function openSuppliers(productId, productName) {
