@@ -123,8 +123,13 @@
                     grouped[type]
                         .sort((a, b) => a.name.localeCompare(b.name))
                         .forEach(p => {
+
                             const promo = p.promotion || 0;
-                            const final250 = p.price_250g * (1 - promo / 100);
+                            let final250 = "";
+
+                            if (promo > 0 && p.price_250g) {
+                                final250 = "$" + formatMoney(p.price_250g * (1 - promo / 100));
+                            }
 
                             html += `
                                 <tr>
@@ -133,7 +138,7 @@
                                     <td>$${formatMoney(p.price_100g)}</td>
                                     <td>$${formatMoney(p.price_150g)}</td>
                                     <td>$${formatMoney(p.price_250g)}</td>
-                                    <td>$${formatMoney(final250)}</td>
+                                    <td>${final250}</td>
                                 </tr>
                             `;
                         });
@@ -158,4 +163,5 @@
     </script>
 </body>
 </html>
+
 
