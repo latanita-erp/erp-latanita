@@ -620,7 +620,34 @@ async function deleteSupplier(productId, supplierId) {
 // --- CAJA ---
 async function fetchCash() {
     const res = await fetch('/api/cash');
-    state.cash = await res.json();
+    const raw = await res.json();
+
+    state.cash = raw.map(r => {
+        // Normalizar fecha
+        let date = r.date || r.fecha || r.fecha_dt;
+        if (date.includes("T")) date = date.split("T")[0]; // cortar hora si viene
+
+        const weekday = r.weekday || r.dia || new Date(date).toLocaleDateString("es-AR", { weekday: "long" }).toUpperCase();
+
+        const cash = r.cash ?? r.efectivo ?? 0;
+        const card = r.card ?? r.electronico ?? 0;
+        const expenses = r.expenses ?? r.gastos ?? 0;
+
+        const net_income = cash + card;
+        const total = net_income - expenses;
+
+        return {
+            id: r.id,
+            date,
+            weekday,
+            cash,
+            card,
+            net_income,
+            expenses,
+            total
+        };
+    });
+
     renderCash();
 }
 
