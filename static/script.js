@@ -275,6 +275,76 @@ document.getElementById("edit-product-form").addEventListener("submit", async (e
     fetchProducts();
 });
 
+
+// =====================================================
+// ⭐ BACKUP DEL ÚLTIMO AUMENTO MASIVO
+// =====================================================
+let lastMassUpdateBackup = null;
+
+// =====================================================
+// ⭐ AUMENTO MASIVO DE MÁRGENES (CON BACKUP AUTOMÁTICO)
+// =====================================================
+document.getElementById("mass-margin-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const increase = parseFloat(document.getElementById("mass-margin-value").value);
+    if (isNaN(increase)) return;
+
+    // 1) ⭐ GUARDAR BACKUP ANTES DE AUMENTAR
+    lastMassUpdateBackup = state.products.map(p => ({
+        id: p.id,
+        margin: p.margin,
+        price_kg: p.price_kg
+    }));
+
+    // 2) ⭐ APLICAR AUMENTO MASIVO
+    for (const p of state.products) {
+
+        const newMargin = p.margin + increase;
+
+        const base = p.cost * (1 + newMargin / 100);
+        const newPriceKg = Math.ceil(base / 100) * 100;
+
+        await fetch(`/api/products/${p.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                cost: p.cost,
+                margin: newMargin,
+                price_kg: newPriceKg
+            })
+        });
+    }
+
+    toggleModal("modal-mass-margin");
+    fetchProducts();
+});
+
+// =====================================================
+// ⭐ DESHACER ÚLTIMO AUMENTO MASIVO
+// =====================================================
+async function undoMassMargin() {
+    if (!lastMassUpdateBackup) {
+        alert("No hay un aumento masivo previo para deshacer.");
+        return;
+    }
+
+    for (const item of lastMassUpdateBackup) {
+        await fetch(`/api/products/${item.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                margin: item.margin,
+                price_kg: item.price_kg
+            })
+        });
+    }
+
+    lastMassUpdateBackup = null;
+    fetchProducts();
+    alert("Se restauraron los márgenes y precios previos al aumento masivo.");
+}
+
 // --- LISTADO 100g (FIAMBRES Y QUESOS) – A4 COMPACTO ---
 function generatePriceList100g() {
 
