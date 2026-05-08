@@ -253,7 +253,7 @@ function generatePriceList100g() {
     );
 
     // Ordenar por tipo y luego por nombre
-    filtered.sort((a, b) => {
+    const sorted = [...filtered].sort((a, b) => {
         if (a.type !== b.type) return a.type.localeCompare(b.type);
         return a.name.localeCompare(b.name);
     });
@@ -266,30 +266,35 @@ function generatePriceList100g() {
         });
     }
 
-    // HTML COMPACTO PARA UNA HOJA A4
+    // 👉 ARMAMOS EL HTML COMPLETO ANTES DE ABRIR LA VENTANA
     let html = `
-        <div style="font-family: Arial, sans-serif; padding:20px;">
+    <html>
+    <head>
+        <title>Lista 100g</title>
+    </head>
+    <body style="font-family: Arial, sans-serif; padding:20px;">
 
-            <h1 style="text-align:center; font-size:20px; margin-bottom:4px;">
-                Lista de precios por 100 gramos
-            </h1>
+        <h1 style="text-align:center; font-size:20px; margin-bottom:4px;">
+            Lista de precios por 100 gramos
+        </h1>
 
-            <h3 style="text-align:center; font-size:14px; margin-top:0; margin-bottom:12px;">
-                Fiambres y Quesos – La Tanita
-            </h3>
+        <h3 style="text-align:center; font-size:14px; margin-top:0; margin-bottom:12px;">
+            Fiambres y Quesos – La Tanita
+        </h3>
 
-            <table style="width:100%; border-collapse:collapse; font-size:13px;">
-                <thead>
-                    <tr>
-                        <th style="text-align:left; padding:6px; border-bottom:1px solid #aaa;">Producto</th>
-                        <th style="text-align:left; padding:6px; border-bottom:1px solid #aaa;">Tipo</th>
-                        <th style="text-align:right; padding:6px; border-bottom:1px solid #aaa;">100 g</th>
-                    </tr>
-                </thead>
-                <tbody>
+        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+            <thead>
+                <tr>
+                    <th style="text-align:left; padding:6px; border-bottom:1px solid #aaa;">Producto</th>
+                    <th style="text-align:left; padding:6px; border-bottom:1px solid #aaa;">Tipo</th>
+                    <th style="text-align:right; padding:6px; border-bottom:1px solid #aaa;">100 g</th>
+                </tr>
+            </thead>
+            <tbody>
     `;
 
-    filtered.forEach(p => {
+    // 👉 ACA SE AGREGAN LOS DATOS
+    sorted.forEach(p => {
 
         // Si existe price_100g lo usamos, si no lo calculamos
         const price100 = p.price_100g ? p.price_100g : (p.price_kg / 10);
@@ -304,22 +309,25 @@ function generatePriceList100g() {
     });
 
     html += `
-                </tbody>
-            </table>
+            </tbody>
+        </table>
 
-            <p style="text-align:center; font-size:11px; margin-top:12px; color:#555;">
-                Precios actualizados automáticamente – Panadería y Fiambrería La Tanita
-            </p>
+        <script>
+            window.onload = function() {
+                window.print();
+            };
+        </script>
 
-        </div>
+    </body>
+    </html>
     `;
 
-    // 👉 Abrir en nueva pestaña (igual que el listado general)
+    // 👉 ABRIMOS LA VENTANA Y ESCRIBIMOS EL HTML COMPLETO
     const newWindow = window.open("", "_blank");
+    newWindow.document.open();
     newWindow.document.write(html);
     newWindow.document.close();
 }
-
 
 // --- LISTADO TÉCNICO (COSTO / PRECIO KG / MARGEN) – BASADO EN LA GENERAL ---
 function generateTechnicalList() {
