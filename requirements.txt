@@ -6,3 +6,4 @@ pydantic
 python-multipart
 sqlalchemy
 pg8000
+pdfkit
