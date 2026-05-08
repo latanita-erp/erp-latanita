@@ -311,10 +311,8 @@ async function generatePriceList100g() {
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
 
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "lista_100g.pdf";
-    a.click();
+    // 👉 Abrir en nueva pestaña en lugar de descargar
+    window.open(url, "_blank");
 }
 
 // --- LISTADO TÉCNICO (COSTO / PRECIO KG / MARGEN) ---
@@ -384,10 +382,8 @@ async function generateTechnicalList() {
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
 
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "lista_tecnica.pdf";
-    a.click();
+    // 👉 Abrir en nueva pestaña en lugar de descargar
+    window.open(url, "_blank");
 }
 
 
