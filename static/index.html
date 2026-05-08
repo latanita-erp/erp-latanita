@@ -94,42 +94,45 @@
             </section>
 
             <!-- VISTA: PRODUCTOS -->
-            <section id="products" class="view hidden">
-                <header class="flex-between">
-                    <div>
-                        <h1>Gestión de Productos</h1>
-                        <p>Catálogo y cálculos automáticos de precios</p>
-                    </div>
-                    <div class="actions">
-                        <button class="btn btn-primary" style="background-color: var(--success-color);" onclick="window.open('static/print.html', '_blank')">🖨️ Imprimir Lista</button>
-                        <input type="file" id="excel-file" accept=".xlsx, .xls" hidden>
-                        <button class="btn btn-secondary" onclick="document.getElementById('excel-file').click()">📥 Importar Excel</button>
-                        <button class="btn btn-primary" onclick="toggleModal('modal-add-product')">➕ Nuevo Producto</button>
-                        <button class="btn btn-primary" onclick="generatePriceList100g()">📄 Lista 100g (Fiambres y Quesos)</button>
-                    </div>
-                </header>
-                
-                <div class="glass-panel mt-2">
-                    <table class="table" id="products-table">
-                        <thead>
-                            <tr>
-                                <th>Nombre</th>
-                                <th>Tipo</th>
-                                <th>Costo</th>
-                                <th>Margen (%)</th>
-                                <th>1 Kg</th>
-                                <th>100 g</th>
-                                <th>150 g</th>
-                                <th>250 g</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <!-- Llenado por JS -->
-                        </tbody>
-                    </table>
-                </div>
-            </section>
+<section id="products" class="view hidden">
+    <header class="flex-between">
+        <div>
+            <h1>Gestión de Productos</h1>
+            <p>Catálogo y cálculos automáticos de precios</p>
+        </div>
+
+        <div class="actions">
+
+            <!-- 📄 LISTA GENERAL -->
+            <button class="btn btn-primary" onclick="window.open('static/print.html', '_blank')">
+                📄 Lista general
+            </button>
+
+            <!-- 📄 LISTA 100g -->
+            <button class="btn btn-primary" onclick="generatePriceList100g()">
+                📄 Lista 100g (Fiambres y Quesos)
+            </button>
+
+            <!-- 📄 LISTA TÉCNICA -->
+            <button class="btn btn-primary" onclick="generateTechnicalList()">
+                📄 Lista técnica
+            </button>
+
+            <!-- 📥 IMPORTAR EXCEL -->
+            <input type="file" id="excel-file" accept=".xlsx, .xls" hidden>
+            <button class="btn btn-secondary" onclick="document.getElementById('excel-file').click()">
+                📥 Importar Excel
+            </button>
+
+            <!-- ➕ NUEVO PRODUCTO -->
+            <button class="btn btn-primary" onclick="toggleModal('modal-add-product')">
+                ➕ Nuevo Producto
+            </button>
+
+        </div>
+    </header>
+</section>
+
 
             <!-- VISTA: CAJA DIARIA -->
             <section id="cash" class="view hidden">
