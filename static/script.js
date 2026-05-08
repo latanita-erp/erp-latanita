@@ -845,23 +845,23 @@ function renderDashboard() {
         });
     }
 
-    // ⭐ 4. Mejor y Peor Día por Mes
+    // ⭐ 4. Mejor y Peor Día por Mes (USANDO state.cash REAL)
     const stats = calculateMonthlyDayStats(state.cash);
     renderBestWorstTable(stats);
 
-    // ⭐ 5. Comparativo Mensual (Bar)
+    // ⭐ 5. Comparativo Mensual (USANDO state.cash REAL)
     renderMonthlyComparisonChart(state.cash);
 }
 
-// --- CALCULAR MEJOR Y PEOR DÍA POR MES ---
+// --- CALCULAR MEJOR Y PEOR DÍA POR MES (COMPATIBLE CON TU JSON REAL) ---
 function calculateMonthlyDayStats(cashData) {
     const months = {};
 
     cashData.forEach(row => {
-        const date = new Date(row.fecha_dt);
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;
-        const weekday = date.toLocaleDateString("es-AR", { weekday: "long" }).toUpperCase();
-        const gain = row.efectivo + row.electronico - row.gastos;
+        const [y, m] = row.date.split("-");
+        const monthKey = `${y}-${m}`;
+        const weekday = row.weekday.toUpperCase();
+        const gain = row.total;
 
         if (!months[monthKey]) months[monthKey] = {};
         if (!months[monthKey][weekday]) months[monthKey][weekday] = 0;
@@ -887,24 +887,23 @@ function renderBestWorstTable(stats) {
         const tr = document.createElement("tr");
         tr.innerHTML = `
             <td>${month}</td>
-            <td>${best[0]} (${best[1].toFixed(2)})</td>
-            <td>${worst[0]} (${worst[1].toFixed(2)})</td>
+            <td>${best[0]} ($${formatMoney(best[1])})</td>
+            <td>${worst[0]} ($${formatMoney(worst[1])})</td>
         `;
         tbody.appendChild(tr);
     });
 }
 
-// --- GRÁFICO COMPARATIVO MENSUAL ---
+// --- GRÁFICO COMPARATIVO MENSUAL (COMPATIBLE CON TU JSON REAL) ---
 function renderMonthlyComparisonChart(cashData) {
     const monthly = {};
 
     cashData.forEach(row => {
-        const date = new Date(row.fecha_dt);
-        const key = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;
-        const gain = row.efectivo + row.electronico - row.gastos;
+        const [y, m] = row.date.split("-");
+        const key = `${y}-${m}`;
 
         if (!monthly[key]) monthly[key] = 0;
-        monthly[key] += gain;
+        monthly[key] += row.total;
     });
 
     const labels = Object.keys(monthly).sort();
@@ -928,3 +927,4 @@ function renderMonthlyComparisonChart(cashData) {
         }
     });
 }
+
