@@ -244,7 +244,8 @@ document.getElementById("edit-product-form").addEventListener("submit", async (e
 });
 
 // --- LISTADO 100g (FIAMBRES Y QUESOS) – A4 COMPACTO ---
-async function generatePriceList100g() {
+function generatePriceList100g() {
+
     // Filtrar solo FIAMBRES y QUESOS
     const filtered = state.products.filter(p =>
         p.type.toLowerCase() === "fiambre" ||
@@ -257,11 +258,19 @@ async function generatePriceList100g() {
         return a.name.localeCompare(b.name);
     });
 
+    // Formato argentino
+    function formatAr(num) {
+        return Number(num).toLocaleString("es-AR", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
     // HTML COMPACTO PARA UNA HOJA A4
     let html = `
-        <div style="font-family: Arial, sans-serif;">
+        <div style="font-family: Arial, sans-serif; padding:20px;">
 
-            <h1 style="text-align:center; font-size:18px; margin-bottom:4px;">
+            <h1 style="text-align:center; font-size:20px; margin-bottom:4px;">
                 Lista de precios por 100 gramos
             </h1>
 
@@ -269,23 +278,27 @@ async function generatePriceList100g() {
                 Fiambres y Quesos – La Tanita
             </h3>
 
-            <table style="width:100%; border-collapse:collapse; font-size:11px;">
+            <table style="width:100%; border-collapse:collapse; font-size:13px;">
                 <thead>
                     <tr>
-                        <th style="text-align:left; padding:4px; border-bottom:1px solid #aaa;">Producto</th>
-                        <th style="text-align:left; padding:4px; border-bottom:1px solid #aaa;">Tipo</th>
-                        <th style="text-align:right; padding:4px; border-bottom:1px solid #aaa;">100 g</th>
+                        <th style="text-align:left; padding:6px; border-bottom:1px solid #aaa;">Producto</th>
+                        <th style="text-align:left; padding:6px; border-bottom:1px solid #aaa;">Tipo</th>
+                        <th style="text-align:right; padding:6px; border-bottom:1px solid #aaa;">100 g</th>
                     </tr>
                 </thead>
                 <tbody>
     `;
 
     filtered.forEach(p => {
+
+        // Si existe price_100g lo usamos, si no lo calculamos
+        const price100 = p.price_100g ? p.price_100g : (p.price_kg / 10);
+
         html += `
             <tr>
-                <td style="padding:4px;">${p.name}</td>
-                <td style="padding:4px;">${p.type}</td>
-                <td style="padding:4px; text-align:right;">$${p.price_100g}</td>
+                <td style="padding:6px;">${p.name}</td>
+                <td style="padding:6px;">${p.type}</td>
+                <td style="padding:6px; text-align:right;">$${formatAr(price100)}</td>
             </tr>
         `;
     });
@@ -294,26 +307,19 @@ async function generatePriceList100g() {
                 </tbody>
             </table>
 
-            <p style="text-align:center; font-size:10px; margin-top:12px; color:#555;">
+            <p style="text-align:center; font-size:11px; margin-top:12px; color:#555;">
                 Precios actualizados automáticamente – Panadería y Fiambrería La Tanita
             </p>
 
         </div>
     `;
 
-    // Enviar al backend para generar PDF
-    const res = await fetch("/api/generate-pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ html })
-    });
-
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-
-    // 👉 Abrir en nueva pestaña en lugar de descargar
-    window.open(url, "_blank");
+    // 👉 Abrir en nueva pestaña (igual que el listado general)
+    const newWindow = window.open("", "_blank");
+    newWindow.document.write(html);
+    newWindow.document.close();
 }
+
 
 // --- LISTADO TÉCNICO (COSTO / PRECIO KG / MARGEN) ---
 async function generateTechnicalList() {
