@@ -41,7 +41,8 @@
             <div class="logo" style="text-align: center; margin-bottom: 2rem; font-size: 1.3rem; line-height: 1.2;">
                 <img src="static/logo.jpg" alt="Logo La Tanita" onerror="this.style.display='none'" style="max-width: 80px; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.3); margin-bottom: 0.8rem;">
                 <br>La Tanita
-            </div>
+    </div>       
+        
            <nav>
     <button class="nav-btn active" data-target="dashboard">📊 Dashboard</button>
     <button class="nav-btn" data-target="products">📦 Productos</button>
@@ -60,6 +61,226 @@
                 <button id="logout-btn" class="btn btn-danger btn-block">Cerrar Sesión</button>
             </div>
         </aside>
+
+        <!-- 🔥 MODALES — DEBEN IR FUERA DEL SIDEBAR Y FUERA DEL MAIN 🔥 -->
+
+<!-- MODAL ADD PRODUCT -->
+<div id="modal-add-product" class="modal-overlay hidden">
+    <div class="modal-content glass-panel">
+        <div class="modal-header">
+            <h2>Crear Producto Manual</h2>
+            <button class="close-btn" onclick="toggleModal('modal-add-product')">×</button>
+        </div>
+
+        <form id="add-product-form">
+            <div class="input-group">
+                <label>Nombre del Producto</label>
+                <input type="text" id="prod-name" required>
+            </div>
+
+            <div class="input-group">
+                <label>Tipo / Categoría</label>
+                <input type="text" id="prod-type" required>
+            </div>
+
+            <div class="input-group">
+                <label>Costo Unitario ($)</label>
+                <input type="number" step="0.01" id="prod-cost" required>
+            </div>
+
+            <div class="input-group">
+                <label>Margen de Ganancia (%)</label>
+                <input type="number" step="0.01" id="prod-margin" required>
+            </div>
+
+            <div class="input-group">
+                <label>Precio 250 g</label>
+                <input type="number" id="prod-price250" disabled>
+            </div>
+
+            <div class="input-group">
+                <label>Descuento (%)</label>
+                <input type="number" id="prod-promotion" min="0" max="100" step="1">
+            </div>
+
+            <div class="input-group">
+                <label>Precio Promo 250 g</label>
+                <input type="number" id="prod-price250-promo" disabled>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block mt-2">
+                Guardar y Calcular Precios
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL SUPPLIERS -->
+<div id="modal-suppliers" class="modal-overlay hidden">
+    <div class="modal-content glass-panel" style="max-width: 600px;">
+        <div class="modal-header">
+            <h2>Proveedores: <span id="sup-prod-name"></span></h2>
+            <button class="close-btn" onclick="toggleModal('modal-suppliers')">×</button>
+        </div>
+
+        <div class="mb-2">
+            <form id="add-supplier-form" style="display: flex; gap: 1rem; align-items: center;">
+                <input type="hidden" id="sup-prod-id">
+                <input type="text" id="sup-name" placeholder="Nombre Proveedor" required style="flex:2;">
+                <input type="number" step="0.01" id="sup-cost" placeholder="Costo ($)" required style="flex:1;">
+                <button type="submit" class="btn btn-primary">Añadir</button>
+            </form>
+        </div>
+
+        <table class="table" id="suppliers-table">
+            <thead>
+                <tr>
+                    <th>Proveedor</th>
+                    <th>Costo</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+        <p class="mt-2" style="font-size: 0.85rem; color: var(--text-secondary);">
+            * El precio de venta usa automáticamente el costo más alto.
+        </p>
+    </div>
+</div>
+
+<!-- MODAL EDITAR PRODUCTO -->
+<div id="modal-edit-product" class="modal-overlay hidden">
+    <div class="modal-content glass-panel" style="max-width: 450px;">
+        <div class="modal-header">
+            <h2>Editar Producto</h2>
+            <button class="close-btn" onclick="toggleModal('modal-edit-product')">×</button>
+        </div>
+
+        <form id="edit-product-form">
+            <input type="hidden" id="edit-product-id">
+
+            <div class="input-group">
+                <label>Nombre</label>
+                <input type="text" id="edit-product-name" readonly>
+            </div>
+
+            <div class="input-group">
+                <label>Tipo</label>
+                <input type="text" id="edit-product-type" readonly>
+            </div>
+
+            <div class="input-group">
+                <label>Costo Actual ($)</label>
+                <input type="number" step="0.01" id="edit-product-cost" required>
+            </div>
+
+            <div class="input-group">
+                <label>Margen (%)</label>
+                <input type="number" step="0.01" id="edit-product-margin" required>
+            </div>
+
+            <div class="input-group">
+                <label>Precio Anterior ($/kg)</label>
+                <input type="text" id="edit-product-old-price" readonly>
+            </div>
+
+            <div class="input-group">
+                <label>Nuevo Precio ($/kg)</label>
+                <input type="text" id="edit-product-new-price" readonly>
+            </div>
+
+            <div class="input-group">
+                <label>Precio 250 g</label>
+                <input type="number" id="edit-product-price250" readonly>
+            </div>
+
+            <div class="input-group">
+                <label>Descuento (%)</label>
+                <input type="number" id="edit-product-promotion" min="0" max="100" step="1">
+            </div>
+
+            <div class="input-group">
+                <label>Precio Promo 250 g</label>
+                <input type="number" id="edit-product-price250-promo" readonly>
+            </div>
+
+            <div style="display:flex; gap:10px; margin-top:15px;">
+                <button type="button" class="btn btn-secondary" onclick="toggleModal('modal-edit-product')">
+                    Cancelar
+                </button>
+
+                <button type="submit" class="btn btn-primary" style="flex:1;">
+                    Guardar Cambios
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL EDIT CASH -->
+<div id="modal-edit-cash" class="modal-overlay hidden">
+    <div class="modal-content glass-panel" style="max-width: 400px;">
+        <div class="modal-header">
+            <h2>Caja: <span id="edit-cash-date"></span></h2>
+            <button class="close-btn" onclick="toggleModal('modal-edit-cash')">×</button>
+        </div>
+
+        <form id="edit-cash-form">
+            <input type="hidden" id="edit-cash-id">
+
+            <div class="input-group">
+                <label>Efectivo ($)</label>
+                <input type="number" step="0.01" id="edit-cash-cash" required>
+            </div>
+
+            <div class="input-group">
+                <label>Tarjeta ($)</label>
+                <input type="number" step="0.01" id="edit-cash-card" required>
+            </div>
+
+            <div class="input-group">
+                <label>Gastos ($)</label>
+                <input type="number" step="0.01" id="edit-cash-expenses" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block mt-2">
+                Guardar Cambios
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- ⭐ MODAL AJUSTE MASIVO DE MÁRGENES ⭐ -->
+<div id="modal-mass-margin" class="modal-overlay">
+    <div class="modal-content glass-panel" style="max-width: 400px;">
+        <div class="modal-header">
+            <h2>Ajuste Masivo de Márgenes</h2>
+            <button class="close-btn" onclick="toggleModal('modal-mass-margin')">×</button>
+        </div>
+
+        <form id="mass-margin-form">
+            <div class="input-group">
+                <label>Aumento (%)</label>
+                <input type="number" id="mass-margin-value" step="0.01" required>
+            </div>
+
+            <p style="font-size:0.85rem; color:var(--text-secondary);">
+                Este porcentaje se sumará al margen actual de cada producto.
+            </p>
+
+            <div style="display:flex; gap:10px; margin-top:15px;">
+                <button type="button" class="btn btn-secondary" onclick="toggleModal('modal-mass-margin')">
+                    Cancelar
+                </button>
+
+                <button type="submit" class="btn btn-primary" style="flex:1;">
+                    Aplicar Aumento
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 
         <!-- CONTENIDO PRINCIPAL -->
         <main class="content">
@@ -227,246 +448,4 @@
         </main>
     </div>
 
-    <!-- MODAL ADD PRODUCT -->
-<div id="modal-add-product" class="modal-overlay hidden">
-    <div class="modal-content glass-panel">
-        <div class="modal-header">
-            <h2>Crear Producto Manual</h2>
-            <button class="close-btn" onclick="toggleModal('modal-add-product')">×</button>
-        </div>
-
-        <form id="add-product-form">
-
-            <div class="input-group">
-                <label>Nombre del Producto</label>
-                <input type="text" id="prod-name" required>
-            </div>
-
-            <div class="input-group">
-                <label>Tipo / Categoría</label>
-                <input type="text" id="prod-type" required>
-            </div>
-
-            <div class="input-group">
-                <label>Costo Unitario ($)</label>
-                <input type="number" step="0.01" id="prod-cost" required>
-            </div>
-
-            <div class="input-group">
-                <label>Margen de Ganancia (%)</label>
-                <input type="number" step="0.01" id="prod-margin" required>
-            </div>
-
-            <!-- NUEVO: PRECIO 250 g -->
-            <div class="input-group">
-                <label>Precio 250 g</label>
-                <input type="number" id="prod-price250" disabled>
-            </div>
-
-            <!-- NUEVO: DESCUENTO -->
-            <div class="input-group">
-                <label>Descuento (%)</label>
-                <input type="number" id="prod-promotion" min="0" max="100" step="1">
-            </div>
-
-            <!-- NUEVO: PRECIO PROMO -->
-            <div class="input-group">
-                <label>Precio Promo 250 g</label>
-                <input type="number" id="prod-price250-promo" disabled>
-            </div>
-
-            <button type="submit" class="btn btn-primary btn-block mt-2">
-                Guardar y Calcular Precios
-            </button>
-
-        </form>
-    </div>
-</div>
-
-    <!-- MODAL SUPPLIERS -->
-    <div id="modal-suppliers" class="modal-overlay hidden">
-        <div class="modal-content glass-panel" style="max-width: 600px;">
-            <div class="modal-header">
-                <h2>Proveedores: <span id="sup-prod-name"></span></h2>
-                <button class="close-btn" onclick="toggleModal('modal-suppliers')">×</button>
-            </div>
-            <div class="mb-2">
-                <form id="add-supplier-form" style="display: flex; gap: 1rem; align-items: center;">
-                    <input type="hidden" id="sup-prod-id">
-                    <input type="text" id="sup-name" placeholder="Nombre Proveedor" required style="flex:2;">
-                    <input type="number" step="0.01" id="sup-cost" placeholder="Costo ($)" required style="flex:1;">
-                    <button type="submit" class="btn btn-primary">Añadir</button>
-                </form>
-            </div>
-            <table class="table" id="suppliers-table">
-                <thead>
-                    <tr>
-                        <th>Proveedor</th>
-                        <th>Costo</th>
-                        <th>Acción</th>
-                    </tr>
-                </thead>
-                <tbody>
-                </tbody>
-            </table>
-            <p class="mt-2" style="font-size: 0.85rem; color: var(--text-secondary);">* El precio de venta usa automáticamente el costo más alto.</p>
-        </div>
-    </div>
-
-    <!-- MODAL EDITAR PRODUCTO -->
-<div id="modal-edit-product" class="modal-overlay hidden">
-    <div class="modal-content glass-panel" style="max-width: 450px;">
-        
-        <div class="modal-header">
-            <h2>Editar Producto</h2>
-            <button class="close-btn" onclick="toggleModal('modal-edit-product')">×</button>
-        </div>
-
-        <form id="edit-product-form">
-
-    <input type="hidden" id="edit-product-id">
-
-    <div class="input-group">
-        <label>Nombre</label>
-        <input type="text" id="edit-product-name" readonly>
-    </div>
-
-    <div class="input-group">
-        <label>Tipo</label>
-        <input type="text" id="edit-product-type" readonly>
-    </div>
-
-    <div class="input-group">
-        <label>Costo Actual ($)</label>
-        <input type="number" step="0.01" id="edit-product-cost" required>
-    </div>
-
-    <div class="input-group">
-        <label>Margen (%)</label>
-        <input type="number" step="0.01" id="edit-product-margin" required>
-    </div>
-
-    <div class="input-group">
-        <label>Precio Anterior ($/kg)</label>
-        <input type="text" id="edit-product-old-price" readonly>
-    </div>
-
-    <div class="input-group">
-        <label>Nuevo Precio ($/kg)</label>
-        <input type="text" id="edit-product-new-price" readonly>
-    </div>
-
-    <!-- NUEVO: PRECIO 250 g -->
-    <div class="input-group">
-        <label>Precio 250 g</label>
-        <input type="number" id="edit-product-price250" readonly>
-    </div>
-
-    <!-- NUEVO: DESCUENTO -->
-    <div class="input-group">
-        <label>Descuento (%)</label>
-        <input type="number" id="edit-product-promotion" min="0" max="100" step="1">
-    </div>
-
-    <!-- NUEVO: PRECIO PROMO -->
-    <div class="input-group">
-        <label>Precio Promo 250 g</label>
-        <input type="number" id="edit-product-price250-promo" readonly>
-    </div>
-
-    <!-- BOTONES SIEMPRE VISIBLES -->
-    <div style="display:flex; gap:10px; margin-top:15px;">
-        <button type="button" class="btn btn-secondary" onclick="toggleModal('modal-edit-product')">
-            Cancelar
-        </button>
-
-        <button type="submit" class="btn btn-primary" style="flex:1;">
-            Guardar Cambios
-        </button>
-    </div>
-
-</form>
-
-
-   <!-- MODAL EDIT CASH -->
-<div id="modal-edit-cash" class="modal-overlay hidden">
-    <div class="modal-content glass-panel" style="max-width: 400px;">
-        <div class="modal-header">
-            <h2>Caja: <span id="edit-cash-date"></span></h2>
-            <button class="close-btn" onclick="toggleModal('modal-edit-cash')">×</button>
-        </div>
-        <form id="edit-cash-form">
-            <input type="hidden" id="edit-cash-id">
-            <div class="input-group">
-                <label>Efectivo ($)</label>
-                <input type="number" step="0.01" id="edit-cash-cash" required>
-            </div>
-            <div class="input-group">
-                <label>Tarjeta ($)</label>
-                <input type="number" step="0.01" id="edit-cash-card" required>
-            </div>
-            <div class="input-group">
-                <label>Gastos ($)</label>
-                <input type="number" step="0.01" id="edit-cash-expenses" required>
-            </div>
-            <button type="submit" class="btn btn-primary btn-block mt-2">Guardar Cambios</button>
-        </form>
-    </div>
-</div>
-
-<!-- MODAL AJUSTE MASIVO DE MÁRGENES -->
-<div id="modal-mass-margin" class="modal-overlay">
-    <div class="modal-content glass-panel" style="max-width: 400px;">
-
-        <div class="modal-header">
-            <h2>Ajuste Masivo de Márgenes</h2>
-            <button class="close-btn" type="button" onclick="toggleModal('modal-mass-margin')">×</button>
-        </div>
-
-        <form id="mass-margin-form">
-
-            <div class="input-group">
-                <label>Aumento (%)</label>
-                <input type="number" id="mass-margin-value" step="0.01" required>
-            </div>
-
-            <p style="font-size:0.85rem; color:var(--text-secondary);">
-                Este porcentaje se sumará al margen actual de cada producto.
-            </p>
-
-            <div style="display:flex; gap:10px; margin-top:15px;">
-                <button type="button" class="btn btn-secondary" onclick="toggleModal('modal-mass-margin')">
-                    Cancelar
-                </button>
-
-                <button type="submit" class="btn btn-primary" style="flex:1;">
-                    Aplicar Aumento
-                </button>
-            </div>
-
-        </form>
-
-    </div>
-</div>
-        
-<!-- ⭐ SCRIPT PARA COMPLETAR EL DÍA AUTOMÁTICAMENTE ⭐ -->
-<script>
-document.getElementById("cash-date").addEventListener("change", function () {
-    const value = this.value;
-    if (!value) {
-        document.getElementById("cash-weekday").value = "";
-        return;
-    }
-
-    const date = new Date(value + "T00:00:00");
-
-    const weekdays = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
-    const dayName = weekdays[date.getDay()];
-
-    document.getElementById("cash-weekday").value = dayName;
-});
-</script>
-
-<script src="static/script.js"></script>
-</body>
-</html>
+   
