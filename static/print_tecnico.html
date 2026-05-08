@@ -69,7 +69,8 @@
 
     <script>
         function formatMoney(val) {
-            return val.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            if (val === undefined || val === null || isNaN(val)) return "0,00";
+            return Number(val).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
 
         async function loadPrices() {
@@ -80,6 +81,16 @@
             try {
                 const res = await fetch('/api/products');
                 const products = await res.json();
+
+                // Agrupar por tipo
+                const grouped = {};
+                products.forEach(p => {
+                    const type = p.type || 'Otros';
+                    if (!grouped[type]) grouped[type] = [];
+                    grouped[type].push(p);
+                });
+
+                const types = Object.keys(grouped).sort();
 
                 let html = `
                     <table>
@@ -94,25 +105,24 @@
                         <tbody>
                 `;
 
-                products
-                    .sort((a, b) => a.name.localeCompare(b.name))
-                    .forEach(p => {
-                        const cost = p.cost_kg || 0;
-                        const priceKg = p.price_kg || 0;
-                        let margin = 0;
-                        if (cost > 0 && priceKg > 0) {
-                            margin = ((priceKg - cost) / cost) * 100;
-                        }
+                types.forEach(type => {
+                    grouped[type]
+                        .sort((a, b) => a.name.localeCompare(b.name))
+                        .forEach(p => {
+                            const cost = p.cost ?? 0;
+                            const priceKg = p.price_kg ?? 0;
+                            const margin = p.margin ?? 0;
 
-                        html += `
-                            <tr>
-                                <td class="name-col"><strong>${p.name}</strong></td>
-                                <td>$${formatMoney(cost)}</td>
-                                <td>$${formatMoney(priceKg)}</td>
-                                <td>${margin.toFixed(2)}%</td>
-                            </tr>
-                        `;
-                    });
+                            html += `
+                                <tr>
+                                    <td class="name-col"><strong>${p.name}</strong></td>
+                                    <td>$${formatMoney(cost)}</td>
+                                    <td>$${formatMoney(priceKg)}</td>
+                                    <td>${margin}%</td>
+                                </tr>
+                            `;
+                        });
+                });
 
                 html += `
                         </tbody>
@@ -121,9 +131,7 @@
 
                 document.getElementById('content').innerHTML = html;
 
-                setTimeout(() => {
-                    window.print();
-                }, 500);
+                setTimeout(() => window.print(), 500);
 
             } catch (err) {
                 document.getElementById('content').innerHTML = "Error al cargar la lista técnica.";
@@ -134,4 +142,3 @@
     </script>
 </body>
 </html>
-
