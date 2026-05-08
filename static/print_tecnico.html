@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <title>Lista Técnica - La Tanita</title>
+
     <style>
         @page {
-            size: A4;
-            margin: 12mm;
+            size: 216mm 330mm;
+            margin: 15mm;
         }
         body {
             font-family: Arial, sans-serif;
@@ -18,34 +19,34 @@
         .header {
             text-align: center;
             border-bottom: 2px solid #000;
-            margin-bottom: 15px;
-            padding-bottom: 8px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
         }
         .header img {
-            max-width: 80px;
+            max-width: 100px;
         }
         .header h1 {
             margin: 5px 0 0 0;
-            font-size: 20px;
+            font-size: 24px;
         }
         .header h2 {
             margin: 0;
-            font-size: 16px;
+            font-size: 18px;
         }
         .date {
             text-align: right;
-            font-size: 11px;
-            margin-bottom: 8px;
+            font-size: 12px;
+            margin-bottom: 10px;
         }
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 11px;
         }
         th, td {
             border: 1px solid #9ca3af;
             padding: 4px 6px;
             text-align: right;
+            font-size: 12px;
         }
         th {
             background-color: #f3f4f6;
@@ -57,6 +58,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="header">
         <img src="logo.jpg" alt="La Tanita" onerror="this.style.display='none'">
@@ -82,16 +84,6 @@
                 const res = await fetch('/api/products');
                 const products = await res.json();
 
-                // Agrupar por tipo
-                const grouped = {};
-                products.forEach(p => {
-                    const type = p.type || 'Otros';
-                    if (!grouped[type]) grouped[type] = [];
-                    grouped[type].push(p);
-                });
-
-                const types = Object.keys(grouped).sort();
-
                 let html = `
                     <table>
                         <thead>
@@ -105,24 +97,22 @@
                         <tbody>
                 `;
 
-                types.forEach(type => {
-                    grouped[type]
-                        .sort((a, b) => a.name.localeCompare(b.name))
-                        .forEach(p => {
-                            const cost = p.cost ?? 0;
-                            const priceKg = p.price_kg ?? 0;
-                            const margin = p.margin ?? 0;
+                products
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .forEach(p => {
+                        const cost = p.cost ?? 0;
+                        const priceKg = p.price_kg ?? 0;
+                        const margin = p.margin ?? 0;
 
-                            html += `
-                                <tr>
-                                    <td class="name-col"><strong>${p.name}</strong></td>
-                                    <td>$${formatMoney(cost)}</td>
-                                    <td>$${formatMoney(priceKg)}</td>
-                                    <td>${margin}%</td>
-                                </tr>
-                            `;
-                        });
-                });
+                        html += `
+                            <tr>
+                                <td class="name-col"><strong>${p.name}</strong></td>
+                                <td>$${formatMoney(cost)}</td>
+                                <td>$${formatMoney(priceKg)}</td>
+                                <td>${margin}%</td>
+                            </tr>
+                        `;
+                    });
 
                 html += `
                         </tbody>
