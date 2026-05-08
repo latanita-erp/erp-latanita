@@ -321,20 +321,27 @@ function generatePriceList100g() {
 }
 
 
-// --- LISTADO TÉCNICO (COSTO / PRECIO KG / MARGEN) ---
-async function generateTechnicalList() {
+// --- LISTADO TÉCNICO (COSTO / PRECIO KG / MARGEN) – BASADO EN LA GENERAL ---
+function generateTechnicalList() {
 
-    // Ordenar por tipo y luego por nombre
+    // Ordenar igual que la general
     const sorted = [...state.products].sort((a, b) => {
         if (a.type !== b.type) return a.type.localeCompare(b.type);
         return a.name.localeCompare(b.name);
     });
 
-    // HTML COMPACTO A4
-    let html = `
-        <div style="font-family: Arial, sans-serif;">
+    // Formato argentino
+    function formatAr(num) {
+        return Number(num).toLocaleString("es-AR", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
 
-            <h1 style="text-align:center; font-size:18px; margin-bottom:4px;">
+    let html = `
+        <div style="font-family: Arial, sans-serif; padding:20px;">
+
+            <h1 style="text-align:center; font-size:20px; margin-bottom:4px;">
                 Lista Técnica de Productos
             </h1>
 
@@ -342,14 +349,14 @@ async function generateTechnicalList() {
                 Costo – Precio por Kilo – Margen
             </h3>
 
-            <table style="width:100%; border-collapse:collapse; font-size:11px;">
+            <table style="width:100%; border-collapse:collapse; font-size:13px;">
                 <thead>
                     <tr>
-                        <th style="text-align:left; padding:4px; border-bottom:1px solid #aaa;">Producto</th>
-                        <th style="text-align:left; padding:4px; border-bottom:1px solid #aaa;">Tipo</th>
-                        <th style="text-align:right; padding:4px; border-bottom:1px solid #aaa;">Costo</th>
-                        <th style="text-align:right; padding:4px; border-bottom:1px solid #aaa;">Precio KG</th>
-                        <th style="text-align:right; padding:4px; border-bottom:1px solid #aaa;">Margen</th>
+                        <th style="text-align:left; padding:6px; border-bottom:1px solid #aaa;">Producto</th>
+                        <th style="text-align:left; padding:6px; border-bottom:1px solid #aaa;">Tipo</th>
+                        <th style="text-align:right; padding:6px; border-bottom:1px solid #aaa;">Costo</th>
+                        <th style="text-align:right; padding:6px; border-bottom:1px solid #aaa;">Precio KG</th>
+                        <th style="text-align:right; padding:6px; border-bottom:1px solid #aaa;">Margen</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -358,11 +365,11 @@ async function generateTechnicalList() {
     sorted.forEach(p => {
         html += `
             <tr>
-                <td style="padding:4px;">${p.name}</td>
-                <td style="padding:4px;">${p.type}</td>
-                <td style="padding:4px; text-align:right;">$${p.$${Number(p.cost).toFixed(2)}cost}</td>
-                <td style="padding:4px; text-align:right;">$${Number(p.price_kg).toFixed(2)}</td>
-                <td style="padding:4px; text-align:right;">${p.marg${Math.round(p.margin)} %in}%</td>
+                <td style="padding:6px;">${p.name}</td>
+                <td style="padding:6px;">${p.type}</td>
+                <td style="padding:6px; text-align:right;">$${formatAr(p.cost)}</td>
+                <td style="padding:6px; text-align:right;">$${formatAr(p.price_kg)}</td>
+                <td style="padding:6px; text-align:right;">${Math.round(p.margin)} %</td>
             </tr>
         `;
     });
@@ -371,26 +378,19 @@ async function generateTechnicalList() {
                 </tbody>
             </table>
 
-            <p style="text-align:center; font-size:10px; margin-top:12px; color:#555;">
+            <p style="text-align:center; font-size:11px; margin-top:12px; color:#555;">
                 Informe técnico – Panadería y Fiambrería La Tanita
             </p>
 
         </div>
     `;
 
-    // Enviar al backend para generar PDF
-    const res = await fetch("/api/generate-pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ html })
-    });
-
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-
-    // 👉 Abrir en nueva pestaña en lugar de descargar
-    window.open(url, "_blank");
+    // 👉 Igual que el listado general: abrir en nueva pestaña
+    const newWindow = window.open("", "_blank");
+    newWindow.document.write(html);
+    newWindow.document.close();
 }
+
 
 
 // --- PROVEEDORES ---
