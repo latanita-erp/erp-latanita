@@ -300,3 +300,34 @@ input:focus, select:focus { border-color: var(--primary-color); }
 .cash-table tr:hover {
     background: rgba(255,255,255,0.05);
 }
+
+.summary-box {
+    margin-bottom: 2rem;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1.2rem;
+    margin-top: 1rem;
+}
+
+.summary-item {
+    background: rgba(255,255,255,0.03);
+    padding: 1rem;
+    border-radius: 10px;
+    border: 1px solid var(--glass-border);
+}
+
+.summary-item label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.3rem;
+}
+
+.summary-item span {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--primary-color);
+}
