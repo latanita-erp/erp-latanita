@@ -752,7 +752,7 @@ function renderDashboard() {
         options: { responsive: true, plugins: { legend: { display: false } } }
     });
 
-    // 2. Metodos de pago (Bar comparativo por mes)
+    // 2. Métodos de pago (Bar comparativo por mes)
     const ctxPayment = document.getElementById('chart-payment').getContext('2d');
     charts.payment = new Chart(ctxPayment, {
         type: 'bar',
@@ -792,7 +792,6 @@ function renderDashboard() {
     if (Object.keys(d.weekly_breakdown).length === 0) {
         container.innerHTML = '<p style="color: var(--text-secondary);">No hay datos semanales.</p>';
     } else {
-        // Ordenar meses de más reciente a más antiguo
         const months = Object.keys(d.weekly_breakdown).sort().reverse();
         months.forEach(month => {
             const monthDiv = document.createElement('div');
@@ -818,4 +817,87 @@ function renderDashboard() {
             container.appendChild(monthDiv);
         });
     }
+
+    // ⭐ 4. Mejor y Peor Día por Mes
+    const stats = calculateMonthlyDayStats(state.cash);
+    renderBestWorstTable(stats);
+
+    // ⭐ 5. Comparativo Mensual (Bar)
+    renderMonthlyComparisonChart(state.cash);
+}
+
+// --- CALCULAR MEJOR Y PEOR DÍA POR MES ---
+function calculateMonthlyDayStats(cashData) {
+    const months = {};
+
+    cashData.forEach(row => {
+        const date = new Date(row.fecha_dt);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;
+        const weekday = date.toLocaleDateString("es-AR", { weekday: "long" }).toUpperCase();
+        const gain = row.efectivo + row.electronico - row.gastos;
+
+        if (!months[monthKey]) months[monthKey] = {};
+        if (!months[monthKey][weekday]) months[monthKey][weekday] = 0;
+
+        months[monthKey][weekday] += gain;
+    });
+
+    return months;
+}
+
+// --- RENDER TABLA MEJOR/PEOR DÍA ---
+function renderBestWorstTable(stats) {
+    const tbody = document.querySelector("#best-worst-table tbody");
+    tbody.innerHTML = "";
+
+    Object.keys(stats).sort().forEach(month => {
+        const days = stats[month];
+        const entries = Object.entries(days);
+
+        const best = entries.reduce((a,b) => a[1] > b[1] ? a : b);
+        const worst = entries.reduce((a,b) => a[1] < b[1] ? a : b);
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${month}</td>
+            <td>${best[0]} (${best[1].toFixed(2)})</td>
+            <td>${worst[0]} (${worst[1].toFixed(2)})</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+// --- GRÁFICO COMPARATIVO MENSUAL ---
+function renderMonthlyComparisonChart(cashData) {
+    const monthly = {};
+
+    cashData.forEach(row => {
+        const date = new Date(row.fecha_dt);
+        const key = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;
+        const gain = row.efectivo + row.electronico - row.gastos;
+
+        if (!monthly[key]) monthly[key] = 0;
+        monthly[key] += gain;
+    });
+
+    const labels = Object.keys(monthly).sort();
+    const values = labels.map(m => monthly[m]);
+
+    new Chart(document.getElementById("chart-month-compare"), {
+        type: "bar",
+        data: {
+            labels,
+            datasets: [{
+                label: "Ganancia por Mes",
+                data: values,
+                backgroundColor: "rgba(0, 150, 255, 0.6)"
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
 }
