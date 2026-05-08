@@ -266,3 +266,37 @@ input:focus, select:focus { border-color: var(--primary-color); }
     padding: 1.2rem;
     border-radius: 14px;
 }
+
+/* --- CAJA DIARIA MODERNA --- */
+
+.cash-header {
+    margin-bottom: 1.5rem;
+}
+
+.cash-form-box {
+    margin-bottom: 2rem;
+}
+
+.cash-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.2rem;
+}
+
+.cash-history-box {
+    margin-top: 1.5rem;
+}
+
+.cash-table th {
+    background: rgba(255,255,255,0.08);
+    font-weight: 600;
+}
+
+.cash-table td, 
+.cash-table th {
+    padding: 10px 12px;
+}
+
+.cash-table tr:hover {
+    background: rgba(255,255,255,0.05);
+}
