@@ -746,6 +746,10 @@ function renderDashboard() {
     document.getElementById('kpi-expenses').innerText = `$${formatMoney(d.kpis.total_expenses)}`;
     document.getElementById('kpi-profit').innerText = `$${formatMoney(d.kpis.total_profit)}`;
 
+    // ⭐ RESUMEN DEL MES ACTUAL
+    const summary = calculateMonthlySummary(state.cash);
+    renderMonthlySummary(summary);
+
     // Destroy old charts if exist
     Object.values(charts).forEach(c => c.destroy());
 
@@ -845,15 +849,57 @@ function renderDashboard() {
         });
     }
 
-    // ⭐ 4. Mejor y Peor Día por Mes (USANDO state.cash REAL)
+    // ⭐ 4. Mejor y Peor Día por Mes
     const stats = calculateMonthlyDayStats(state.cash);
     renderBestWorstTable(stats);
 
-    // ⭐ 5. Comparativo Mensual (USANDO state.cash REAL)
+    // ⭐ 5. Comparativo Mensual
     renderMonthlyComparisonChart(state.cash);
 }
 
-// --- CALCULAR MEJOR Y PEOR DÍA POR MES (COMPATIBLE CON TU JSON REAL) ---
+// --- RESUMEN DEL MES (COMPATIBLE CON TU JSON REAL) ---
+function calculateMonthlySummary(cashData) {
+    if (!cashData.length) return null;
+
+    const [year, month] = cashData[0].date.split("-");
+    const monthKey = `${year}-${month}`;
+
+    const filtered = cashData.filter(r => r.date.startsWith(monthKey));
+
+    const totalVendido = filtered.reduce((a, r) => a + r.net_income, 0);
+    const gastos = filtered.reduce((a, r) => a + r.expenses, 0);
+    const ganancia = filtered.reduce((a, r) => a + r.total, 0);
+
+    const mejor = filtered.reduce((a, b) => a.total > b.total ? a : b);
+    const peor = filtered.reduce((a, b) => a.total < b.total ? a : b);
+
+    const dias = filtered.length;
+    const promedio = dias > 0 ? ganancia / dias : 0;
+
+    return {
+        totalVendido,
+        gastos,
+        ganancia,
+        mejor,
+        peor,
+        promedio,
+        dias
+    };
+}
+
+function renderMonthlySummary(summary) {
+    if (!summary) return;
+
+    document.getElementById("sum-total-vendido").innerText = `$${formatMoney(summary.totalVendido)}`;
+    document.getElementById("sum-gastos").innerText = `$${formatMoney(summary.gastos)}`;
+    document.getElementById("sum-ganancia").innerText = `$${formatMoney(summary.ganancia)}`;
+    document.getElementById("sum-mejor-dia").innerText = `${summary.mejor.weekday} ($${formatMoney(summary.mejor.total)})`;
+    document.getElementById("sum-peor-dia").innerText = `${summary.peor.weekday} ($${formatMoney(summary.peor.total)})`;
+    document.getElementById("sum-promedio").innerText = `$${formatMoney(summary.promedio)}`;
+    document.getElementById("sum-dias").innerText = summary.dias;
+}
+
+// --- CALCULAR MEJOR Y PEOR DÍA POR MES ---
 function calculateMonthlyDayStats(cashData) {
     const months = {};
 
@@ -894,7 +940,7 @@ function renderBestWorstTable(stats) {
     });
 }
 
-// --- GRÁFICO COMPARATIVO MENSUAL (COMPATIBLE CON TU JSON REAL) ---
+// --- GRÁFICO COMPARATIVO MENSUAL ---
 function renderMonthlyComparisonChart(cashData) {
     const monthly = {};
 
@@ -927,4 +973,5 @@ function renderMonthlyComparisonChart(cashData) {
         }
     });
 }
+
 
