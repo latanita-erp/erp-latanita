@@ -219,33 +219,60 @@
     </div>
 
     <!-- MODAL ADD PRODUCT -->
-    <div id="modal-add-product" class="modal-overlay hidden">
-        <div class="modal-content glass-panel">
-            <div class="modal-header">
-                <h2>Crear Producto Manual</h2>
-                <button class="close-btn" onclick="toggleModal('modal-add-product')">×</button>
-            </div>
-            <form id="add-product-form">
-                <div class="input-group">
-                    <label>Nombre del Producto</label>
-                    <input type="text" id="prod-name" required>
-                </div>
-                <div class="input-group">
-                    <label>Tipo / Categoría</label>
-                    <input type="text" id="prod-type" required>
-                </div>
-                <div class="input-group">
-                    <label>Costo Unitario ($)</label>
-                    <input type="number" step="0.01" id="prod-cost" required>
-                </div>
-                <div class="input-group">
-                    <label>Margen de Ganancia (%)</label>
-                    <input type="number" step="0.01" id="prod-margin" required>
-                </div>
-                <button type="submit" class="btn btn-primary btn-block mt-2">Guardar y Calcular Precios</button>
-            </form>
+<div id="modal-add-product" class="modal-overlay hidden">
+    <div class="modal-content glass-panel">
+        <div class="modal-header">
+            <h2>Crear Producto Manual</h2>
+            <button class="close-btn" onclick="toggleModal('modal-add-product')">×</button>
         </div>
+
+        <form id="add-product-form">
+
+            <div class="input-group">
+                <label>Nombre del Producto</label>
+                <input type="text" id="prod-name" required>
+            </div>
+
+            <div class="input-group">
+                <label>Tipo / Categoría</label>
+                <input type="text" id="prod-type" required>
+            </div>
+
+            <div class="input-group">
+                <label>Costo Unitario ($)</label>
+                <input type="number" step="0.01" id="prod-cost" required>
+            </div>
+
+            <div class="input-group">
+                <label>Margen de Ganancia (%)</label>
+                <input type="number" step="0.01" id="prod-margin" required>
+            </div>
+
+            <!-- NUEVO: PRECIO 250 g -->
+            <div class="input-group">
+                <label>Precio 250 g</label>
+                <input type="number" id="prod-price250" disabled>
+            </div>
+
+            <!-- NUEVO: DESCUENTO -->
+            <div class="input-group">
+                <label>Descuento (%)</label>
+                <input type="number" id="prod-promotion" min="0" max="100" step="1">
+            </div>
+
+            <!-- NUEVO: PRECIO PROMO -->
+            <div class="input-group">
+                <label>Precio Promo 250 g</label>
+                <input type="number" id="prod-price250-promo" disabled>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block mt-2">
+                Guardar y Calcular Precios
+            </button>
+
+        </form>
     </div>
+</div>
 
     <!-- MODAL SUPPLIERS -->
     <div id="modal-suppliers" class="modal-overlay hidden">
@@ -320,6 +347,24 @@
                 <input type="text" id="edit-product-new-price" readonly>
             </div>
 
+            <!-- NUEVO: PRECIO 250 g -->
+            <div class="input-group">
+                <label>Precio 250 g</label>
+                <input type="number" id="edit-product-price250" readonly>
+            </div>
+
+            <!-- NUEVO: DESCUENTO -->
+            <div class="input-group">
+                <label>Descuento (%)</label>
+                <input type="number" id="edit-product-promotion" min="0" max="100" step="1">
+            </div>
+
+            <!-- NUEVO: PRECIO PROMO -->
+            <div class="input-group">
+                <label>Precio Promo 250 g</label>
+                <input type="number" id="edit-product-price250-promo" readonly>
+            </div>
+
             <button type="submit" class="btn btn-primary btn-block mt-2">
                 Guardar Cambios
             </button>
@@ -327,8 +372,6 @@
         </form>
     </div>
 </div>
-
-
 
    <!-- MODAL EDIT CASH -->
 <div id="modal-edit-cash" class="modal-overlay hidden">
