@@ -45,11 +45,20 @@ def read_root():
 
 from fastapi import Depends
 from sqlalchemy.orm import Session
+from passlib.context import CryptContext
 
+# --- Configuración bcrypt ---
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
+# --- Modelo de entrada ---
 class Login(BaseModel):
     username: str
     password: str
 
+# --- Obtener DB ---
 def get_db():
     db = SessionLocal()
     try:
@@ -57,6 +66,7 @@ def get_db():
     finally:
         db.close()
 
+# --- Endpoint de Login ---
 @app.post("/api/login")
 def login(data: Login, db: Session = Depends(get_db)):
     # Buscar usuario en la base
@@ -71,7 +81,7 @@ def login(data: Login, db: Session = Depends(get_db)):
     if not verify_password(data.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Credenciales incorrectas")
 
-    # Token simple por ahora (luego lo mejoramos si querés)
+    # Token simple por ahora
     token = f"token-{user.id}"
 
     return {"success": True, "token": token, "role": user.role}
@@ -93,7 +103,6 @@ def require_auth(authorization: str = Header(None)):
         raise HTTPException(status_code=401, detail="Token inválido")
 
     return token
-
 
 # ============================================
 #            FUNCIONES AUXILIARES
