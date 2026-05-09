@@ -100,12 +100,39 @@ def calculate_prices(cost, margin):
 
 @app.get("/api/products")
 def get_products():
-    # Ordenar por tipo y luego por nombre (alfabético)
     with engine.connect() as conn:
         res = conn.execute(
-            text("SELECT * FROM products ORDER BY type ASC, name ASC")
+            text("""
+                SELECT 
+                    id,
+                    name,
+                    type,
+                    cost,
+                    margin,
+                    price_kg,
+                    price_100g,
+                    price_150g,
+                    price_250g
+                FROM products
+                ORDER BY type ASC, name ASC
+            """)
         ).mappings().all()
-        return [dict(r) for r in res]
+
+        productos = []
+        for r in res:
+            productos.append({
+                "id": r["id"],
+                "name": r["name"],
+                "type": r["type"],
+                "cost": float(r["cost"]),
+                "margin": float(r["margin"]),
+                "price_kg": float(r["price_kg"]),
+                "price_100g": float(r["price_100g"]),
+                "price_150g": float(r["price_150g"]),
+                "price_250g": float(r["price_250g"]),
+            })
+
+        return productos
 
 
 @app.post("/api/products")
@@ -356,12 +383,38 @@ def import_products(file: UploadFile = File(...)):
 
 @app.get("/api/cash")
 def get_cash():
-    # Ordenar de la fecha más antigua a la más nueva
     with engine.connect() as conn:
         res = conn.execute(
-            text("SELECT * FROM cash ORDER BY date ASC LIMIT 100")
+            text("""
+                SELECT 
+                    id,
+                    date,
+                    weekday,
+                    cash,
+                    card,
+                    net_income,
+                    expenses,
+                    total
+                FROM cash
+                ORDER BY date ASC
+                LIMIT 100
+            """)
         ).mappings().all()
-        return [dict(r) for r in res]
+
+        registros = []
+        for r in res:
+            registros.append({
+                "id": r["id"],
+                "date": r["date"],
+                "weekday": r["weekday"],
+                "cash": float(r["cash"]),
+                "card": float(r["card"]),
+                "net_income": float(r["net_income"]),
+                "expenses": float(r["expenses"]),
+                "total": float(r["total"]),
+            })
+
+        return registros
 
 
 @app.post("/api/cash")
