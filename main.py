@@ -25,6 +25,12 @@ DB_URI = (
 
 engine = create_engine(DB_URI, pool_pre_ping=True)
 
+# --- SQLAlchemy Base y Session ---
+from sqlalchemy.orm import sessionmaker, declarative_base
+
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
 # --- Archivos estáticos (frontend) ---
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -33,52 +39,56 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 def read_root():
     return FileResponse("static/index.html")
 
-
 # ============================================
-#               MODELOS API
+#               MÓDULO LOGIN (NUEVO)
 # ============================================
 
-class Product(BaseModel):
-    name: str
-    type: str = ""
-    cost: float = 0.0
-    margin: float = 0.0
+from fastapi import Depends
+from sqlalchemy.orm import Session
 
-
-class Supplier(BaseModel):
-    supplier_name: str
-    cost: float
-
-
-class CashRecord(BaseModel):
-    # El frontend envía solo la fecha y los importes;
-    # el backend calcula el día automáticamente.
-    date: str
-    cash: float = 0.0
-    card: float = 0.0
-    expenses: float = 0.0
-
-
-class CashUpdate(BaseModel):
-    cash: float
-    card: float
-    expenses: float
-
-
-class Login(BaseModel):
-    username: str
-    password: str
-
-
-# ============================================
-#               MÓDULO LOGIN
-# ============================================
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 @app.post("/api/login")
-def login(data: Login):
-    if data.username == "cboveda" and data.password == "Xeneize1198$":
-        return {"success": True, "token": "fake-jwt-token-123"}
-    raise HTTPException(status_code=401, detail="Credenciales incorrectas")
+def login(data: Login, db: Session = Depends(get_db)):
+    # Buscar usuario en la base
+    user = db.execute(
+        text("SELECT * FROM users WHERE username = :u").bindparams(u=data.username)
+    ).fetchone()
+
+    if not user:
+        raise HTTPException(status_code=401, detail="Credenciales incorrectas")
+
+    # Verificar contraseña encriptada
+    if not verify_password(data.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Credenciales incorrectas")
+
+    # Token simple por ahora (luego lo mejoramos si querés)
+    token = f"token-{user.id}"
+
+    return {"success": True, "token": token, "role": user.role}
+
+# ============================================
+#        PROTECCIÓN DE ENDPOINTS (TOKEN)
+# ============================================
+
+from fastapi import Header
+
+def require_auth(authorization: str = Header(None)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="No autorizado")
+
+    token = authorization.replace("Bearer ", "")
+
+    # Validación mínima: que empiece con "token-"
+    if not token.startswith("token-"):
+        raise HTTPException(status_code=401, detail="Token inválido")
+
+    return token
 
 
 # ============================================
