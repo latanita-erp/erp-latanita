@@ -157,6 +157,69 @@ function renderProducts() {
     });
 }
 
+/* ⭐⭐⭐ A PARTIR DE ACÁ PEGÁS LA DISTRIBUCIÓN SEMANAL ⭐⭐⭐ */
+
+// --- Calcular distribución por día de la semana ---
+function calculateWeekdayDistribution(cashData) {
+    const days = {
+        "LUNES": 0,
+        "MARTES": 0,
+        "MIÉRCOLES": 0,
+        "JUEVES": 0,
+        "VIERNES": 0,
+        "SÁBADO": 0,
+        "DOMINGO": 0
+    };
+
+    cashData.forEach(row => {
+        const day = row.weekday.toUpperCase();
+        if (days[day] !== undefined) {
+            days[day] += row.total;
+        }
+    });
+
+    return days;
+}
+
+// --- Renderizar gráfico de distribución semanal ---
+function renderWeekdayDistribution(cashData) {
+    const data = calculateWeekdayDistribution(cashData);
+
+    const labels = Object.keys(data);
+    const values = Object.values(data);
+
+    const ctx = document.getElementById("chart-weekday-distribution").getContext("2d");
+
+    if (charts.weekday) charts.weekday.destroy();
+
+    charts.weekday = new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels,
+            datasets: [{
+                label: "Ganancia por Día",
+                data: values,
+                backgroundColor: [
+                    "#3b82f6",
+                    "#10b981",
+                    "#f59e0b",
+                    "#6366f1",
+                    "#ef4444",
+                    "#8b5cf6",
+                    "#14b8a6"
+                ],
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+}
+
 // --- AGREGAR PRODUCTO ---
 document.getElementById('add-product-form').addEventListener('submit', async (e) => {
     e.preventDefault();
