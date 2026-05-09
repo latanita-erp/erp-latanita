@@ -40,25 +40,16 @@ def read_root():
     return FileResponse("static/index.html")
 
 # ============================================
-#               MÓDULO LOGIN (NUEVO)
+#               LOGIN DESACTIVADO
 # ============================================
 
 from fastapi import Depends
 from sqlalchemy.orm import Session
-from passlib.context import CryptContext
 
-# --- Configuración bcrypt ---
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
-
-# --- Modelo de entrada ---
 class Login(BaseModel):
     username: str
     password: str
 
-# --- Obtener DB ---
 def get_db():
     db = SessionLocal()
     try:
@@ -66,49 +57,24 @@ def get_db():
     finally:
         db.close()
 
-# --- Endpoint de Login ---
+# --- Endpoint de Login SIEMPRE EXITOSO ---
 @app.post("/api/login")
 def login(data: Login, db: Session = Depends(get_db)):
-    # Buscar usuario en la base
-    user = db.execute(
-        text("SELECT * FROM users WHERE username = :u").bindparams(u=data.username)
-    ).fetchone()
-
-    if not user:
-        raise HTTPException(status_code=401, detail="Credenciales incorrectas")
-
-    # Verificar contraseña encriptada
-    if not verify_password(data.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Credenciales incorrectas")
-
-    # Token simple por ahora
-    token = f"token-{user.id}"
-
-    return {"success": True, "token": token, "role": user.role}
+    return {
+        "success": True,
+        "token": "token-libre",
+        "role": "admin"
+    }
 
 # ============================================
-#        PROTECCIÓN DE ENDPOINTS (TOKEN)
-# ============================================
-
-# ============================================
-#        PROTECCIÓN DE ENDPOINTS (DESACTIVADA)
+#        PROTECCIÓN DE ENDPOINTS DESACTIVADA
 # ============================================
 
 from fastapi import Header
 
 def require_auth(authorization: str = Header(None)):
-    # Autorización desactivada para desarrollo
     return True
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="No autorizado")
 
-    token = authorization.replace("Bearer ", "")
-
-    # Validación mínima: que empiece con "token-"
-    if not token.startswith("token-"):
-        raise HTTPException(status_code=401, detail="Token inválido")
-
-    return token
 
 # ============================================
 #            FUNCIONES AUXILIARES
