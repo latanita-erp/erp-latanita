@@ -46,6 +46,10 @@ def read_root():
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
+class Login(BaseModel):
+    username: str
+    password: str
+
 def get_db():
     db = SessionLocal()
     try:
