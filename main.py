@@ -90,9 +90,15 @@ def login(data: Login, db: Session = Depends(get_db)):
 #        PROTECCIÓN DE ENDPOINTS (TOKEN)
 # ============================================
 
+# ============================================
+#        PROTECCIÓN DE ENDPOINTS (DESACTIVADA)
+# ============================================
+
 from fastapi import Header
 
 def require_auth(authorization: str = Header(None)):
+    # Autorización desactivada para desarrollo
+    return True
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="No autorizado")
 
