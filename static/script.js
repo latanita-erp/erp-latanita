@@ -971,12 +971,47 @@ function renderBestWorstTable(stats) {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${formatMonthLiteral(row.month)}</td>
-            <td>${row.best.weekday} ($${formatMoney(row.best.total)})</td>
-            <td>${row.worst.weekday} ($${formatMoney(row.worst.total)})</td>
+
+            <!-- Mejor día en verde -->
+            <td style="color: var(--success-color); font-weight: bold;">
+                ${row.best.weekday} ($${formatMoney(row.best.total)})
+            </td>
+
+            <!-- Peor día en rojo -->
+            <td style="color: var(--danger-color); font-weight: bold;">
+                ${row.worst.weekday} ($${formatMoney(row.worst.total)})
+            </td>
         `;
         tbody.appendChild(tr);
     });
 }
+
+
+function renderBestWorstTable(stats) {
+    const tbody = document.querySelector('#best-worst-table tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    stats.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${formatMonthLiteral(row.month)}</td>
+
+            <!-- Mejor día en verde -->
+            <td style="color: var(--success-color); font-weight: bold;">
+                ${row.best.weekday} ($${formatMoney(row.best.total)})
+            </td>
+
+            <!-- Peor día en rojo -->
+            <td style="color: var(--danger-color); font-weight: bold;">
+                ${row.worst.weekday} ($${formatMoney(row.worst.total)})
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
 
 // ---------- Comparativo mensual ----------
 
@@ -1017,6 +1052,84 @@ function renderMonthlyComparisonChart(cashData) {
             responsive: true,
             plugins: { legend: { display: false } }
         }
+    });
+}
+
+// ---------- Ranking de días del mes ----------
+
+function calculateMonthlyDayRanking(cashData) {
+    const byMonth = {};
+
+    // Agrupar por mes
+    cashData.forEach(r => {
+        const month = r.date.slice(0, 7);
+        if (!byMonth[month]) byMonth[month] = [];
+        byMonth[month].push(r);
+    });
+
+    const result = [];
+
+    Object.keys(byMonth).sort().forEach(month => {
+        const rows = byMonth[month];
+
+        // Acumulador por día de la semana
+        const totalsByWeekday = {
+            LUNES: 0,
+            MARTES: 0,
+            MIÉRCOLES: 0,
+            JUEVES: 0,
+            VIERNES: 0,
+            SÁBADO: 0,
+            DOMINGO: 0
+        };
+
+        rows.forEach(r => {
+            totalsByWeekday[r.weekday] += r.total;
+        });
+
+        // Convertir a array y ordenar de mayor a menor
+        const ranking = Object.entries(totalsByWeekday)
+            .map(([weekday, total]) => ({ weekday, total }))
+            .sort((a, b) => b.total - a.total);
+
+        result.push({
+            month,
+            ranking
+        });
+    });
+
+    return result;
+}
+
+function renderMonthlyDayRanking(stats) {
+    const tbody = document.querySelector('#ranking-days-table tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    stats.forEach(row => {
+        const tr = document.createElement('tr');
+
+        // Crear lista ordenada de días
+        const rankingList = row.ranking
+            .map((r, i) => {
+                const color =
+                    i === 0 ? "var(--success-color)" :   // mejor día
+                    i === 6 ? "var(--danger-color)" :    // peor día
+                    "inherit";
+
+                return `<div style="color:${color}; font-weight:${i === 0 || i === 6 ? 'bold' : 'normal'};">
+                            ${i + 1}. ${r.weekday} — $${formatMoney(r.total)}
+                        </div>`;
+            })
+            .join("");
+
+        tr.innerHTML = `
+            <td>${formatMonthLiteral(row.month)}</td>
+            <td>${rankingList}</td>
+        `;
+
+        tbody.appendChild(tr);
     });
 }
 
