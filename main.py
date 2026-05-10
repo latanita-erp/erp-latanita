@@ -8,15 +8,20 @@ import datetime
 import urllib.parse
 import pandas as pd
 
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Header
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker, declarative_base, Session
+from passlib.context import CryptContext
 
 app = FastAPI()
 
-# --- Conexión a Supabase (Directa, correcta) ---
+# ============================================
+#        CONEXIÓN A SUPABASE (CORRECTA)
+# ============================================
+
 password = "Latanita1198!"
 
 DB_URI = (
@@ -26,73 +31,8 @@ DB_URI = (
 
 engine = create_engine(DB_URI, pool_pre_ping=True)
 
-# --- SQLAlchemy Base y Session ---
-from sqlalchemy.orm import sessionmaker, declarative_base
-
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
-
-# --- Archivos estáticos (frontend) ---
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-@app.get("/")
-def read_root():
-    return FileResponse("static/index.html")
-
-# ============================================
-# LOGIN DE EMERGENCIA (SIN BASE DE DATOS)
-# ============================================
-
-from fastapi import HTTPException
-from pydantic import BaseModel
-
-class Login(BaseModel):
-    username: str
-    password: str
-
-@app.post("/api/login")
-def login(data: Login):
-
-    # Usuario y contraseña fijos para trabajar YA
-    if data.username == "cboveda" and data.password == "Xeneize1198$":
-        return {
-            "success": True,
-            "token": "token-1",
-            "role": "admin"
-        }
-
-    raise HTTPException(status_code=401, detail="Credenciales incorrectas")
-
-
-# ============================================
-#               LOGIN REAL ACTIVADO
-# ============================================
-
-from fastapi import Depends, HTTPException, Header
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy import text
-from passlib.context import CryptContext
-from sqlalchemy import create_engine
-
-pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-class Login(BaseModel):
-    username: str
-    password: str
-
-# --- Conexión a Supabase (Pooler CORRECTO) ---
-password = "Latanita1198%21"
-
-DB_URI = (
-    f"postgresql+pg8000://postgres.juzwfwgonamxyuvoxgbj:"
-    f"{password}@aws-0-sa-east-1.pooler.supabase.com:5432/postgres"
-)
-
-# ⭐ Engine correcto
-engine = create_engine(DB_URI, pool_pre_ping=True)
-
-# ⭐ SessionLocal correcto (ESTO ES LO QUE FALTABA)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_db():
     db = SessionLocal()
@@ -101,9 +41,29 @@ def get_db():
     finally:
         db.close()
 
-# --- LOGIN REAL ---
+# ============================================
+#           ARCHIVOS ESTÁTICOS
+# ============================================
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.get("/")
+def read_root():
+    return FileResponse("static/index.html")
+
+# ============================================
+#               LOGIN REAL
+# ============================================
+
+pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+class Login(BaseModel):
+    username: str
+    password: str
+
 @app.post("/api/login")
 def login(data: Login, db: Session = Depends(get_db)):
+
     user = db.execute(
         text("SELECT * FROM users WHERE username = :u"),
         {"u": data.username}
@@ -122,7 +82,7 @@ def login(data: Login, db: Session = Depends(get_db)):
     }
 
 # ============================================
-#        PROTECCIÓN DE ENDPOINTS ACTIVADA
+#        PROTECCIÓN DE ENDPOINTS
 # ============================================
 
 def require_auth(authorization: str = Header(None)):
@@ -152,6 +112,31 @@ def calculate_prices(cost, margin):
         "price_150g": price_150g,
         "price_250g": price_250g,
     }
+
+# ============================================
+#                API CASH
+# ============================================
+
+@app.get("/api/cash")
+def get_cash(db: Session = Depends(get_db), token: str = Depends(require_auth)):
+
+    result = db.execute(
+        text("SELECT * FROM cash ORDER BY id DESC LIMIT 1")
+    ).mappings().first()
+
+    if not result:
+        return {
+            "id": None,
+            "amount": 0,
+            "updated_at": None
+        }
+
+    return {
+        "id": result["id"],
+        "amount": result["amount"],
+        "updated_at": result["updated_at"]
+    }
+
 
 
 # ============================================
