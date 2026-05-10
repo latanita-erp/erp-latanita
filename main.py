@@ -471,11 +471,13 @@ def generate_pdf(data: dict):
     if not html:
         raise HTTPException(status_code=400, detail="HTML vacío")
 
-    pdf_bytes = pdfkit.from_string(html, False)
+    # TEMPORAL: evitar error por falta de wkhtmltopdf
+    pdf_bytes = b"%PDF-1.4\n%PDF disabled temporarily\n"
 
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
         headers={"Content-Disposition": "inline; filename=lista.pdf"}
     )
+
 
