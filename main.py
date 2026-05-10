@@ -16,11 +16,12 @@ from sqlalchemy import create_engine, text
 
 app = FastAPI()
 
-# --- Conexión a Supabase (Pooler) ---
-password = urllib.parse.quote_plus('Xeneize1198$')
+# --- Conexión a Supabase (Directa, correcta) ---
+password = urllib.parse.quote_plus('Latanita1198!')
+
 DB_URI = (
-    f"postgresql+pg8000://postgres.juzwfwgonamxyuvoxgbj:"
-    f"{password}@aws-1-sa-east-1.pooler.supabase.com:6543/postgres"
+    f"postgresql+pg8000://postgres:{password}"
+    f"@db.juzwfwgonamxyuvoxgbj.supabase.co:5432/postgres"
 )
 
 engine = create_engine(DB_URI, pool_pre_ping=True)
