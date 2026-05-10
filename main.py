@@ -63,9 +63,10 @@ DB_URI = (
     f"{password}@aws-0-sa-east-1.pooler.supabase.com:5432/postgres"
 )
 
+# ⭐ Engine correcto
 engine = create_engine(DB_URI, pool_pre_ping=True)
 
-# ⭐ ESTA LÍNEA ES CRÍTICA
+# ⭐ SessionLocal correcto (ESTO ES LO QUE FALTABA)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_db():
