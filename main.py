@@ -417,11 +417,11 @@ def get_cash():
                 "id": r["id"],
                 "date": r["date"],
                 "weekday": r["weekday"],
-                "cash": float(r["cash"]),
-                "card": float(r["card"]),
-                "net_income": float(r["net_income"]),
-                "expenses": float(r["expenses"]),
-                "total": float(r["total"]),
+                "cash": float(r["cash"]) if r["cash"] is not None else 0.0,
+                "card": float(r["card"]) if r["card"] is not None else 0.0,
+                "net_income": float(r["net_income"]) if r["net_income"] is not None else 0.0,
+                "expenses": float(r["expenses"]) if r["expenses"] is not None else 0.0,
+                "total": float(r["total"]) if r["total"] is not None else 0.0,
             })
 
         return registros
