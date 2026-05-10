@@ -26,15 +26,15 @@
         }
         .header h1 {
             margin: 5px 0 0 0;
-            font-size: 24px;
+            font-size: 26px; /* +2px */
         }
         .header h2 {
             margin: 0;
-            font-size: 18px;
+            font-size: 19px; /* +1px */
         }
         .date {
             text-align: right;
-            font-size: 12px;
+            font-size: 13px;
             margin-bottom: 10px;
         }
         .type-group {
@@ -44,8 +44,8 @@
         .type-title {
             background-color: #e5e7eb;
             font-weight: bold;
-            padding: 5px 10px;
-            font-size: 14px;
+            padding: 6px 10px;
+            font-size: 15px; /* +1px */
             border: 1px solid #9ca3af;
             border-bottom: none;
             margin-bottom: 0;
@@ -56,9 +56,9 @@
         }
         th, td {
             border: 1px solid #9ca3af;
-            padding: 4px 6px;
+            padding: 5px 7px;
             text-align: right;
-            font-size: 12px;
+            font-size: 13.5px; /* +1.5px */
         }
         th {
             background-color: #f3f4f6;
@@ -115,7 +115,6 @@
                                         <th>100 g</th>
                                         <th>150 g</th>
                                         <th>250 g</th>
-                                        <th>250 g Promo</th>
                                     </tr>
                                 </thead>
                                 <tbody>`;
@@ -124,13 +123,6 @@
                         .sort((a, b) => a.name.localeCompare(b.name))
                         .forEach(p => {
 
-                            const promo = p.promotion || 0;
-                            let final250 = "";
-
-                            if (promo > 0 && p.price_250g) {
-                                final250 = "$" + formatMoney(p.price_250g * (1 - promo / 100));
-                            }
-
                             html += `
                                 <tr>
                                     <td class="name-col"><strong>${p.name}</strong></td>
@@ -138,7 +130,6 @@
                                     <td>$${formatMoney(p.price_100g)}</td>
                                     <td>$${formatMoney(p.price_150g)}</td>
                                     <td>$${formatMoney(p.price_250g)}</td>
-                                    <td>${final250}</td>
                                 </tr>
                             `;
                         });
@@ -163,5 +154,3 @@
     </script>
 </body>
 </html>
-
-
