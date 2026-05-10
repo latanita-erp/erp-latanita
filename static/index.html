@@ -177,36 +177,49 @@
             </div>
         </div>
 
-        <!-- MODAL EDIT CASH -->
-        <div id="modal-edit-cash" class="modal-overlay hidden">
-            <div class="modal-content glass-panel" style="max-width:400px;">
-                <div class="modal-header">
-                    <h2>Caja: <span id="edit-cash-date"></span></h2>
-                    <button class="close-btn" onclick="toggleModal('modal-edit-cash')">×</button>
-                </div>
+        <!-- MODAL EDITAR CAJA -->
+<div class="modal hidden" id="modal-edit-cash">
+    <div class="modal-content">
 
-                <form id="edit-cash-form">
-                    <input type="hidden" id="edit-cash-id">
+        <h3>Editar Registro de Caja</h3>
 
-                    <div class="input-group">
-                        <label>Efectivo ($)</label>
-                        <input type="number" step="0.01" id="edit-cash-cash" required>
-                    </div>
+        <form id="edit-cash-form" class="cash-grid">
 
-                    <div class="input-group">
-                        <label>Tarjeta ($)</label>
-                        <input type="number" step="0.01" id="edit-cash-card" required>
-                    </div>
+            <input type="hidden" id="edit-cash-id">
 
-                    <div class="input-group">
-                        <label>Gastos ($)</label>
-                        <input type="number" step="0.01" id="edit-cash-expenses" required>
-                    </div>
-
-                    <button class="btn btn-primary btn-block mt-2">Guardar Cambios</button>
-                </form>
+            <div class="input-group">
+                <label>Fecha</label>
+                <input type="date" id="edit-cash-date" required>
             </div>
-        </div>
+
+            <div class="input-group">
+                <label>Día</label>
+                <input type="text" id="edit-cash-weekday" readonly>
+            </div>
+
+            <div class="input-group">
+                <label>Efectivo ($)</label>
+                <input type="number" step="0.01" id="edit-cash-cash" required>
+            </div>
+
+            <div class="input-group">
+                <label>Tarjeta ($)</label>
+                <input type="number" step="0.01" id="edit-cash-card" required>
+            </div>
+
+            <div class="input-group">
+                <label>Gastos ($)</label>
+                <input type="number" step="0.01" id="edit-cash-expenses" required>
+            </div>
+
+            <div class="input-group flex-end">
+                <button class="btn btn-primary">Guardar Cambios</button>
+            </div>
+
+        </form>
+
+    </div>
+</div>
 
         <!-- MODAL AJUSTE MASIVO -->
         <div id="modal-mass-margin" class="modal-overlay">
