@@ -648,7 +648,7 @@ async function deleteSupplier(productId, supplierId) {
 //                 CAJA DIARIA
 // =====================================================
 
-// --- AUTO-COMPLETAR DÍA AL ELEGIR FECHA ---
+// --- AUTO-COMPLETAR DÍA AL ELEGIR FECHA (ALTA) ---
 document.getElementById("cash-date").addEventListener("change", (e) => {
     const date = e.target.value;
     if (!date) return;
@@ -739,7 +739,6 @@ document.getElementById('cash-form').addEventListener('submit', async (e) => {
 
     const date = document.getElementById('cash-date').value;
 
-    // Si por algún motivo el día no se autocompletó, lo calculamos igual
     let weekday = document.getElementById('cash-weekday').value;
     if (!weekday) {
         weekday = new Date(date).toLocaleDateString("es-AR", { weekday: "long" }).toUpperCase();
@@ -770,9 +769,14 @@ document.getElementById('cash-form').addEventListener('submit', async (e) => {
 function openEditCash(id, date, cash, card, expenses) {
     document.getElementById('edit-cash-id').value = id;
 
-    const [y, m, d] = date.split('-');
-    document.getElementById('edit-cash-date').innerText = `${d}/${m}/${y}`;
+    // Setear fecha en formato YYYY-MM-DD
+    document.getElementById('edit-cash-date').value = date;
 
+    // Autocompletar día
+    const weekday = new Date(date).toLocaleDateString("es-AR", { weekday: "long" });
+    document.getElementById('edit-cash-weekday').value = weekday.toUpperCase();
+
+    // Valores numéricos
     document.getElementById('edit-cash-cash').value = cash;
     document.getElementById('edit-cash-card').value = card;
     document.getElementById('edit-cash-expenses').value = expenses;
@@ -780,12 +784,30 @@ function openEditCash(id, date, cash, card, expenses) {
     toggleModal('modal-edit-cash');
 }
 
+// --- AUTO-COMPLETAR DÍA EN EDICIÓN ---
+document.getElementById("edit-cash-date").addEventListener("change", (e) => {
+    const date = e.target.value;
+    if (!date) return;
+
+    const weekday = new Date(date).toLocaleDateString("es-AR", { weekday: "long" });
+    document.getElementById("edit-cash-weekday").value = weekday.toUpperCase();
+});
+
+// --- GUARDAR EDICIÓN ---
 document.getElementById('edit-cash-form').addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const id = document.getElementById('edit-cash-id').value;
+    const date = document.getElementById('edit-cash-date').value;
+
+    let weekday = document.getElementById('edit-cash-weekday').value;
+    if (!weekday) {
+        weekday = new Date(date).toLocaleDateString("es-AR", { weekday: "long" }).toUpperCase();
+    }
 
     const payload = {
+        date,
+        weekday,
         cash: parseFloat(document.getElementById('edit-cash-cash').value),
         card: parseFloat(document.getElementById('edit-cash-card').value),
         expenses: parseFloat(document.getElementById('edit-cash-expenses').value)
