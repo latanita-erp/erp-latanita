@@ -680,6 +680,13 @@ async function deleteSupplier(productId, supplierId) {
     }
 }
 
+// --- ESTADO GLOBAL ---
+const state = {
+    cash: [],
+    dashboard: {},
+    products: []
+};
+
 // --- CAJA ---
 async function fetchCash() {
     const res = await fetch('/api/cash');
