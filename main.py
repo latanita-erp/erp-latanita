@@ -1,107 +1,89 @@
 # ============================================
-#           CONFIGURACIÓN GENERAL
-# ============================================
-
-import os
-import math
-import datetime
-import urllib.parse
-import pandas as pd
-
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker, declarative_base, Session
-
-app = FastAPI()
-
-# ============================================
-#        CONEXIÓN A SUPABASE (POOLER)
-# ============================================
-
-DB_URI = (
-    "postgresql+pg8000://postgres.juzwfwgonamxyuvoxgbj:"
-    "Latanita1198!@aws-0-sa-east-1.pooler.supabase.com:6543/postgres"
-)
-
-engine = create_engine(DB_URI, pool_pre_ping=True)
-
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-# ============================================
-#           ARCHIVOS ESTÁTICOS
-# ============================================
-
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# ⭐ ABRIR DIRECTO EL INDEX
-@app.get("/")
-def read_root():
-    return FileResponse("static/index.html")
-
-# ============================================
-#            FUNCIONES AUXILIARES
-# ============================================
-
-def calculate_prices(cost, margin):
-    base_price_kg = cost * (1 + margin / 100)
-    price_kg = math.ceil(base_price_kg / 100.0) * 100.0
-    price_100g = math.ceil((base_price_kg / 10.0) / 100.0) * 100.0
-    price_150g = math.ceil((base_price_kg * 0.15) / 100.0) * 100.0
-    price_250g = math.ceil((base_price_kg * 0.25) / 100.0) * 100.0
-    return {
-        "price_kg": price_kg,
-        "price_100g": price_100g,
-        "price_150g": price_150g,
-        "price_250g": price_250g,
-    }
-
-# ============================================
-#                API CASH (CORREGIDO)
+#             MÓDULO CAJA DIARIA (FINAL)
 # ============================================
 
 # 👉 Tu frontend usa /api/cash/all
 @app.get("/api/cash/all")
 def get_cash_all(db: Session = Depends(get_db)):
-    result = db.execute(text("SELECT * FROM cash ORDER BY date ASC")).mappings().all()
+    result = db.execute(text("""
+        SELECT 
+            id,
+            date,
+            weekday,
+            cash,
+            card,
+            expenses,
+            (cash + card) AS net_income,
+            (cash + card - expenses) AS total
+        FROM cash
+        ORDER BY date ASC
+    """)).mappings().all()
+
     return [dict(r) for r in result]
+
 
 # 👉 POST /api/cash
 @app.post("/api/cash")
 def create_cash(payload: dict, db: Session = Depends(get_db)):
+
+    date = payload["date"]
+    weekday = payload["weekday"]
+    cash = float(payload["cash"])
+    card = float(payload["card"])
+    expenses = float(payload["expenses"])
+
+    net = cash + card
+    total = net - expenses
+
     db.execute(text("""
-        INSERT INTO cash (date, weekday, cash, card, expenses)
-        VALUES (:date, :weekday, :cash, :card, :expenses)
-    """), payload)
+        INSERT INTO cash (date, weekday, cash, card, expenses, net_income, total)
+        VALUES (:date, :weekday, :cash, :card, :expenses, :net, :total)
+    """), {
+        "date": date,
+        "weekday": weekday,
+        "cash": cash,
+        "card": card,
+        "expenses": expenses,
+        "net": net,
+        "total": total
+    })
+
     db.commit()
     return {"status": "ok"}
+
 
 # 👉 PUT /api/cash/{id}
 @app.put("/api/cash/{cash_id}")
 def update_cash(cash_id: int, payload: dict, db: Session = Depends(get_db)):
+
+    cash = float(payload["cash"])
+    card = float(payload["card"])
+    expenses = float(payload["expenses"])
+
+    net = cash + card
+    total = net - expenses
+
     db.execute(text("""
         UPDATE cash
-        SET cash = :cash,
+        SET 
+            cash = :cash,
             card = :card,
-            expenses = :expenses
+            expenses = :expenses,
+            net_income = :net,
+            total = :total
         WHERE id = :id
     """), {
         "id": cash_id,
-        "cash": payload["cash"],
-        "card": payload["card"],
-        "expenses": payload["expenses"]
+        "cash": cash,
+        "card": card,
+        "expenses": expenses,
+        "net": net,
+        "total": total
     })
+
     db.commit()
     return {"status": "updated"}
+
 
 # 👉 DELETE /api/cash/{id}
 @app.delete("/api/cash/{cash_id}")
@@ -109,6 +91,7 @@ def delete_cash(cash_id: int, db: Session = Depends(get_db)):
     db.execute(text("DELETE FROM cash WHERE id = :id"), {"id": cash_id})
     db.commit()
     return {"status": "deleted"}
+
 
 # ============================================
 #             MÓDULO PRODUCTOS (CORREGIDO)
