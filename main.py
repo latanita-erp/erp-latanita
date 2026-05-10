@@ -40,6 +40,31 @@ def read_root():
     return FileResponse("static/index.html")
 
 # ============================================
+# LOGIN DE EMERGENCIA (SIN BASE DE DATOS)
+# ============================================
+
+from fastapi import HTTPException
+from pydantic import BaseModel
+
+class Login(BaseModel):
+    username: str
+    password: str
+
+@app.post("/api/login")
+def login(data: Login):
+
+    # Usuario y contraseña fijos para trabajar YA
+    if data.username == "cboveda" and data.password == "Xeneize1198$":
+        return {
+            "success": True,
+            "token": "token-1",
+            "role": "admin"
+        }
+
+    raise HTTPException(status_code=401, detail="Credenciales incorrectas")
+
+
+# ============================================
 #               LOGIN REAL ACTIVADO
 # ============================================
 
