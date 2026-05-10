@@ -17,7 +17,7 @@ from sqlalchemy import create_engine, text
 app = FastAPI()
 
 # --- Conexión a Supabase (Directa, correcta) ---
-password = urllib.parse.quote_plus('Latanita1198!')
+password = "Latanita1198!"
 
 DB_URI = (
     f"postgresql+pg8000://postgres:{password}"
@@ -34,7 +34,6 @@ Base = declarative_base()
 
 # --- Archivos estáticos (frontend) ---
 app.mount("/static", StaticFiles(directory="static"), name="static")
-
 
 @app.get("/")
 def read_root():
