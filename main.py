@@ -46,6 +46,16 @@ def read_root():
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
+# --- Conexión a Supabase (Pooler) ---
+password = "Latanita1198%21"
+
+DB_URI = (
+    f"postgresql+pg8000://postgres.juzwfwgonamxyuvoxgbj:"
+    f"{password}@aws-1-sa-east-1.pooler.supabase.com:6543/postgres"
+)
+
+engine = create_engine(DB_URI, pool_pre_ping=True)
+
 class Login(BaseModel):
     username: str
     password: str
