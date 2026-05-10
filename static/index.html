@@ -178,10 +178,13 @@
         </div>
 
         <!-- MODAL EDITAR CAJA -->
-<div class="modal hidden" id="modal-edit-cash">
-    <div class="modal-content">
+<div id="modal-edit-cash" class="modal-overlay hidden">
+    <div class="modal-content glass-panel" style="max-width: 450px;">
 
-        <h3>Editar Registro de Caja</h3>
+        <div class="modal-header">
+            <h2>Editar Registro de Caja</h2>
+            <button class="close-btn" onclick="toggleModal('modal-edit-cash')">×</button>
+        </div>
 
         <form id="edit-cash-form" class="cash-grid">
 
@@ -212,14 +215,20 @@
                 <input type="number" step="0.01" id="edit-cash-expenses" required>
             </div>
 
-            <div class="input-group flex-end">
-                <button class="btn btn-primary">Guardar Cambios</button>
+            <div style="display:flex; gap:10px; margin-top: 1rem;">
+                <button type="button" class="btn btn-secondary" onclick="toggleModal('modal-edit-cash')">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn btn-primary" style="flex:1;">
+                    Guardar Cambios
+                </button>
             </div>
 
         </form>
 
     </div>
 </div>
+
 
         <!-- MODAL AJUSTE MASIVO -->
         <div id="modal-mass-margin" class="modal-overlay">
