@@ -40,11 +40,18 @@ def read_root():
     return FileResponse("static/index.html")
 
 # ============================================
-#               LOGIN DESACTIVADO
+#               LOGIN REAL ACTIVADO
 # ============================================
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException, Header
 from sqlalchemy.orm import Session
+from passlib.context import CryptContext
+
+pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+class Login(BaseModel):
+    username: str
+    password: str
 
 # --- Conexión a Supabase (Pooler) ---
 password = "Latanita1198%21"
@@ -56,10 +63,6 @@ DB_URI = (
 
 engine = create_engine(DB_URI, pool_pre_ping=True)
 
-class Login(BaseModel):
-    username: str
-    password: str
-
 def get_db():
     db = SessionLocal()
     try:
@@ -67,23 +70,41 @@ def get_db():
     finally:
         db.close()
 
-# --- Endpoint de Login SIEMPRE EXITOSO ---
+# --- LOGIN REAL ---
 @app.post("/api/login")
 def login(data: Login, db: Session = Depends(get_db)):
+    user = db.execute(
+        text("SELECT * FROM users WHERE username = :u"),
+        {"u": data.username}
+    ).mappings().first()
+
+    if not user:
+        raise HTTPException(status_code=401, detail="Usuario no encontrado")
+
+    if not pwd.verify(data.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Contraseña incorrecta")
+
     return {
         "success": True,
-        "token": "token-libre",
-        "role": "admin"
+        "token": f"token-{user['id']}",
+        "role": user.get("role", "admin")
     }
 
 # ============================================
-#        PROTECCIÓN DE ENDPOINTS DESACTIVADA
+#        PROTECCIÓN DE ENDPOINTS ACTIVADA
 # ============================================
 
-from fastapi import Header
-
 def require_auth(authorization: str = Header(None)):
-    return True
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="No autorizado")
+
+    token = authorization.replace("Bearer ", "")
+
+    if not token.startswith("token-"):
+        raise HTTPException(status_code=401, detail="Token inválido")
+
+    return token
+
 
 
 # ============================================
