@@ -1,8 +1,75 @@
 # ============================================
+#           CONFIGURACIÓN GENERAL
+# ============================================
+
+import os
+import math
+import datetime
+import urllib.parse
+import pandas as pd
+
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, StreamingResponse
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker, declarative_base, Session
+import pdfkit
+import io
+
+app = FastAPI()
+
+# ============================================
+#        CONEXIÓN A SUPABASE (POOLER)
+# ============================================
+
+DB_URI = (
+    "postgresql+pg8000://postgres.juzwfwgonamxyuvoxgbj:"
+    "Latanita1198!@aws-0-sa-east-1.pooler.supabase.com:6543/postgres"
+)
+
+engine = create_engine(DB_URI, pool_pre_ping=True)
+
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# ============================================
+#           ARCHIVOS ESTÁTICOS
+# ============================================
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.get("/")
+def read_root():
+    return FileResponse("static/index.html")
+
+# ============================================
+#            FUNCIONES AUXILIARES
+# ============================================
+
+def calculate_prices(cost, margin):
+    base_price_kg = cost * (1 + margin / 100)
+    price_kg = math.ceil(base_price_kg / 100.0) * 100.0
+    price_100g = math.ceil((base_price_kg / 10.0) / 100.0) * 100.0
+    price_150g = math.ceil((base_price_kg * 0.15) / 100.0) * 100.0
+    price_250g = math.ceil((base_price_kg * 0.25) / 100.0) * 100.0
+    return {
+        "price_kg": price_kg,
+        "price_100g": price_100g,
+        "price_150g": price_150g,
+        "price_250g": price_250g,
+    }
+
+# ============================================
 #             MÓDULO CAJA DIARIA (FINAL)
 # ============================================
 
-# 👉 Tu frontend usa /api/cash/all
 @app.get("/api/cash/all")
 def get_cash_all(db: Session = Depends(get_db)):
     result = db.execute(text("""
@@ -22,7 +89,6 @@ def get_cash_all(db: Session = Depends(get_db)):
     return [dict(r) for r in result]
 
 
-# 👉 POST /api/cash
 @app.post("/api/cash")
 def create_cash(payload: dict, db: Session = Depends(get_db)):
 
@@ -49,10 +115,9 @@ def create_cash(payload: dict, db: Session = Depends(get_db)):
     })
 
     db.commit()
-    return {"status": "ok"}
+    return {"status": "created"}
 
 
-# 👉 PUT /api/cash/{id}
 @app.put("/api/cash/{cash_id}")
 def update_cash(cash_id: int, payload: dict, db: Session = Depends(get_db)):
 
@@ -85,16 +150,14 @@ def update_cash(cash_id: int, payload: dict, db: Session = Depends(get_db)):
     return {"status": "updated"}
 
 
-# 👉 DELETE /api/cash/{id}
 @app.delete("/api/cash/{cash_id}")
 def delete_cash(cash_id: int, db: Session = Depends(get_db)):
     db.execute(text("DELETE FROM cash WHERE id = :id"), {"id": cash_id})
     db.commit()
     return {"status": "deleted"}
 
-
 # ============================================
-#             MÓDULO PRODUCTOS (CORREGIDO)
+#             MÓDULO PRODUCTOS (FINAL)
 # ============================================
 
 @app.get("/api/products")
@@ -106,6 +169,7 @@ def get_products(db: Session = Depends(get_db)):
         ORDER BY type ASC, name ASC
     """)).mappings().all()
     return [dict(r) for r in result]
+
 
 @app.post("/api/products")
 def create_product(payload: dict, db: Session = Depends(get_db)):
@@ -127,6 +191,7 @@ def create_product(payload: dict, db: Session = Depends(get_db)):
 
     db.commit()
     return {"status": "created"}
+
 
 @app.put("/api/products/{product_id}")
 def update_product(product_id: int, payload: dict, db: Session = Depends(get_db)):
@@ -161,6 +226,7 @@ def update_product(product_id: int, payload: dict, db: Session = Depends(get_db)
     db.commit()
     return {"status": "updated"}
 
+
 @app.delete("/api/products/{product_id}")
 def delete_product(product_id: int, db: Session = Depends(get_db)):
     db.execute(text("DELETE FROM products WHERE id = :id"), {"id": product_id})
@@ -168,8 +234,9 @@ def delete_product(product_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"status": "deleted"}
 
+
 # ============================================
-#        PROVEEDORES POR PRODUCTO (CORREGIDO)
+#        PROVEEDORES POR PRODUCTO (FINAL)
 # ============================================
 
 @app.get("/api/products/{product_id}/suppliers")
@@ -190,7 +257,6 @@ def add_supplier(product_id: int, payload: dict, db: Session = Depends(get_db)):
     supplier_name = payload["supplier_name"]
     cost = float(payload["cost"])
 
-    # Insertar proveedor
     db.execute(text("""
         INSERT INTO product_suppliers (product_id, supplier_name, cost)
         VALUES (:pid, :name, :cost)
@@ -200,16 +266,14 @@ def add_supplier(product_id: int, payload: dict, db: Session = Depends(get_db)):
         "cost": cost
     })
 
-    # Recalcular costo máximo
     suppliers = db.execute(text("""
         SELECT cost FROM product_suppliers WHERE product_id = :pid
     """), {"pid": product_id}).mappings().all()
 
     max_cost = max([s["cost"] for s in suppliers]) if suppliers else 0.0
 
-    # Obtener margen actual
     product = db.execute(text("""
-        SELECT margin, promotion FROM products WHERE id = :pid
+        SELECT margin FROM products WHERE id = :pid
     """), {"pid": product_id}).mappings().first()
 
     if product:
@@ -239,19 +303,16 @@ def add_supplier(product_id: int, payload: dict, db: Session = Depends(get_db)):
 @app.delete("/api/products/{product_id}/suppliers/{supplier_id}")
 def delete_supplier(product_id: int, supplier_id: int, db: Session = Depends(get_db)):
 
-    # Borrar proveedor
     db.execute(text("""
         DELETE FROM product_suppliers WHERE id = :sid
     """), {"sid": supplier_id})
 
-    # Recalcular costo máximo
     suppliers = db.execute(text("""
         SELECT cost FROM product_suppliers WHERE product_id = :pid
     """), {"pid": product_id}).mappings().all()
 
     max_cost = max([s["cost"] for s in suppliers]) if suppliers else 0.0
 
-    # Obtener margen actual
     product = db.execute(text("""
         SELECT margin FROM products WHERE id = :pid
     """), {"pid": product_id}).mappings().first()
@@ -281,7 +342,7 @@ def delete_supplier(product_id: int, supplier_id: int, db: Session = Depends(get
 
 
 # ============================================
-#        IMPORTACIÓN DESDE EXCEL (CORREGIDO)
+#        IMPORTACIÓN DESDE EXCEL (FINAL)
 # ============================================
 
 @app.post("/api/products/import")
@@ -289,7 +350,6 @@ def import_products(file: UploadFile = File(...), db: Session = Depends(get_db))
     try:
         df = pd.read_excel(file.file)
 
-        # Columnas esperadas según tu Excel real
         required_cols = ["name", "type", "cost", "margin"]
         for col in required_cols:
             if col not in df.columns:
@@ -329,96 +389,9 @@ def import_products(file: UploadFile = File(...), db: Session = Depends(get_db))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# ============================================
-#             MÓDULO CAJA DIARIA (CORREGIDO)
-# ============================================
-
-# 👉 Tu frontend usa /api/cash/all
-@app.get("/api/cash/all")
-def get_cash_all(db: Session = Depends(get_db)):
-    result = db.execute(text("""
-        SELECT id, date, weekday, cash, card, expenses,
-               (cash + card) AS net_income,
-               (cash + card - expenses) AS total
-        FROM cash
-        ORDER BY date ASC
-    """)).mappings().all()
-
-    return [dict(r) for r in result]
-
-
-# 👉 POST /api/cash
-@app.post("/api/cash")
-def create_cash(payload: dict, db: Session = Depends(get_db)):
-
-    date = payload["date"]
-    weekday = payload["weekday"]
-    cash = float(payload["cash"])
-    card = float(payload["card"])
-    expenses = float(payload["expenses"])
-
-    net = cash + card
-    total = net - expenses
-
-    db.execute(text("""
-        INSERT INTO cash (date, weekday, cash, card, net_income, expenses, total)
-        VALUES (:date, :weekday, :cash, :card, :net, :expenses, :total)
-    """), {
-        "date": date,
-        "weekday": weekday,
-        "cash": cash,
-        "card": card,
-        "net": net,
-        "expenses": expenses,
-        "total": total
-    })
-
-    db.commit()
-    return {"status": "created"}
-
-
-# 👉 PUT /api/cash/{id}
-@app.put("/api/cash/{cash_id}")
-def update_cash(cash_id: int, payload: dict, db: Session = Depends(get_db)):
-
-    cash = float(payload["cash"])
-    card = float(payload["card"])
-    expenses = float(payload["expenses"])
-
-    net = cash + card
-    total = net - expenses
-
-    db.execute(text("""
-        UPDATE cash
-        SET cash = :cash,
-            card = :card,
-            expenses = :expenses,
-            net_income = :net,
-            total = :total
-        WHERE id = :id
-    """), {
-        "id": cash_id,
-        "cash": cash,
-        "card": card,
-        "expenses": expenses,
-        "net": net,
-        "total": total
-    })
-
-    db.commit()
-    return {"status": "updated"}
-
-
-# 👉 DELETE /api/cash/{id}
-@app.delete("/api/cash/{cash_id}")
-def delete_cash(cash_id: int, db: Session = Depends(get_db)):
-    db.execute(text("DELETE FROM cash WHERE id = :id"), {"id": cash_id})
-    db.commit()
-    return {"status": "deleted"}
-
 
 # ============================================
-#             MÓDULO DASHBOARD (CORREGIDO)
+#             MÓDULO DASHBOARD (FINAL)
 # ============================================
 
 @app.get("/api/dashboard")
@@ -441,14 +414,12 @@ def get_dashboard(db: Session = Depends(get_db)):
     df["date"] = pd.to_datetime(df["date"])
     df["month"] = df["date"].dt.strftime("%Y-%m")
 
-    # ⭐ KPIs
     kpis = {
         "total_revenue": float(df["net_income"].sum()),
         "total_expenses": float(df["expenses"].sum()),
         "total_profit": float(df["total"].sum()),
     }
 
-    # ⭐ Resumen mensual
     monthly = (
         df.groupby("month")[["total", "cash", "card"]]
         .sum()
@@ -456,7 +427,6 @@ def get_dashboard(db: Session = Depends(get_db)):
         .to_dict(orient="records")
     )
 
-    # ⭐ Semanas reales
     df["week_start"] = df["date"] - pd.to_timedelta(df["date"].dt.dayofweek, unit="d")
     df["week_end"] = df["week_start"] + pd.Timedelta(days=6)
     df["week_range"] = (
@@ -477,7 +447,6 @@ def get_dashboard(db: Session = Depends(get_db)):
             "total": float(row["total"])
         })
 
-    # ⭐ Métodos de pago
     payment_methods = {
         "cash": float(df["cash"].sum()),
         "card": float(df["card"].sum()),
@@ -495,10 +464,6 @@ def get_dashboard(db: Session = Depends(get_db)):
 #             GENERACIÓN DE PDF
 # ============================================
 
-from fastapi.responses import StreamingResponse
-import pdfkit
-import io
-
 @app.post("/api/generate-pdf")
 def generate_pdf(data: dict):
     html = data.get("html", "")
@@ -513,3 +478,4 @@ def generate_pdf(data: dict):
         media_type="application/pdf",
         headers={"Content-Disposition": "inline; filename=lista.pdf"}
     )
+
