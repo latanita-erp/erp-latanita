@@ -763,16 +763,17 @@ document.getElementById('cash-form').addEventListener('submit', async (e) => {
 });
 
 // =====================================================
-//                 EDITAR REGISTRO
+//                 EDITAR REGISTRO (CORREGIDO)
 // =====================================================
 
 function openEditCash(id, date, cash, card, expenses) {
+    // ID del registro
     document.getElementById('edit-cash-id').value = id;
 
-    // Setear fecha en formato YYYY-MM-DD
+    // Fecha en formato YYYY-MM-DD
     document.getElementById('edit-cash-date').value = date;
 
-    // Autocompletar día
+    // Día automático
     const weekday = new Date(date).toLocaleDateString("es-AR", { weekday: "long" });
     document.getElementById('edit-cash-weekday').value = weekday.toUpperCase();
 
@@ -781,10 +782,12 @@ function openEditCash(id, date, cash, card, expenses) {
     document.getElementById('edit-cash-card').value = card;
     document.getElementById('edit-cash-expenses').value = expenses;
 
+    // Abrir modal
     toggleModal('modal-edit-cash');
 }
 
-// --- AUTO-COMPLETAR DÍA EN EDICIÓN ---
+
+// --- AUTO-COMPLETAR DÍA AL CAMBIAR FECHA EN EDICIÓN ---
 document.getElementById("edit-cash-date").addEventListener("change", (e) => {
     const date = e.target.value;
     if (!date) return;
