@@ -209,18 +209,29 @@ input:focus, select:focus { border-color: var(--primary-color); }
 .pretty-box {
     padding: 1.8rem;
     border-radius: 18px;
-    backdrop-filter: blur(12px);
-    background: rgba(255,255,255,0.12);
-    border: 1px solid rgba(255,255,255,0.15);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    backdrop-filter: blur(14px);
+    background: rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pretty-box:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.30);
 }
 
 .section-title {
-    font-size: 1.4rem;
-    margin-bottom: 1rem;
+    font-size: 1.45rem;
+    margin-bottom: 1.2rem;
     font-weight: 600;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.4px;
+    color: #fff;
 }
+
+/* ========================= */
+/*     GRID PREMIUM          */
+/* ========================= */
 
 .pretty-grid {
     display: grid;
@@ -230,19 +241,21 @@ input:focus, select:focus { border-color: var(--primary-color); }
 
 .pretty-item {
     padding: 1rem;
-    border-radius: 12px;
-    background: rgba(255,255,255,0.08);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.08);
     text-align: center;
+    box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.05);
 }
 
 .pretty-item label {
     font-size: 0.9rem;
-    opacity: 0.8;
+    opacity: 0.75;
 }
 
 .pretty-item span {
-    font-size: 1.3rem;
-    font-weight: bold;
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #fff;
 }
 
 .highlight-green span {
@@ -253,27 +266,101 @@ input:focus, select:focus { border-color: var(--primary-color); }
     color: var(--danger-color);
 }
 
+/* ========================= */
+/*     KPI PREMIUM           */
+/* ========================= */
+
 .pretty-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
     gap: 1.5rem;
+    margin-bottom: 2rem;
 }
 
 .pretty-kpi {
+    padding: 1.6rem;
     border-radius: 16px;
-    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.10);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+    transition: transform 0.2s ease;
+}
+
+.pretty-kpi:hover {
+    transform: translateY(-4px);
+}
+
+.pretty-kpi .kpi-icon {
+    font-size: 2.6rem;
+}
+
+.pretty-kpi .kpi-info h3 {
+    font-size: 1rem;
+    opacity: 0.85;
+}
+
+.pretty-kpi .kpi-value {
+    font-size: 1.9rem;
+    font-weight: 700;
+    margin-top: 0.3rem;
+}
+
+/* ========================= */
+/*     CHARTS PREMIUM        */
+/* ========================= */
+
+.charts-grid-compact {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.small-chart {
+    max-height: 330px;
 }
 
 .pretty-charts .chart-box {
     padding: 1.5rem;
 }
 
+/* ========================= */
+/*     TABLAS PREMIUM        */
+/* ========================= */
+
 .pretty-table th,
 .pretty-table td {
-    padding: 0.8rem 1rem;
+    padding: 0.85rem 1rem;
     font-size: 1rem;
+    color: #fff;
+}
+
+.pretty-table thead {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.pretty-table tbody tr {
+    transition: background 0.2s ease;
 }
 
 .pretty-table tbody tr:hover {
-    background: rgba(255,255,255,0.08);
+    background: rgba(255, 255, 255, 0.10);
+}
+
+/* ========================= */
+/*     TITULOS Y HEADER      */
+/* ========================= */
+
+.dash-header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.3rem;
+}
+
+.dash-header p {
+    opacity: 0.8;
+    margin-bottom: 1.5rem;
 }
 
 /* --- CAJA DIARIA MODERNA --- */
