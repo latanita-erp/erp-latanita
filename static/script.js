@@ -21,9 +21,51 @@ function formatMonthLiteral(monthStr) {
     return monthStr;
 }
 
+// --- LOGIN REAL ---
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const u = document.getElementById('username').value;
+    const p = document.getElementById('password').value;
+
+    try {
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({username: u, password: p})
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+            document.getElementById('login-error').innerText = data.detail || 'Credenciales incorrectas';
+            return;
+        }
+
+        localStorage.setItem('erp_token', data.token);
+        state.token = data.token;
+        showApp();
+
+    } catch (err) {
+        document.getElementById('login-error').innerText = 'Error de conexión';
+    }
+});
+
+// --- MOSTRAR APP (sin cargar dashboard acá) ---
+function showApp() {
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('app-screen').classList.remove('hidden');
+}
+
+// --- LOGOUT ---
+document.getElementById('logout-btn').addEventListener('click', () => {
+    localStorage.removeItem('erp_token');
+    window.location.reload();
+});
+
 // --- INICIALIZACIÓN ---
-document.addEventListener('DOMContentLoaded', () => {
-    // Check if already logged in (mock)
+document.addEventListener('DOMContentLoaded', async () => {
+
+    // Si ya estaba logueado
     if (localStorage.getItem('erp_token')) {
         state.token = localStorage.getItem('erp_token');
         showApp();
@@ -50,52 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('excel-file').addEventListener('change', handleExcelUpload);
 });
 
-// --- UI UTILS ---
-function toggleModal(id) {
-    const modal = document.getElementById(id);
-    if (!modal) return;
-
-    modal.classList.toggle("active");
-}
-
-// --- LOGIN ---
-document.getElementById('login-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const u = document.getElementById('username').value;
-    const p = document.getElementById('password').value;
-    
-    try {
-        const res = await fetch('/api/login', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({username: u, password: p})
-        });
-        if (res.ok) {
-            const data = await res.json();
-            localStorage.setItem('erp_token', data.token);
-            state.token = data.token;
-            showApp();
-        } else {
-            document.getElementById('login-error').innerText = 'Credenciales incorrectas';
-        }
-    } catch (err) {
-        document.getElementById('login-error').innerText = 'Error de conexión';
-    }
-});
-
-function showApp() {
-    document.getElementById('login-screen').classList.remove('active');
-    document.getElementById('login-screen').classList.add('hidden');
-    document.getElementById('app-screen').classList.remove('hidden');
-    loadData('dashboard'); // default view
-}
-
-document.getElementById('logout-btn').addEventListener('click', () => {
-    localStorage.removeItem('erp_token');
-    window.location.reload();
-});
-
-// --- TOAST DE MENSAJES (ÉXITO / ERROR) ---
+// --- TOAST DE MENSAJES ---
 function showToast(msg, type = "success") {
     const toast = document.createElement("div");
     toast.className = `toast ${type}`;
@@ -109,7 +106,6 @@ function showToast(msg, type = "success") {
         setTimeout(() => toast.remove(), 300);
     }, 2500);
 }
-
 
 // --- CARGA DE DATOS ---
 async function loadData(view) {
@@ -645,11 +641,17 @@ async function fetchSuppliers(productId) {
     suppliers.forEach(s => {
         const isMin = s.cost === minCost;
         const tr = document.createElement('tr');
-        if(isMin) tr.style.background = 'rgba(16, 185, 129, 0.1)';
+        if (isMin) tr.style.background = 'rgba(16, 185, 129, 0.1)';
         tr.innerHTML = `
             <td>${isMin ? '🟢 ' : ''}${s.supplier_name}</td>
-            <td style="font-weight: ${isMin ? 'bold' : 'normal'}; color: ${isMin ? 'var(--success-color)' : 'inherit'}">$${formatMoney(s.cost)}</td>
-            <td><button class="btn btn-danger" onclick="deleteSupplier(${productId}, ${s.id})" style="padding: 0.3rem 0.6rem;">❌</button></td>
+            <td style="font-weight: ${isMin ? 'bold' : 'normal'}; color: ${isMin ? 'var(--success-color)' : 'inherit'}">
+                $${formatMoney(s.cost)}
+            </td>
+            <td>
+                <button class="btn btn-danger" onclick="deleteSupplier(${productId}, ${s.id})" style="padding: 0.3rem 0.6rem;">
+                    ❌
+                </button>
+            </td>
         `;
         tbody.appendChild(tr);
     });
@@ -673,19 +675,13 @@ document.getElementById('add-supplier-form').addEventListener('submit', async (e
 });
 
 async function deleteSupplier(productId, supplierId) {
-    if(confirm('¿Eliminar proveedor?')) {
+    if (confirm('¿Eliminar proveedor?')) {
         await fetch(`/api/products/${productId}/suppliers/${supplierId}`, { method: 'DELETE' });
         await fetchSuppliers(productId);
         fetchProducts();
     }
 }
 
-// --- ESTADO GLOBAL ---
-const state = {
-    cash: [],
-    dashboard: {},
-    products: []
-};
 
 // --- CAJA ---
 async function fetchCash() {
@@ -726,7 +722,7 @@ async function fetchCash() {
 
 function renderCash() {
     const tbody = document.querySelector('#cash-table tbody');
-    if (!tbody) return; // ← evita errores si el HTML aún no cargó
+    if (!tbody) return;
 
     tbody.innerHTML = '';
     state.cash.forEach(c => {
@@ -798,7 +794,7 @@ document.getElementById('edit-cash-form').addEventListener('submit', async (e) =
 });
 
 async function deleteCash(id) {
-    if(confirm('¿Eliminar este registro de caja?')) {
+    if (confirm('¿Eliminar este registro de caja?')) {
         await fetch(`/api/cash/${id}`, { method: 'DELETE' });
         fetchCash();
     }
@@ -831,7 +827,6 @@ function renderDashboard() {
     Chart.defaults.color = '#94a3b8';
     Chart.defaults.font.family = 'Inter';
 
-    // --- GRÁFICOS (sin cambios, funcionan perfecto) ---
     // 1. Mensual
     const ctxMonthly = document.getElementById('chart-monthly').getContext('2d');
     charts.monthly = new Chart(ctxMonthly, {
@@ -901,9 +896,9 @@ function renderDashboard() {
 
 // --- INICIALIZACIÓN DE LA APP ---
 async function init() {
-    await fetchCash();        // 1) Primero cargar caja
-    await fetchDashboard();   // 2) Luego dashboard (usa state.cash)
-    await fetchProducts();    // 3) Finalmente productos
+    await fetchCash();        // 1) Caja primero
+    await fetchDashboard();   // 2) Dashboard con caja cargada
+    await fetchProducts();    // 3) Productos
 }
 
 window.onload = init;
