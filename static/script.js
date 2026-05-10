@@ -853,10 +853,42 @@ async function deleteCash(id) {
 let charts = {};
 
 async function fetchDashboard() {
+
+    // 1. Traer datos del backend
     const res = await fetch('/api/dashboard');
     state.dashboard = await res.json();
+
+    // 2. Renderizar KPIs y estructura principal
     renderDashboard();
+
+    // 3. Renderizar gráficos del dashboard
+    // (todos usan state.cash que viene dentro de state.dashboard)
+    const cashData = state.dashboard.cash || [];
+
+    // --- Ventas por día del mes actual ---
+    renderDailySalesChart(cashData);
+
+    // --- Efectivo vs Tarjeta ---
+    renderPaymentChart(cashData);
+
+    // --- Comparativo mensual ---
+    renderMonthCompareChart(cashData);
+
+    // --- Mejor y peor día por mes ---
+    const stats = calculateMonthlyDayStats(cashData);
+    renderBestWorstTable(stats);
+
+    // --- Ranking de días por mes ---
+    const ranking = calculateMonthlyDayRanking(cashData);
+    renderMonthlyDayRanking(ranking);
+
+    // --- Distribución por día de la semana ---
+    renderWeekdayDistributionChart(cashData);
+
+    // --- Desglose semanal ---
+    renderWeeklyBreakdown(cashData);
 }
+
 
 // ---------- Cálculos de resumen mensual ----------
 
@@ -986,32 +1018,40 @@ function renderBestWorstTable(stats) {
     });
 }
 
+function renderDailySalesChart(cashData) {
+    const currentMonth = new Date().toISOString().slice(0, 7);
 
-function renderBestWorstTable(stats) {
-    const tbody = document.querySelector('#best-worst-table tbody');
-    if (!tbody) return;
+    const rows = cashData.filter(r => r.date.startsWith(currentMonth));
 
-    tbody.innerHTML = '';
+    const labels = rows.map(r => r.date.split("-")[2]); // día del mes
+    const values = rows.map(r => r.net_income); // ventas netas
 
-    stats.forEach(row => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${formatMonthLiteral(row.month)}</td>
+    const canvas = document.getElementById("chart-daily-sales");
+    if (!canvas) return;
 
-            <!-- Mejor día en verde -->
-            <td style="color: var(--success-color); font-weight: bold;">
-                ${row.best.weekday} ($${formatMoney(row.best.total)})
-            </td>
+    const ctx = canvas.getContext("2d");
 
-            <!-- Peor día en rojo -->
-            <td style="color: var(--danger-color); font-weight: bold;">
-                ${row.worst.weekday} ($${formatMoney(row.worst.total)})
-            </td>
-        `;
-        tbody.appendChild(tr);
+    new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels,
+            datasets: [{
+                label: "Ventas del Día",
+                data: values,
+                backgroundColor: "rgba(0, 123, 255, 0.6)",
+                borderColor: "rgba(0, 123, 255, 1)",
+                borderWidth: 1,
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
     });
 }
-
 
 // ---------- Comparativo mensual ----------
 
