@@ -892,4 +892,12 @@ function renderDashboard() {
     renderMonthlyComparisonChart(state.cash);
 }
 
+// --- INICIALIZACIÓN DE LA APP ---
+async function init() {
+    await fetchCash();        // 1) Primero cargar caja
+    await fetchDashboard();   // 2) Luego dashboard (usa state.cash)
+    await fetchProducts();    // 3) Finalmente productos
+}
+
+window.onload = init;
 
