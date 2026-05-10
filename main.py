@@ -53,12 +53,12 @@ class Login(BaseModel):
     username: str
     password: str
 
-# --- Conexión a Supabase (Pooler) ---
+# --- Conexión a Supabase (Pooler CORRECTO) ---
 password = "Latanita1198%21"
 
 DB_URI = (
     f"postgresql+pg8000://postgres.juzwfwgonamxyuvoxgbj:"
-    f"{password}@aws-1-sa-east-1.pooler.supabase.com:6543/postgres"
+    f"{password}@aws-0-sa-east-1.pooler.supabase.com:5432/postgres"
 )
 
 engine = create_engine(DB_URI, pool_pre_ping=True)
@@ -104,6 +104,7 @@ def require_auth(authorization: str = Header(None)):
         raise HTTPException(status_code=401, detail="Token inválido")
 
     return token
+
 
 
 
