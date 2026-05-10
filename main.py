@@ -8,25 +8,21 @@ import datetime
 import urllib.parse
 import pandas as pd
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Header
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
-from passlib.context import CryptContext
 
 app = FastAPI()
 
 # ============================================
-#        CONEXIÓN A SUPABASE (CORRECTA)
+#        CONEXIÓN A SUPABASE (POOLER)
 # ============================================
 
-password = "Latanita1198!"
-
 DB_URI = (
-    f"postgresql+pg8000://postgres:{password}"
-    f"@db.juzwfwgonamxyuvoxgbj.supabase.co:5432/postgres"
+    "postgresql+pg8000://postgres.juzwfwgonamxyuvoxgbj:"
+    "Latanita1198!@aws-0-sa-east-1.pooler.supabase.com:6543/postgres"
 )
 
 engine = create_engine(DB_URI, pool_pre_ping=True)
@@ -47,54 +43,10 @@ def get_db():
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# ⭐ ABRIR DIRECTO EL DASHBOARD
 @app.get("/")
 def read_root():
-    return FileResponse("static/index.html")
-
-# ============================================
-#               LOGIN REAL
-# ============================================
-
-pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-class Login(BaseModel):
-    username: str
-    password: str
-
-@app.post("/api/login")
-def login(data: Login, db: Session = Depends(get_db)):
-
-    user = db.execute(
-        text("SELECT * FROM users WHERE username = :u"),
-        {"u": data.username}
-    ).mappings().first()
-
-    if not user:
-        raise HTTPException(status_code=401, detail="Usuario no encontrado")
-
-    if not pwd.verify(data.password, user["password_hash"]):
-        raise HTTPException(status_code=401, detail="Contraseña incorrecta")
-
-    return {
-        "success": True,
-        "token": f"token-{user['id']}",
-        "role": user.get("role", "admin")
-    }
-
-# ============================================
-#        PROTECCIÓN DE ENDPOINTS
-# ============================================
-
-def require_auth(authorization: str = Header(None)):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="No autorizado")
-
-    token = authorization.replace("Bearer ", "")
-
-    if not token.startswith("token-"):
-        raise HTTPException(status_code=401, detail="Token inválido")
-
-    return token
+    return FileResponse("static/dashboard.html")
 
 # ============================================
 #            FUNCIONES AUXILIARES
@@ -118,7 +70,7 @@ def calculate_prices(cost, margin):
 # ============================================
 
 @app.get("/api/cash")
-def get_cash(db: Session = Depends(get_db), token: str = Depends(require_auth)):
+def get_cash(db: Session = Depends(get_db)):
 
     result = db.execute(
         text("SELECT * FROM cash ORDER BY id DESC LIMIT 1")
@@ -136,8 +88,6 @@ def get_cash(db: Session = Depends(get_db), token: str = Depends(require_auth)):
         "amount": result["amount"],
         "updated_at": result["updated_at"]
     }
-
-
 
 # ============================================
 #             MÓDULO PRODUCTOS
