@@ -652,13 +652,10 @@ function toggleModal(id) {
     const modal = document.getElementById(id);
     if (!modal) return;
 
-    // Si está oculto → mostrar
     if (modal.classList.contains("hidden")) {
         modal.classList.remove("hidden");
         modal.classList.add("active");
-    }
-    // Si está visible → ocultar
-    else {
+    } else {
         modal.classList.remove("active");
         modal.classList.add("hidden");
     }
@@ -669,7 +666,7 @@ function toggleModal(id) {
 // =====================================================
 function getWeekdayFromDate(dateString) {
     const [year, month, day] = dateString.split("-");
-    const date = new Date(year, month - 1, day); 
+    const date = new Date(year, month - 1, day);
     return date.toLocaleDateString("es-AR", { weekday: "long" }).toUpperCase();
 }
 
@@ -682,8 +679,7 @@ document.getElementById("cash-date").addEventListener("change", (e) => {
     const date = e.target.value;
     if (!date) return;
 
-    const weekday = new Date(date).toLocaleDateString("es-AR", { weekday: "long" });
-    document.getElementById("cash-weekday").value = weekday.toUpperCase();
+    document.getElementById("cash-weekday").value = getWeekdayFromDate(date);
 });
 
 // =====================================================
@@ -698,9 +694,7 @@ async function fetchCash() {
         let date = r.date;
         if (date && date.includes("T")) date = date.split("T")[0];
 
-        const weekday = (r.weekday ||
-            new Date(date).toLocaleDateString("es-AR", { weekday: "long" })
-        ).toUpperCase();
+        const weekday = (r.weekday || getWeekdayFromDate(date)).toUpperCase();
 
         const cash = Number(r.cash ?? 0);
         const card = Number(r.card ?? 0);
@@ -767,11 +761,9 @@ document.getElementById('cash-form').addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const date = document.getElementById('cash-date').value;
-
     let weekday = document.getElementById('cash-weekday').value;
-    if (!weekday) {
-        weekday = new Date(date).toLocaleDateString("es-AR", { weekday: "long" }).toUpperCase();
-    }
+
+    if (!weekday) weekday = getWeekdayFromDate(date);
 
     const payload = {
         date,
@@ -799,9 +791,7 @@ function openEditCash(id, date, cash, card, expenses) {
     document.getElementById('edit-cash-id').value = id;
 
     document.getElementById('edit-cash-date').value = date;
-
-    const weekday = new Date(date).toLocaleDateString("es-AR", { weekday: "long" });
-    document.getElementById('edit-cash-weekday').value = weekday.toUpperCase();
+    document.getElementById('edit-cash-weekday').value = getWeekdayFromDate(date);
 
     document.getElementById('edit-cash-cash').value = cash;
     document.getElementById('edit-cash-card').value = card;
@@ -814,8 +804,7 @@ document.getElementById("edit-cash-date").addEventListener("change", (e) => {
     const date = e.target.value;
     if (!date) return;
 
-    const weekday = new Date(date).toLocaleDateString("es-AR", { weekday: "long" });
-    document.getElementById("edit-cash-weekday").value = weekday.toUpperCase();
+    document.getElementById("edit-cash-weekday").value = getWeekdayFromDate(date);
 });
 
 document.getElementById('edit-cash-form').addEventListener('submit', async (e) => {
@@ -825,9 +814,7 @@ document.getElementById('edit-cash-form').addEventListener('submit', async (e) =
     const date = document.getElementById('edit-cash-date').value;
 
     let weekday = document.getElementById('edit-cash-weekday').value;
-    if (!weekday) {
-        weekday = new Date(date).toLocaleDateString("es-AR", { weekday: "long" }).toUpperCase();
-    }
+    if (!weekday) weekday = getWeekdayFromDate(date);
 
     const payload = {
         date,
@@ -857,6 +844,7 @@ async function deleteCash(id) {
         fetchCash();
     }
 }
+
 
 // =====================================================
 //                 DASHBOARD
