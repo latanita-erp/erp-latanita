@@ -635,7 +635,7 @@ async function fetchCash() {
 }
 
 function renderCash() {
-    const tbody = document.querySelector('#cash-table tbody');
+    const tbody = document.getElementById('cash-table-body');
     if (!tbody) return;
 
     tbody.innerHTML = '';
@@ -825,6 +825,9 @@ async function init() {
     await fetchDashboard();
     await fetchProducts();
 }
+
+window.onload = init;
+
 
 window.onload = init;
 
