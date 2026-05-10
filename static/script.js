@@ -648,6 +648,19 @@ async function deleteSupplier(productId, supplierId) {
 //                 CAJA DIARIA
 // =====================================================
 
+// --- AUTO-COMPLETAR DÍA AL ELEGIR FECHA ---
+document.getElementById("cash-date").addEventListener("change", (e) => {
+    const date = e.target.value;
+    if (!date) return;
+
+    const weekday = new Date(date).toLocaleDateString("es-AR", { weekday: "long" });
+    document.getElementById("cash-weekday").value = weekday.toUpperCase();
+});
+
+// =====================================================
+//                 FETCH + NORMALIZACIÓN
+// =====================================================
+
 async function fetchCash() {
     const res = await fetch('/api/cash/all');
     const raw = await res.json();
@@ -682,6 +695,10 @@ async function fetchCash() {
     renderCash();
 }
 
+// =====================================================
+//                 RENDER TABLA
+// =====================================================
+
 function renderCash() {
     const tbody = document.getElementById('cash-table-body');
     if (!tbody) return;
@@ -713,12 +730,24 @@ function renderCash() {
     });
 }
 
+// =====================================================
+//                 NUEVO REGISTRO
+// =====================================================
+
 document.getElementById('cash-form').addEventListener('submit', async (e) => {
     e.preventDefault();
 
+    const date = document.getElementById('cash-date').value;
+
+    // Si por algún motivo el día no se autocompletó, lo calculamos igual
+    let weekday = document.getElementById('cash-weekday').value;
+    if (!weekday) {
+        weekday = new Date(date).toLocaleDateString("es-AR", { weekday: "long" }).toUpperCase();
+    }
+
     const payload = {
-        date: document.getElementById('cash-date').value,
-        weekday: document.getElementById('cash-weekday').value.toUpperCase(),
+        date,
+        weekday,
         cash: parseFloat(document.getElementById('cash-cash').value),
         card: parseFloat(document.getElementById('cash-card').value),
         expenses: parseFloat(document.getElementById('cash-expenses').value)
@@ -733,6 +762,10 @@ document.getElementById('cash-form').addEventListener('submit', async (e) => {
     e.target.reset();
     fetchCash();
 });
+
+// =====================================================
+//                 EDITAR REGISTRO
+// =====================================================
 
 function openEditCash(id, date, cash, card, expenses) {
     document.getElementById('edit-cash-id').value = id;
@@ -767,6 +800,10 @@ document.getElementById('edit-cash-form').addEventListener('submit', async (e) =
     toggleModal('modal-edit-cash');
     fetchCash();
 });
+
+// =====================================================
+//                 ELIMINAR REGISTRO
+// =====================================================
 
 async function deleteCash(id) {
     if (confirm('¿Eliminar este registro de caja?')) {
