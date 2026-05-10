@@ -1,6 +1,5 @@
 // --- ESTADO GLOBAL ---
 let state = {
-    token: null,
     products: [],
     cash: [],
     dashboard: null
@@ -21,55 +20,17 @@ function formatMonthLiteral(monthStr) {
     return monthStr;
 }
 
-// --- LOGIN REAL ---
-document.getElementById('login-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const u = document.getElementById('username').value;
-    const p = document.getElementById('password').value;
-
-    try {
-        const res = await fetch('/api/login', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({username: u, password: p})
-        });
-
-        const data = await res.json();
-
-        if (!res.ok || !data.success) {
-            document.getElementById('login-error').innerText = data.detail || 'Credenciales incorrectas';
-            return;
-        }
-
-        localStorage.setItem('erp_token', data.token);
-        state.token = data.token;
-        showApp();
-
-    } catch (err) {
-        document.getElementById('login-error').innerText = 'Error de conexión';
-    }
-});
-
-// --- MOSTRAR APP (sin cargar dashboard acá) ---
+// --- MOSTRAR APP DIRECTO ---
 function showApp() {
-    document.getElementById('login-screen').classList.add('hidden');
-    document.getElementById('app-screen').classList.remove('hidden');
+    document.getElementById('login-screen')?.classList.add('hidden');
+    document.getElementById('app-screen')?.classList.remove('hidden');
 }
-
-// --- LOGOUT ---
-document.getElementById('logout-btn').addEventListener('click', () => {
-    localStorage.removeItem('erp_token');
-    window.location.reload();
-});
 
 // --- INICIALIZACIÓN ---
 document.addEventListener('DOMContentLoaded', async () => {
 
-    // Si ya estaba logueado
-    if (localStorage.getItem('erp_token')) {
-        state.token = localStorage.getItem('erp_token');
-        showApp();
-    }
+    // Entrar directo a la app
+    showApp();
 
     // Nav buttons
     document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -89,7 +50,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // Excel upload listener
-    document.getElementById('excel-file').addEventListener('change', handleExcelUpload);
+    document.getElementById('excel-file')?.addEventListener('change', handleExcelUpload);
 });
 
 // --- TOAST DE MENSAJES ---
