@@ -262,86 +262,93 @@
             <!-- DASHBOARD -->
 <section id="dashboard" class="view active">
 
-    <!-- ⭐ RESUMEN DEL MES -->
-    <div class="glass-panel summary-box">
-        <h3>Resumen del Mes Actual</h3>
+    <!-- ========================= -->
+    <!--     RESUMEN DEL MES       -->
+    <!-- ========================= -->
+    <div class="glass-panel summary-box pretty-box">
+        <h3 class="section-title">📅 Resumen del Mes Actual</h3>
 
-        <div class="summary-grid">
-            <div class="summary-item">
+        <div class="summary-grid pretty-grid">
+            <div class="summary-item pretty-item">
                 <label>Total Vendido</label>
                 <span id="sum-total-vendido">—</span>
             </div>
 
-            <div class="summary-item">
+            <div class="summary-item pretty-item">
                 <label>Gastos</label>
                 <span id="sum-gastos">—</span>
             </div>
 
-            <div class="summary-item">
+            <div class="summary-item pretty-item">
                 <label>Ganancia Neta</label>
                 <span id="sum-ganancia">—</span>
             </div>
 
-            <div class="summary-item">
+            <div class="summary-item pretty-item highlight-green">
                 <label>Mejor Día</label>
                 <span id="sum-mejor-dia">—</span>
             </div>
 
-            <div class="summary-item">
+            <div class="summary-item pretty-item highlight-red">
                 <label>Peor Día</label>
                 <span id="sum-peor-dia">—</span>
             </div>
 
-            <div class="summary-item">
+            <div class="summary-item pretty-item">
                 <label>Promedio Diario</label>
                 <span id="sum-promedio">—</span>
             </div>
 
-            <div class="summary-item">
+            <div class="summary-item pretty-item">
                 <label>Días Trabajados</label>
                 <span id="sum-dias">—</span>
             </div>
         </div>
     </div>
 
-    <!-- ⭐ TENDENCIA MENSUAL -->
-    <div class="glass-panel summary-box">
-        <h3>Tendencia Mensual</h3>
+    <!-- ========================= -->
+    <!--     TENDENCIA MENSUAL     -->
+    <!-- ========================= -->
+    <div class="glass-panel summary-box pretty-box">
+        <h3 class="section-title">📊 Tendencia Mensual</h3>
 
-        <div class="summary-grid">
-            <div class="summary-item">
+        <div class="summary-grid pretty-grid">
+            <div class="summary-item pretty-item">
                 <label>Ventas vs Mes Anterior</label>
                 <span id="trend-ventas">—</span>
             </div>
 
-            <div class="summary-item">
+            <div class="summary-item pretty-item">
                 <label>Gastos vs Mes Anterior</label>
                 <span id="trend-gastos">—</span>
             </div>
 
-            <div class="summary-item">
+            <div class="summary-item pretty-item">
                 <label>Ganancia vs Mes Anterior</label>
                 <span id="trend-ganancia">—</span>
             </div>
         </div>
     </div>
 
-    <!-- ⭐ DISTRIBUCIÓN POR DÍA DE LA SEMANA -->
-    <div class="glass-panel">
-        <h3>Distribución por Día de la Semana</h3>
+    <!-- ========================= -->
+    <!-- DISTRIBUCIÓN POR DÍA      -->
+    <!-- ========================= -->
+    <div class="glass-panel pretty-box">
+        <h3 class="section-title">📆 Distribución por Día de la Semana</h3>
         <canvas id="chart-weekday-distribution" height="120"></canvas>
     </div>
 
-    <!-- ⭐ DASHBOARD DE RENDIMIENTO -->
+    <!-- ========================= -->
+    <!--   KPI PRINCIPALES         -->
+    <!-- ========================= -->
     <header class="dash-header">
-        <h1>Dashboard de Rendimiento</h1>
+        <h1>📈 Dashboard de Rendimiento</h1>
         <p>Resumen financiero global actualizado</p>
     </header>
 
-    <!-- TARJETAS KPI -->
-    <div class="kpi-grid-modern">
+    <div class="kpi-grid-modern pretty-kpi-grid">
 
-        <div class="kpi-card-modern">
+        <div class="kpi-card-modern pretty-kpi">
             <div class="kpi-icon">💰</div>
             <div class="kpi-info">
                 <h3>Ingresos Totales</h3>
@@ -349,7 +356,7 @@
             </div>
         </div>
 
-        <div class="kpi-card-modern">
+        <div class="kpi-card-modern pretty-kpi">
             <div class="kpi-icon">📉</div>
             <div class="kpi-info">
                 <h3>Gastos Totales</h3>
@@ -357,7 +364,7 @@
             </div>
         </div>
 
-        <div class="kpi-card-modern highlight">
+        <div class="kpi-card-modern pretty-kpi highlight">
             <div class="kpi-icon">📈</div>
             <div class="kpi-info">
                 <h3>Beneficio Neto</h3>
@@ -367,30 +374,34 @@
 
     </div>
 
-    <!-- GRÁFICOS -->
-    <div class="charts-grid-modern">
+    <!-- ========================= -->
+    <!--        GRÁFICOS           -->
+    <!-- ========================= -->
+    <div class="charts-grid-modern pretty-charts">
 
-        <div class="chart-box glass-panel">
-            <h3>Ventas por Mes</h3>
+        <div class="chart-box glass-panel pretty-box">
+            <h3 class="section-title">📅 Ventas por Mes</h3>
             <canvas id="chart-monthly"></canvas>
         </div>
 
-        <div class="chart-box glass-panel">
-            <h3>Efectivo vs Tarjeta</h3>
+        <div class="chart-box glass-panel pretty-box">
+            <h3 class="section-title">💳 Efectivo vs Tarjeta</h3>
             <canvas id="chart-payment"></canvas>
         </div>
 
-        <div class="chart-box glass-panel full-width">
-            <h3>Desglose Semanal</h3>
+        <div class="chart-box glass-panel full-width pretty-box">
+            <h3 class="section-title">📆 Desglose Semanal</h3>
             <div id="weekly-breakdown-container" style="margin-top: 1rem;"></div>
         </div>
 
     </div>
 
-    <!-- ⭐ MEJOR Y PEOR DÍA -->
-    <div class="glass-panel full-width" style="margin-top: 2rem;">
-        <h3>Mejor y Peor Día por Mes</h3>
-        <table class="table" id="best-worst-table">
+    <!-- ========================= -->
+    <!--   MEJOR / PEOR DÍA        -->
+    <!-- ========================= -->
+    <div class="glass-panel full-width pretty-box" style="margin-top: 2rem;">
+        <h3 class="section-title">🏆 Mejor y Peor Día por Mes</h3>
+        <table class="table pretty-table" id="best-worst-table">
             <thead>
                 <tr>
                     <th>Mes</th>
@@ -402,9 +413,11 @@
         </table>
     </div>
 
-    <!-- ⭐ COMPARATIVO MENSUAL -->
-    <div class="chart-box glass-panel full-width" style="margin-top: 2rem;">
-        <h3>Comparativo Mensual</h3>
+    <!-- ========================= -->
+    <!--   COMPARATIVO MENSUAL     -->
+    <!-- ========================= -->
+    <div class="chart-box glass-panel full-width pretty-box" style="margin-top: 2rem;">
+        <h3 class="section-title">📊 Comparativo Mensual</h3>
         <canvas id="chart-month-compare"></canvas>
     </div>
 
