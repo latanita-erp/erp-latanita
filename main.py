@@ -24,7 +24,7 @@ app = FastAPI()
 
 DB_URI = (
     "postgresql+pg8000://postgres.juzwfwgonamxyuvoxgbj:"
-    "Latanita1198!@aws-0-sa-east-1.pooler.supabase.com:6543/postgres"
+    "Latanita1198!@aws-1-sa-east-1.pooler.supabase.com:6543/postgres"
 )
 
 engine = create_engine(DB_URI, pool_pre_ping=True)
