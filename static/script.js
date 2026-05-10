@@ -80,7 +80,6 @@ async function fetchProducts() {
     const res = await fetch('/api/products');
     const data = await res.json();
 
-    // Convertir cost y margin a número SIEMPRE
     state.products = data.map(p => ({
         ...p,
         cost: parseFloat(p.cost),
@@ -114,9 +113,8 @@ function renderProducts() {
     });
 }
 
-/* ⭐⭐⭐ A PARTIR DE ACÁ PEGÁS LA DISTRIBUCIÓN SEMANAL ⭐⭐⭐ */
+/* ⭐⭐⭐ DISTRIBUCIÓN SEMANAL ⭐⭐⭐ */
 
-// --- Calcular distribución por día de la semana ---
 function calculateWeekdayDistribution(cashData) {
     const days = {
         "LUNES": 0,
@@ -138,7 +136,6 @@ function calculateWeekdayDistribution(cashData) {
     return days;
 }
 
-// --- Renderizar gráfico de distribución semanal ---
 function renderWeekdayDistribution(cashData) {
     const data = calculateWeekdayDistribution(cashData);
 
@@ -180,17 +177,20 @@ function renderWeekdayDistribution(cashData) {
 // --- AGREGAR PRODUCTO ---
 document.getElementById('add-product-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+
     const payload = {
         name: document.getElementById('prod-name').value,
         type: document.getElementById('prod-type').value,
         cost: parseFloat(document.getElementById('prod-cost').value),
         margin: parseFloat(document.getElementById('prod-margin').value)
     };
+
     await fetch('/api/products', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload)
     });
+
     toggleModal('modal-add-product');
     e.target.reset();
     fetchProducts();
@@ -198,7 +198,7 @@ document.getElementById('add-product-form').addEventListener('submit', async (e)
 
 // --- ELIMINAR PRODUCTO ---
 async function deleteProduct(id) {
-    if(confirm('¿Eliminar producto?')) {
+    if (confirm('¿Eliminar producto?')) {
         await fetch(`/api/products/${id}`, { method: 'DELETE' });
         fetchProducts();
     }
@@ -208,15 +208,16 @@ async function deleteProduct(id) {
 async function handleExcelUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
-    
+
     const formData = new FormData();
     formData.append('file', file);
-    
+
     try {
         const res = await fetch('/api/products/import', {
             method: 'POST',
             body: formData
         });
+
         if (res.ok) {
             alert('Productos importados correctamente.');
             fetchProducts();
@@ -227,25 +228,23 @@ async function handleExcelUpload(e) {
     } catch (err) {
         alert('Error de conexión.');
     }
-    e.target.value = ''; // reset input
+
+    e.target.value = '';
 }
 
-// --- EDITAR PRODUCTO (NUEVO) ---
+// --- EDITAR PRODUCTO ---
 function calculatePrices(cost, margin) {
     const base = cost * (1 + margin / 100);
-    const priceKg = Math.ceil(base / 100) * 100;
-    return priceKg;
+    return Math.ceil(base / 100) * 100;
 }
 
 function updateNewPrice() {
     const cost = parseFloat(document.getElementById("edit-product-cost").value) || 0;
     const margin = parseFloat(document.getElementById("edit-product-margin").value) || 0;
-
     const newPrice = calculatePrices(cost, margin);
     document.getElementById("edit-product-new-price").value = newPrice;
 }
 
-// NUEVO: calcular precio promo automáticamente
 function updatePromoPrice() {
     const price250 = Number(document.getElementById("edit-product-price250").value);
     const promo = Number(document.getElementById("edit-product-promotion").value);
@@ -268,13 +267,9 @@ function openEditProduct(id) {
     document.getElementById("edit-product-margin").value = p.margin;
     document.getElementById("edit-product-old-price").value = p.price_kg;
 
-    // NUEVO: cargar precio 250 g
     document.getElementById("edit-product-price250").value = p.price_250g;
-
-    // NUEVO: cargar promoción
     document.getElementById("edit-product-promotion").value = p.promotion || 0;
 
-    // NUEVO: calcular precio promo si existe
     if (p.promotion > 0) {
         const final = p.price_250g * (1 - p.promotion / 100);
         document.getElementById("edit-product-price250-promo").value = final.toFixed(2);
@@ -288,8 +283,6 @@ function openEditProduct(id) {
 
 document.getElementById("edit-product-cost").addEventListener("input", updateNewPrice);
 document.getElementById("edit-product-margin").addEventListener("input", updateNewPrice);
-
-// NUEVO: escuchar cambios en el % de descuento
 document.getElementById("edit-product-promotion").addEventListener("input", updatePromoPrice);
 
 document.getElementById("edit-product-form").addEventListener("submit", async (e) => {
@@ -300,7 +293,6 @@ document.getElementById("edit-product-form").addEventListener("submit", async (e
     const margin = parseFloat(document.getElementById("edit-product-margin").value);
     const promotion = Number(document.getElementById("edit-product-promotion").value);
 
-    // NUEVO: incluir promoción en el payload
     const payload = { cost, margin, promotion };
 
     await fetch(`/api/products/${id}`, {
@@ -313,13 +305,11 @@ document.getElementById("edit-product-form").addEventListener("submit", async (e
     fetchProducts();
 });
 
-
 // =====================================================
-// ⭐ BACKUP DEL ÚLTIMO AUMENTO MASIVO
+// ⭐ AJUSTE MASIVO DE MÁRGENES
 // =====================================================
 let lastMassUpdateBackup = null;
 
-// --- AJUSTE MASIVO DE MÁRGENES (MEJORADO) ---
 document.getElementById("mass-margin-form").addEventListener("submit", async (e) => {
     e.preventDefault();
 
@@ -331,60 +321,38 @@ document.getElementById("mass-margin-form").addEventListener("submit", async (e)
         return;
     }
 
-    // 🔒 Deshabilitar botón para evitar doble clic
     btn.disabled = true;
     btn.innerText = "Aplicando...";
 
     try {
-        // Guardar backup antes de modificar
-        window.massBackup = state.products.map(p => ({
+        lastMassUpdateBackup = state.products.map(p => ({
             id: p.id,
-            oldMargin: p.margin,
-            oldPriceKg: p.price_kg
+            margin: p.margin,
+            price_kg: p.price_kg
         }));
 
-        // Aplicar aumento a cada producto
         for (const p of state.products) {
             const newMargin = p.margin + value;
-            const newPriceKg = p.cost * (1 + newMargin / 100);
 
             await fetch(`/api/products/${p.id}`, {
                 method: "PUT",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${state.token}`
-                },
-                body: JSON.stringify({
-                    margin: newMargin,
-                    price_kg: newPriceKg
-                })
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ margin: newMargin })
             });
         }
 
-        // 🔄 Recargar productos
-        await loadData("products");
-
-        // ✔ Cerrar modal
+        await fetchProducts();
         toggleModal("modal-mass-margin");
-
-        // ✔ Mostrar mensaje de éxito
         showToast(`Ajuste aplicado correctamente (+${value}%)`, "success");
-
-        // 🔊 Sonido opcional
-        const audio = new Audio("static/success.mp3");
-        audio.volume = 0.3;
-        audio.play();
 
     } catch (err) {
         console.error(err);
         showToast("Error aplicando el ajuste", "error");
     }
 
-    // 🔓 Restaurar botón
     btn.disabled = false;
     btn.innerText = "Aplicar Aumento";
 });
-
 
 // =====================================================
 // ⭐ DESHACER ÚLTIMO AUMENTO MASIVO
@@ -414,19 +382,16 @@ async function undoMassMargin() {
 // --- LISTADO 100g (FIAMBRES Y QUESOS) – A4 COMPACTO ---
 function generatePriceList100g() {
 
-    // Filtrar solo FIAMBRES y QUESOS
     const filtered = state.products.filter(p =>
         p.type.toLowerCase() === "fiambre" ||
         p.type.toLowerCase() === "queso"
     );
 
-    // Ordenar por tipo y luego por nombre
     const sorted = [...filtered].sort((a, b) => {
         if (a.type !== b.type) return a.type.localeCompare(b.type);
         return a.name.localeCompare(b.name);
     });
 
-    // Formato argentino
     function formatAr(num) {
         return Number(num).toLocaleString("es-AR", {
             minimumFractionDigits: 2,
@@ -434,7 +399,6 @@ function generatePriceList100g() {
         });
     }
 
-    // 👉 ARMAMOS EL HTML COMPLETO ANTES DE ABRIR LA VENTANA
     let html = `
     <html>
     <head>
@@ -461,10 +425,7 @@ function generatePriceList100g() {
             <tbody>
     `;
 
-    // 👉 ACA SE AGREGAN LOS DATOS
     sorted.forEach(p => {
-
-        // Si existe price_100g lo usamos, si no lo calculamos
         const price100 = p.price_100g ? p.price_100g : (p.price_kg / 10);
 
         html += `
@@ -481,32 +442,27 @@ function generatePriceList100g() {
         </table>
 
         <script>
-            window.onload = function() {
-                window.print();
-            };
+            window.onload = function() { window.print(); };
         </script>
 
     </body>
     </html>
     `;
 
-    // 👉 ABRIMOS LA VENTANA Y ESCRIBIMOS EL HTML COMPLETO
     const newWindow = window.open("", "_blank");
     newWindow.document.open();
     newWindow.document.write(html);
     newWindow.document.close();
 }
 
-// --- LISTADO TÉCNICO (COSTO / PRECIO KG / MARGEN) – BASADO EN LA GENERAL ---
+// --- LISTADO TÉCNICO (COSTO / PRECIO KG / MARGEN) ---
 function generateTechnicalList() {
 
-    // Ordenar igual que la general
     const sorted = [...state.products].sort((a, b) => {
         if (a.type !== b.type) return a.type.localeCompare(b.type);
         return a.name.localeCompare(b.name);
     });
 
-    // Formato argentino
     function formatAr(num) {
         return Number(num).toLocaleString("es-AR", {
             minimumFractionDigits: 2,
@@ -514,7 +470,6 @@ function generateTechnicalList() {
         });
     }
 
-    // 👉 ARMAMOS EL HTML COMPLETO ANTES DE ABRIR LA VENTANA
     let html = `
     <html>
     <head>
@@ -543,7 +498,6 @@ function generateTechnicalList() {
             <tbody>
     `;
 
-    // 👉 ACA SE AGREGAN LOS DATOS (ANTES NO SE ESTABAN INSERTANDO)
     sorted.forEach(p => {
         html += `
             <tr>
@@ -561,16 +515,13 @@ function generateTechnicalList() {
         </table>
 
         <script>
-            window.onload = function() {
-                window.print();
-            };
+            window.onload = function() { window.print(); };
         </script>
 
     </body>
     </html>
     `;
 
-    // 👉 AHORA SÍ: ABRIMOS LA VENTANA Y ESCRIBIMOS EL HTML COMPLETO
     const newWindow = window.open("", "_blank");
     newWindow.document.open();
     newWindow.document.write(html);
@@ -588,24 +539,25 @@ async function openSuppliers(productId, productName) {
 async function fetchSuppliers(productId) {
     const res = await fetch(`/api/products/${productId}/suppliers`);
     const suppliers = await res.json();
-    
+
     const tbody = document.querySelector('#suppliers-table tbody');
     tbody.innerHTML = '';
-    
+
     if (suppliers.length === 0) {
         tbody.innerHTML = '<tr><td colspan="3" style="text-align: center;">Sin proveedores</td></tr>';
         return;
     }
-    
+
     const minCost = Math.min(...suppliers.map(s => s.cost));
-    
+
     suppliers.forEach(s => {
         const isMin = s.cost === minCost;
         const tr = document.createElement('tr');
         if (isMin) tr.style.background = 'rgba(16, 185, 129, 0.1)';
+
         tr.innerHTML = `
             <td>${isMin ? '🟢 ' : ''}${s.supplier_name}</td>
-            <td style="font-weight: ${isMin ? 'bold' : 'normal'}; color: ${isMin ? 'var(--success-color)' : 'inherit'}">
+            <td style="font-weight:${isMin ? 'bold' : 'normal'}; color:${isMin ? 'var(--success-color)' : 'inherit'}">
                 $${formatMoney(s.cost)}
             </td>
             <td>
@@ -620,16 +572,20 @@ async function fetchSuppliers(productId) {
 
 document.getElementById('add-supplier-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+
     const productId = document.getElementById('sup-prod-id').value;
+
     const payload = {
         supplier_name: document.getElementById('sup-name').value,
         cost: parseFloat(document.getElementById('sup-cost').value)
     };
+
     await fetch(`/api/products/${productId}/suppliers`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload)
     });
+
     e.target.reset();
     await fetchSuppliers(productId);
     fetchProducts();
@@ -643,25 +599,22 @@ async function deleteSupplier(productId, supplierId) {
     }
 }
 
-
 // --- CAJA ---
 async function fetchCash() {
-    const res = await fetch('/api/cash');
+    const res = await fetch('/api/cash/all');
     const raw = await res.json();
 
     state.cash = raw.map(r => {
-        // Normalizar fecha
-        let date = r.date || r.fecha || r.fecha_dt;
-        if (date.includes("T")) date = date.split("T")[0];
+        let date = r.date;
+        if (date && date.includes("T")) date = date.split("T")[0];
 
-        // Normalizar weekday SIEMPRE en mayúsculas
-        const weekday = (r.weekday || r.dia || new Date(date)
-            .toLocaleDateString("es-AR", { weekday: "long" }))
-            .toUpperCase();
+        const weekday = (r.weekday ||
+            new Date(date).toLocaleDateString("es-AR", { weekday: "long" })
+        ).toUpperCase();
 
-        const cash = Number(r.cash ?? r.efectivo ?? 0);
-        const card = Number(r.card ?? r.electronico ?? 0);
-        const expenses = Number(r.expenses ?? r.gastos ?? 0);
+        const cash = Number(r.cash ?? 0);
+        const card = Number(r.card ?? 0);
+        const expenses = Number(r.expenses ?? 0);
 
         const net_income = cash + card;
         const total = net_income - expenses;
@@ -689,6 +642,7 @@ function renderCash() {
     state.cash.forEach(c => {
         const [y, m, d] = c.date.split('-');
         const formattedDate = `${d}/${m}/${y}`;
+
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${formattedDate}</td>
@@ -701,8 +655,10 @@ function renderCash() {
                 $${formatMoney(c.total)}
             </td>
             <td style="display: flex; gap: 0.5rem;">
-                <button class="btn btn-secondary" style="padding: 0.3rem 0.6rem;" onclick="openEditCash(${c.id}, '${c.date}', ${c.cash}, ${c.card}, ${c.expenses})">✏️</button>
-                <button class="btn btn-danger" style="padding: 0.3rem 0.6rem;" onclick="deleteCash(${c.id})">🗑️</button>
+                <button class="btn btn-secondary" style="padding: 0.3rem 0.6rem;"
+                    onclick="openEditCash(${c.id}, '${c.date}', ${c.cash}, ${c.card}, ${c.expenses})">✏️</button>
+                <button class="btn btn-danger" style="padding: 0.3rem 0.6rem;"
+                    onclick="deleteCash(${c.id})">🗑️</button>
             </td>
         `;
         tbody.appendChild(tr);
@@ -711,6 +667,7 @@ function renderCash() {
 
 document.getElementById('cash-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+
     const payload = {
         date: document.getElementById('cash-date').value,
         weekday: document.getElementById('cash-weekday').value.toUpperCase(),
@@ -718,38 +675,47 @@ document.getElementById('cash-form').addEventListener('submit', async (e) => {
         card: parseFloat(document.getElementById('cash-card').value),
         expenses: parseFloat(document.getElementById('cash-expenses').value)
     };
+
     await fetch('/api/cash', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload)
     });
+
     e.target.reset();
     fetchCash();
 });
 
 function openEditCash(id, date, cash, card, expenses) {
     document.getElementById('edit-cash-id').value = id;
+
     const [y, m, d] = date.split('-');
     document.getElementById('edit-cash-date').innerText = `${d}/${m}/${y}`;
+
     document.getElementById('edit-cash-cash').value = cash;
     document.getElementById('edit-cash-card').value = card;
     document.getElementById('edit-cash-expenses').value = expenses;
+
     toggleModal('modal-edit-cash');
 }
 
 document.getElementById('edit-cash-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+
     const id = document.getElementById('edit-cash-id').value;
+
     const payload = {
         cash: parseFloat(document.getElementById('edit-cash-cash').value),
         card: parseFloat(document.getElementById('edit-cash-card').value),
         expenses: parseFloat(document.getElementById('edit-cash-expenses').value)
     };
+
     await fetch(`/api/cash/${id}`, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload)
     });
+
     toggleModal('modal-edit-cash');
     fetchCash();
 });
@@ -773,16 +739,13 @@ async function fetchDashboard() {
 function renderDashboard() {
     const d = state.dashboard;
 
-    // KPIs
     document.getElementById('kpi-revenue').innerText = `$${formatMoney(d.kpis.total_revenue)}`;
     document.getElementById('kpi-expenses').innerText = `$${formatMoney(d.kpis.total_expenses)}`;
     document.getElementById('kpi-profit').innerText = `$${formatMoney(d.kpis.total_profit)}`;
 
-    // ⭐ Resumen del mes
     const summary = calculateMonthlySummary(state.cash);
     renderMonthlySummary(summary);
 
-    // Destruir gráficos viejos
     Object.values(charts).forEach(c => c.destroy());
 
     Chart.defaults.color = '#94a3b8';
@@ -820,6 +783,7 @@ function renderDashboard() {
     // 3. Semanal
     const container = document.getElementById('weekly-breakdown-container');
     container.innerHTML = '';
+
     if (Object.keys(d.weekly_breakdown).length === 0) {
         container.innerHTML = '<p style="color: var(--text-secondary);">No hay datos semanales.</p>';
     } else {
@@ -857,9 +821,9 @@ function renderDashboard() {
 
 // --- INICIALIZACIÓN DE LA APP ---
 async function init() {
-    await fetchCash();        // 1) Caja primero
-    await fetchDashboard();   // 2) Dashboard con caja cargada
-    await fetchProducts();    // 3) Productos
+    await fetchCash();
+    await fetchDashboard();
+    await fetchProducts();
 }
 
 window.onload = init;
