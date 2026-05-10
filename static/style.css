@@ -202,63 +202,78 @@ input:focus, select:focus { border-color: var(--primary-color); }
     transform: translateY(5px);
 }
 
-/* --- DASHBOARD MODERNO --- */
+/* ========================= */
+/*     ESTILO PREMIUM        */
+/* ========================= */
 
-.dash-header {
-    margin-bottom: 1.5rem;
+.pretty-box {
+    padding: 1.8rem;
+    border-radius: 18px;
+    backdrop-filter: blur(12px);
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.15);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
 }
 
-.kpi-grid-modern {
+.section-title {
+    font-size: 1.4rem;
+    margin-bottom: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.pretty-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 1.5rem;
-    margin-bottom: 2rem;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1.2rem;
 }
 
-.kpi-card-modern {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    background: var(--glass-bg);
-    padding: 1.2rem 1.4rem;
-    border-radius: 14px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    transition: transform 0.2s ease;
+.pretty-item {
+    padding: 1rem;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.08);
+    text-align: center;
 }
 
-.kpi-card-modern:hover {
-    transform: translateY(-3px);
-}
-
-.kpi-card-modern.highlight {
-    border-left: 5px solid var(--primary-color);
-}
-
-.kpi-icon {
-    font-size: 2.4rem;
-}
-
-.kpi-info h3 {
-    margin: 0;
-    font-size: 1rem;
+.pretty-item label {
+    font-size: 0.9rem;
     opacity: 0.8;
 }
 
-.kpi-value {
-    font-size: 1.8rem;
-    font-weight: 700;
-    margin-top: 0.2rem;
+.pretty-item span {
+    font-size: 1.3rem;
+    font-weight: bold;
 }
 
-.charts-grid-modern {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+.highlight-green span {
+    color: var(--success-color);
+}
+
+.highlight-red span {
+    color: var(--danger-color);
+}
+
+.pretty-kpi-grid {
     gap: 1.5rem;
 }
 
-.chart-box {
-    padding: 1.2rem;
-    border-radius: 14px;
+.pretty-kpi {
+    border-radius: 16px;
+    padding: 1.5rem;
+}
+
+.pretty-charts .chart-box {
+    padding: 1.5rem;
+}
+
+.pretty-table th,
+.pretty-table td {
+    padding: 0.8rem 1rem;
+    font-size: 1rem;
+}
+
+.pretty-table tbody tr:hover {
+    background: rgba(255,255,255,0.08);
 }
 
 /* --- CAJA DIARIA MODERNA --- */
