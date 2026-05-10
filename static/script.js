@@ -645,6 +645,26 @@ async function deleteSupplier(productId, supplierId) {
 }
 
 // =====================================================
+//                 TOGGLE MODAL (CORREGIDO)
+// =====================================================
+
+function toggleModal(id) {
+    const modal = document.getElementById(id);
+    if (!modal) return;
+
+    // Si está oculto → mostrar
+    if (modal.classList.contains("hidden")) {
+        modal.classList.remove("hidden");
+        modal.classList.add("active");
+    }
+    // Si está visible → ocultar
+    else {
+        modal.classList.remove("active");
+        modal.classList.add("hidden");
+    }
+}
+
+// =====================================================
 //                 CAJA DIARIA
 // =====================================================
 
@@ -763,31 +783,24 @@ document.getElementById('cash-form').addEventListener('submit', async (e) => {
 });
 
 // =====================================================
-//                 EDITAR REGISTRO (CORREGIDO)
+//                 EDITAR REGISTRO
 // =====================================================
 
 function openEditCash(id, date, cash, card, expenses) {
-    // ID del registro
     document.getElementById('edit-cash-id').value = id;
 
-    // Fecha en formato YYYY-MM-DD
     document.getElementById('edit-cash-date').value = date;
 
-    // Día automático
     const weekday = new Date(date).toLocaleDateString("es-AR", { weekday: "long" });
     document.getElementById('edit-cash-weekday').value = weekday.toUpperCase();
 
-    // Valores numéricos
     document.getElementById('edit-cash-cash').value = cash;
     document.getElementById('edit-cash-card').value = card;
     document.getElementById('edit-cash-expenses').value = expenses;
 
-    // Abrir modal
     toggleModal('modal-edit-cash');
 }
 
-
-// --- AUTO-COMPLETAR DÍA AL CAMBIAR FECHA EN EDICIÓN ---
 document.getElementById("edit-cash-date").addEventListener("change", (e) => {
     const date = e.target.value;
     if (!date) return;
@@ -796,7 +809,6 @@ document.getElementById("edit-cash-date").addEventListener("change", (e) => {
     document.getElementById("edit-cash-weekday").value = weekday.toUpperCase();
 });
 
-// --- GUARDAR EDICIÓN ---
 document.getElementById('edit-cash-form').addEventListener('submit', async (e) => {
     e.preventDefault();
 
