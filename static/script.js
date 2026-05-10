@@ -1,4 +1,7 @@
-// --- ESTADO GLOBAL ---
+// ======================================================
+//                 ESTADO GLOBAL Y UTILIDADES
+// ======================================================
+
 let state = {
     products: [],
     cash: [],
@@ -6,54 +9,74 @@ let state = {
 };
 
 function formatMoney(val) {
-    return val.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return val.toLocaleString('es-AR', { 
+        minimumFractionDigits: 2, 
+        maximumFractionDigits: 2 
+    });
 }
 
 function formatMonthLiteral(monthStr) {
     if (!monthStr || monthStr.length !== 7) return monthStr;
+
     const [year, month] = monthStr.split('-');
-    const monthNames = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"];
-    const monthIndex = parseInt(month, 10) - 1;
-    if (monthIndex >= 0 && monthIndex < 12) {
-        return `${monthNames[monthIndex]}-${year}`;
-    }
-    return monthStr;
+    const monthNames = [
+        "ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO",
+        "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"
+    ];
+
+    const index = parseInt(month, 10) - 1;
+    return index >= 0 && index < 12 ? `${monthNames[index]}-${year}` : monthStr;
 }
 
-// --- MOSTRAR APP DIRECTO ---
+// ======================================================
+//                 MOSTRAR APP DIRECTO
+// ======================================================
+
 function showApp() {
     document.getElementById('login-screen')?.classList.add('hidden');
     document.getElementById('app-screen')?.classList.remove('hidden');
 }
 
-// --- INICIALIZACIÓN ---
+// ======================================================
+//                 INICIALIZACIÓN GENERAL
+// ======================================================
+
 document.addEventListener('DOMContentLoaded', async () => {
 
-    // Entrar directo a la app
     showApp();
 
-    // Nav buttons
+    // Navegación entre vistas
     document.querySelectorAll('.nav-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+
+            document.querySelectorAll('.nav-btn')
+                .forEach(b => b.classList.remove('active'));
+
             e.target.classList.add('active');
-            
-            document.querySelectorAll('.view').forEach(v => {
-                v.classList.remove('active');
-                v.classList.add('hidden');
-            });
-            document.getElementById(e.target.dataset.target).classList.remove('hidden');
-            document.getElementById(e.target.dataset.target).classList.add('active');
-            
-            loadData(e.target.dataset.target);
+
+            document.querySelectorAll('.view')
+                .forEach(v => {
+                    v.classList.remove('active');
+                    v.classList.add('hidden');
+                });
+
+            const target = e.target.dataset.target;
+            document.getElementById(target).classList.remove('hidden');
+            document.getElementById(target).classList.add('active');
+
+            loadData(target);
         });
     });
 
-    // Excel upload listener
-    document.getElementById('excel-file')?.addEventListener('change', handleExcelUpload);
+    // Importación Excel
+    document.getElementById('excel-file')
+        ?.addEventListener('change', handleExcelUpload);
 });
 
-// --- TOAST DE MENSAJES ---
+// ======================================================
+//                 TOAST DE MENSAJES
+// ======================================================
+
 function showToast(msg, type = "success") {
     const toast = document.createElement("div");
     toast.className = `toast ${type}`;
@@ -68,14 +91,20 @@ function showToast(msg, type = "success") {
     }, 2500);
 }
 
-// --- CARGA DE DATOS ---
+// ======================================================
+//                 CARGA DE DATOS SEGÚN VISTA
+// ======================================================
+
 async function loadData(view) {
     if (view === 'products') await fetchProducts();
     if (view === 'cash') await fetchCash();
     if (view === 'dashboard') await fetchDashboard();
 }
 
-// --- PRODUCTOS ---
+// ======================================================
+//                 PRODUCTOS
+// ======================================================
+
 async function fetchProducts() {
     const res = await fetch('/api/products');
     const data = await res.json();
@@ -93,6 +122,7 @@ async function fetchProducts() {
 function renderProducts() {
     const tbody = document.querySelector('#products-table tbody');
     tbody.innerHTML = '';
+
     state.products.forEach(p => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -113,7 +143,9 @@ function renderProducts() {
     });
 }
 
-/* ⭐⭐⭐ DISTRIBUCIÓN SEMANAL ⭐⭐⭐ */
+// ======================================================
+//                 DISTRIBUCIÓN SEMANAL (GRÁFICO)
+// ======================================================
 
 function calculateWeekdayDistribution(cashData) {
     const days = {
@@ -154,27 +186,23 @@ function renderWeekdayDistribution(cashData) {
                 label: "Ganancia por Día",
                 data: values,
                 backgroundColor: [
-                    "#3b82f6",
-                    "#10b981",
-                    "#f59e0b",
-                    "#6366f1",
-                    "#ef4444",
-                    "#8b5cf6",
-                    "#14b8a6"
+                    "#3b82f6", "#10b981", "#f59e0b",
+                    "#6366f1", "#ef4444", "#8b5cf6", "#14b8a6"
                 ],
                 borderRadius: 6
             }]
         },
         options: {
             responsive: true,
-            scales: {
-                y: { beginAtZero: true }
-            }
+            scales: { y: { beginAtZero: true } }
         }
     });
 }
 
-// --- AGREGAR PRODUCTO ---
+// ======================================================
+//                 AGREGAR PRODUCTO
+// ======================================================
+
 document.getElementById('add-product-form').addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -196,7 +224,10 @@ document.getElementById('add-product-form').addEventListener('submit', async (e)
     fetchProducts();
 });
 
-// --- ELIMINAR PRODUCTO ---
+// ======================================================
+//                 ELIMINAR PRODUCTO
+// ======================================================
+
 async function deleteProduct(id) {
     if (confirm('¿Eliminar producto?')) {
         await fetch(`/api/products/${id}`, { method: 'DELETE' });
@@ -204,7 +235,10 @@ async function deleteProduct(id) {
     }
 }
 
-// --- IMPORTAR EXCEL ---
+// ======================================================
+//                 IMPORTAR EXCEL
+// ======================================================
+
 async function handleExcelUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -232,7 +266,10 @@ async function handleExcelUpload(e) {
     e.target.value = '';
 }
 
-// --- EDITAR PRODUCTO ---
+// =====================================================
+//                 EDICIÓN DE PRODUCTOS
+// =====================================================
+
 function calculatePrices(cost, margin) {
     const base = cost * (1 + margin / 100);
     return Math.ceil(base / 100) * 100;
@@ -306,8 +343,9 @@ document.getElementById("edit-product-form").addEventListener("submit", async (e
 });
 
 // =====================================================
-// ⭐ AJUSTE MASIVO DE MÁRGENES
+//                 AJUSTE MASIVO DE MÁRGENES
 // =====================================================
+
 let lastMassUpdateBackup = null;
 
 document.getElementById("mass-margin-form").addEventListener("submit", async (e) => {
@@ -355,8 +393,9 @@ document.getElementById("mass-margin-form").addEventListener("submit", async (e)
 });
 
 // =====================================================
-// ⭐ DESHACER ÚLTIMO AUMENTO MASIVO
+//                 DESHACER AJUSTE MASIVO
 // =====================================================
+
 async function undoMassMargin() {
     if (!lastMassUpdateBackup) {
         alert("No hay un aumento masivo previo para deshacer.");
@@ -379,7 +418,10 @@ async function undoMassMargin() {
     alert("Se restauraron los márgenes y precios previos al aumento masivo.");
 }
 
-// --- LISTADO 100g (FIAMBRES Y QUESOS) – A4 COMPACTO ---
+// =====================================================
+//                 LISTADO 100g (FIAMBRES Y QUESOS)
+// =====================================================
+
 function generatePriceList100g() {
 
     const filtered = state.products.filter(p =>
@@ -455,7 +497,10 @@ function generatePriceList100g() {
     newWindow.document.close();
 }
 
-// --- LISTADO TÉCNICO (COSTO / PRECIO KG / MARGEN) ---
+// =====================================================
+//                 LISTADO TÉCNICO
+// =====================================================
+
 function generateTechnicalList() {
 
     const sorted = [...state.products].sort((a, b) => {
@@ -599,7 +644,10 @@ async function deleteSupplier(productId, supplierId) {
     }
 }
 
-// --- CAJA ---
+// =====================================================
+//                 CAJA DIARIA
+// =====================================================
+
 async function fetchCash() {
     const res = await fetch('/api/cash/all');
     const raw = await res.json();
@@ -727,7 +775,10 @@ async function deleteCash(id) {
     }
 }
 
-// --- DASHBOARD ---
+// =====================================================
+//                 DASHBOARD
+// =====================================================
+
 let charts = {};
 
 async function fetchDashboard() {
@@ -736,22 +787,218 @@ async function fetchDashboard() {
     renderDashboard();
 }
 
+// ---------- Cálculos de resumen mensual ----------
+
+function calculateMonthlySummary(cashData) {
+    if (!cashData || cashData.length === 0) {
+        return {
+            total_vendido: 0,
+            gastos: 0,
+            ganancia: 0,
+            mejor_dia: null,
+            peor_dia: null,
+            promedio_diario: 0,
+            dias_trabajados: 0
+        };
+    }
+
+    // Tomamos el último mes con datos como "mes actual" lógico
+    const months = [...new Set(cashData.map(r => r.date.slice(0, 7)))].sort();
+    const currentMonth = months[months.length - 1];
+
+    const monthRows = cashData.filter(r => r.date.startsWith(currentMonth));
+
+    const total_vendido = monthRows.reduce((acc, r) => acc + r.net_income, 0);
+    const gastos = monthRows.reduce((acc, r) => acc + r.expenses, 0);
+    const ganancia = monthRows.reduce((acc, r) => acc + r.total, 0);
+    const dias_trabajados = monthRows.length;
+    const promedio_diario = dias_trabajados > 0 ? ganancia / dias_trabajados : 0;
+
+    let mejor = null;
+    let peor = null;
+
+    monthRows.forEach(r => {
+        if (!mejor || r.total > mejor.total) mejor = r;
+        if (!peor || r.total < peor.total) peor = r;
+    });
+
+    return {
+        total_vendido,
+        gastos,
+        ganancia,
+        mejor_dia: mejor,
+        peor_dia: peor,
+        promedio_diario,
+        dias_trabajados
+    };
+}
+
+function renderMonthlySummary(summary) {
+    document.getElementById('sum-total-vendido').innerText = `$${formatMoney(summary.total_vendido)}`;
+    document.getElementById('sum-gastos').innerText = `$${formatMoney(summary.gastos)}`;
+    document.getElementById('sum-ganancia').innerText = `$${formatMoney(summary.ganancia)}`;
+    document.getElementById('sum-promedio').innerText = `$${formatMoney(summary.promedio_diario)}`;
+    document.getElementById('sum-dias').innerText = summary.dias_trabajados;
+
+    if (summary.mejor_dia) {
+        const [y, m, d] = summary.mejor_dia.date.split('-');
+        document.getElementById('sum-mejor-dia').innerText =
+            `${d}/${m}/${y} ($${formatMoney(summary.mejor_dia.total)})`;
+    } else {
+        document.getElementById('sum-mejor-dia').innerText = '—';
+    }
+
+    if (summary.peor_dia) {
+        const [y, m, d] = summary.peor_dia.date.split('-');
+        document.getElementById('sum-peor-dia').innerText =
+            `${d}/${m}/${y} ($${formatMoney(summary.peor_dia.total)})`;
+    } else {
+        document.getElementById('sum-peor-dia').innerText = '—';
+    }
+}
+
+// ---------- Estadísticas mejor/peor día por mes ----------
+
+function calculateMonthlyDayStats(cashData) {
+    const byMonth = {};
+
+    cashData.forEach(r => {
+        const month = r.date.slice(0, 7);
+        if (!byMonth[month]) byMonth[month] = [];
+        byMonth[month].push(r);
+    });
+
+    const result = [];
+
+    Object.keys(byMonth).sort().forEach(month => {
+        const rows = byMonth[month];
+        let best = null;
+        let worst = null;
+
+        rows.forEach(r => {
+            if (!best || r.total > best.total) best = r;
+            if (!worst || r.total < worst.total) worst = r;
+        });
+
+        result.push({
+            month,
+            best,
+            worst
+        });
+    });
+
+    return result;
+}
+
+function renderBestWorstTable(stats) {
+    const tbody = document.querySelector('#best-worst-table tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    stats.forEach(row => {
+        const [by, bm, bd] = row.best.date.split('-');
+        const [wy, wm, wd] = row.worst.date.split('-');
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${formatMonthLiteral(row.month)}</td>
+            <td>${bd}/${bm}/${by} ($${formatMoney(row.best.total)})</td>
+            <td>${wd}/${wm}/${wy} ($${formatMoney(row.worst.total)})</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+// ---------- Comparativo mensual ----------
+
+function renderMonthlyComparisonChart(cashData) {
+    const byMonth = {};
+
+    cashData.forEach(r => {
+        const month = r.date.slice(0, 7);
+        if (!byMonth[month]) {
+            byMonth[month] = { total: 0, cash: 0, card: 0, expenses: 0 };
+        }
+        byMonth[month].total += r.total;
+        byMonth[month].cash += r.cash;
+        byMonth[month].card += r.card;
+        byMonth[month].expenses += r.expenses;
+    });
+
+    const months = Object.keys(byMonth).sort();
+    const labels = months.map(m => formatMonthLiteral(m));
+    const totals = months.map(m => byMonth[m].total);
+
+    const ctx = document.getElementById('chart-month-compare').getContext('2d');
+
+    if (charts.monthCompare) charts.monthCompare.destroy();
+
+    charts.monthCompare = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Beneficio Neto por Mes',
+                data: totals,
+                backgroundColor: '#6366f1',
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } }
+        }
+    });
+}
+
+// ---------- Render principal del Dashboard ----------
+
 function renderDashboard() {
     const d = state.dashboard;
 
+    // KPIs
     document.getElementById('kpi-revenue').innerText = `$${formatMoney(d.kpis.total_revenue)}`;
     document.getElementById('kpi-expenses').innerText = `$${formatMoney(d.kpis.total_expenses)}`;
     document.getElementById('kpi-profit').innerText = `$${formatMoney(d.kpis.total_profit)}`;
 
+    // Resumen del mes (desde state.cash)
     const summary = calculateMonthlySummary(state.cash);
     renderMonthlySummary(summary);
 
-    Object.values(charts).forEach(c => c.destroy());
+    // Tendencia mensual (simple: comparación último vs anterior)
+    const trendVentasEl = document.getElementById('trend-ventas');
+    const trendGastosEl = document.getElementById('trend-gastos');
+    const trendGananciaEl = document.getElementById('trend-ganancia');
+
+    if (d.monthly && d.monthly.length >= 2) {
+        const sorted = [...d.monthly].sort((a, b) => a.month.localeCompare(b.month));
+        const prev = sorted[sorted.length - 2];
+        const curr = sorted[sorted.length - 1];
+
+        const diffVentas = curr.total - prev.total;
+        const diffGastos = (curr.expenses ?? 0) - (prev.expenses ?? 0);
+        const diffGanancia = curr.total - (prev.total ?? 0);
+
+        const fmtDiff = (v) => `${v >= 0 ? '▲' : '▼'} $${formatMoney(Math.abs(v))}`;
+
+        trendVentasEl.innerText = fmtDiff(diffVentas);
+        trendGastosEl.innerText = fmtDiff(diffGastos);
+        trendGananciaEl.innerText = fmtDiff(diffGanancia);
+    } else {
+        trendVentasEl.innerText = '—';
+        trendGastosEl.innerText = '—';
+        trendGananciaEl.innerText = '—';
+    }
+
+    // Limpiar gráficos previos
+    Object.values(charts).forEach(c => c.destroy && c.destroy());
+    charts = {};
 
     Chart.defaults.color = '#94a3b8';
     Chart.defaults.font.family = 'Inter';
 
-    // 1. Mensual
+    // 1. Ventas por mes
     const ctxMonthly = document.getElementById('chart-monthly').getContext('2d');
     charts.monthly = new Chart(ctxMonthly, {
         type: 'bar',
@@ -767,24 +1014,35 @@ function renderDashboard() {
         options: { responsive: true, plugins: { legend: { display: false } } }
     });
 
-    // 2. Métodos de pago
+    // 2. Efectivo vs Tarjeta
     const ctxPayment = document.getElementById('chart-payment').getContext('2d');
     charts.payment = new Chart(ctxPayment, {
         type: 'bar',
         data: {
             labels: d.monthly.map(m => formatMonthLiteral(m.month)),
             datasets: [
-                { label: 'Efectivo', data: d.monthly.map(m => m.cash), backgroundColor: '#10b981', borderRadius: 4 },
-                { label: 'Tarjeta', data: d.monthly.map(m => m.card), backgroundColor: '#3b82f6', borderRadius: 4 }
+                {
+                    label: 'Efectivo',
+                    data: d.monthly.map(m => m.cash),
+                    backgroundColor: '#10b981',
+                    borderRadius: 4
+                },
+                {
+                    label: 'Tarjeta',
+                    data: d.monthly.map(m => m.card),
+                    backgroundColor: '#3b82f6',
+                    borderRadius: 4
+                }
             ]
-        }
+        },
+        options: { responsive: true }
     });
 
-    // 3. Semanal
+    // 3. Desglose semanal
     const container = document.getElementById('weekly-breakdown-container');
     container.innerHTML = '';
 
-    if (Object.keys(d.weekly_breakdown).length === 0) {
+    if (!d.weekly_breakdown || Object.keys(d.weekly_breakdown).length === 0) {
         container.innerHTML = '<p style="color: var(--text-secondary);">No hay datos semanales.</p>';
     } else {
         const months = Object.keys(d.weekly_breakdown).sort().reverse();
@@ -811,12 +1069,15 @@ function renderDashboard() {
         });
     }
 
-    // 4. Mejor/Peor día
+    // 4. Mejor/Peor día por mes
     const stats = calculateMonthlyDayStats(state.cash);
     renderBestWorstTable(stats);
 
     // 5. Comparativo mensual
     renderMonthlyComparisonChart(state.cash);
+
+    // 6. Distribución por día de la semana
+    renderWeekdayDistribution(state.cash);
 }
 
 // --- INICIALIZACIÓN DE LA APP ---
@@ -825,9 +1086,6 @@ async function init() {
     await fetchDashboard();
     await fetchProducts();
 }
-
-window.onload = init;
-
 
 window.onload = init;
 
