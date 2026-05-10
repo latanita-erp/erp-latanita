@@ -43,7 +43,7 @@ def get_db():
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# ⭐ ABRIR DIRECTO EL INDEX (NO DASHBOARD)
+# ⭐ ABRIR DIRECTO EL INDEX
 @app.get("/")
 def read_root():
     return FileResponse("static/index.html")
@@ -66,431 +66,382 @@ def calculate_prices(cost, margin):
     }
 
 # ============================================
-#                API CASH
+#                API CASH (CORREGIDO)
 # ============================================
 
-@app.get("/api/cash")
-def get_cash(db: Session = Depends(get_db)):
+# 👉 Tu frontend usa /api/cash/all
+@app.get("/api/cash/all")
+def get_cash_all(db: Session = Depends(get_db)):
+    result = db.execute(text("SELECT * FROM cash ORDER BY date ASC")).mappings().all()
+    return [dict(r) for r in result]
 
-    result = db.execute(
-        text("SELECT * FROM cash ORDER BY id DESC LIMIT 1")
-    ).mappings().first()
+# 👉 POST /api/cash
+@app.post("/api/cash")
+def create_cash(payload: dict, db: Session = Depends(get_db)):
+    db.execute(text("""
+        INSERT INTO cash (date, weekday, cash, card, expenses)
+        VALUES (:date, :weekday, :cash, :card, :expenses)
+    """), payload)
+    db.commit()
+    return {"status": "ok"}
 
-    if not result:
-        return {
-            "id": None,
-            "amount": 0,
-            "updated_at": None
-        }
+# 👉 PUT /api/cash/{id}
+@app.put("/api/cash/{cash_id}")
+def update_cash(cash_id: int, payload: dict, db: Session = Depends(get_db)):
+    db.execute(text("""
+        UPDATE cash
+        SET cash = :cash,
+            card = :card,
+            expenses = :expenses
+        WHERE id = :id
+    """), {
+        "id": cash_id,
+        "cash": payload["cash"],
+        "card": payload["card"],
+        "expenses": payload["expenses"]
+    })
+    db.commit()
+    return {"status": "updated"}
 
-    return {
-        "id": result["id"],
-        "amount": result["amount"],
-        "updated_at": result["updated_at"]
-    }
+# 👉 DELETE /api/cash/{id}
+@app.delete("/api/cash/{cash_id}")
+def delete_cash(cash_id: int, db: Session = Depends(get_db)):
+    db.execute(text("DELETE FROM cash WHERE id = :id"), {"id": cash_id})
+    db.commit()
+    return {"status": "deleted"}
 
 # ============================================
-#             MÓDULO PRODUCTOS
+#             MÓDULO PRODUCTOS (CORREGIDO)
 # ============================================
 
 @app.get("/api/products")
-def get_products():
-    with engine.connect() as conn:
-        res = conn.execute(
-            text("""
-                SELECT 
-                    id,
-                    name,
-                    type,
-                    cost,
-                    margin,
-                    price_kg,
-                    price_100g,
-                    price_150g,
-                    price_250g
-                FROM products
-                ORDER BY type ASC, name ASC
-            """)
-        ).mappings().all()
-
-        productos = []
-        for r in res:
-            productos.append({
-                "id": r["id"],
-                "name": r["name"],
-                "type": r["type"],
-                "cost": float(r["cost"]),
-                "margin": float(r["margin"]),
-                "price_kg": float(r["price_kg"]),
-                "price_100g": float(r["price_100g"]),
-                "price_150g": float(r["price_150g"]),
-                "price_250g": float(r["price_250g"]),
-            })
-
-        return productos
-
+def get_products(db: Session = Depends(get_db)):
+    result = db.execute(text("""
+        SELECT id, name, type, cost, margin, promotion,
+               price_kg, price_100g, price_150g, price_250g
+        FROM products
+        ORDER BY type ASC, name ASC
+    """)).mappings().all()
+    return [dict(r) for r in result]
 
 @app.post("/api/products")
-def create_product(p: Product):
-    prices = calculate_prices(p.cost, p.margin)
-    with engine.connect() as conn:
-        res = conn.execute(
-            text(
-                """
-                INSERT INTO products 
-                (name, type, cost, margin, price_kg, price_100g, price_150g, price_250g) 
-                VALUES (:name, :type, :cost, :margin, :pkg, :p100, :p150, :p250) 
-                RETURNING id
-                """
-            ),
-            {
-                "name": p.name,
-                "type": p.type,
-                "cost": p.cost,
-                "margin": p.margin,
-                "pkg": prices["price_kg"],
-                "p100": prices["price_100g"],
-                "p150": prices["price_150g"],
-                "p250": prices["price_250g"],
-            },
-        )
-        conn.commit()
-        return {"success": True, "id": res.scalar()}
+def create_product(payload: dict, db: Session = Depends(get_db)):
+    prices = calculate_prices(payload["cost"], payload["margin"])
 
+    db.execute(text("""
+        INSERT INTO products (name, type, cost, margin, price_kg, price_100g, price_150g, price_250g)
+        VALUES (:name, :type, :cost, :margin, :price_kg, :price_100g, :price_150g, :price_250g)
+    """), {
+        "name": payload["name"],
+        "type": payload["type"],
+        "cost": payload["cost"],
+        "margin": payload["margin"],
+        "price_kg": prices["price_kg"],
+        "price_100g": prices["price_100g"],
+        "price_150g": prices["price_150g"],
+        "price_250g": prices["price_250g"]
+    })
 
-@app.put("/api/products/{id}")
-def update_product(id: int, data: dict):
-    cost = data.get("cost")
-    margin = data.get("margin")
+    db.commit()
+    return {"status": "created"}
+
+@app.put("/api/products/{product_id}")
+def update_product(product_id: int, payload: dict, db: Session = Depends(get_db)):
+
+    cost = float(payload.get("cost", 0))
+    margin = float(payload.get("margin", 0))
+    promotion = float(payload.get("promotion", 0))
 
     prices = calculate_prices(cost, margin)
 
-    with engine.connect() as conn:
-        conn.execute(
-            text(
-                """
-                UPDATE products
-                SET cost = :cost,
-                    margin = :margin,
-                    price_kg = :pkg,
-                    price_100g = :p100,
-                    price_150g = :p150,
-                    price_250g = :p250
-                WHERE id = :id
-                """
-            ),
-            {
-                "id": id,
+    db.execute(text("""
+        UPDATE products
+        SET cost = :cost,
+            margin = :margin,
+            promotion = :promotion,
+            price_kg = :price_kg,
+            price_100g = :price_100g,
+            price_150g = :price_150g,
+            price_250g = :price_250g
+        WHERE id = :id
+    """), {
+        "id": product_id,
+        "cost": cost,
+        "margin": margin,
+        "promotion": promotion,
+        "price_kg": prices["price_kg"],
+        "price_100g": prices["price_100g"],
+        "price_150g": prices["price_150g"],
+        "price_250g": prices["price_250g"]
+    })
+
+    db.commit()
+    return {"status": "updated"}
+
+@app.delete("/api/products/{product_id}")
+def delete_product(product_id: int, db: Session = Depends(get_db)):
+    db.execute(text("DELETE FROM products WHERE id = :id"), {"id": product_id})
+    db.execute(text("DELETE FROM product_suppliers WHERE product_id = :id"), {"id": product_id})
+    db.commit()
+    return {"status": "deleted"}
+
+# ============================================
+#        PROVEEDORES POR PRODUCTO (CORREGIDO)
+# ============================================
+
+@app.get("/api/products/{product_id}/suppliers")
+def get_product_suppliers(product_id: int, db: Session = Depends(get_db)):
+    result = db.execute(text("""
+        SELECT id, supplier_name, cost
+        FROM product_suppliers
+        WHERE product_id = :pid
+        ORDER BY supplier_name ASC, cost ASC
+    """), {"pid": product_id}).mappings().all()
+
+    return [dict(r) for r in result]
+
+
+@app.post("/api/products/{product_id}/suppliers")
+def add_supplier(product_id: int, payload: dict, db: Session = Depends(get_db)):
+
+    supplier_name = payload["supplier_name"]
+    cost = float(payload["cost"])
+
+    # Insertar proveedor
+    db.execute(text("""
+        INSERT INTO product_suppliers (product_id, supplier_name, cost)
+        VALUES (:pid, :name, :cost)
+    """), {
+        "pid": product_id,
+        "name": supplier_name,
+        "cost": cost
+    })
+
+    # Recalcular costo máximo
+    suppliers = db.execute(text("""
+        SELECT cost FROM product_suppliers WHERE product_id = :pid
+    """), {"pid": product_id}).mappings().all()
+
+    max_cost = max([s["cost"] for s in suppliers]) if suppliers else 0.0
+
+    # Obtener margen actual
+    product = db.execute(text("""
+        SELECT margin, promotion FROM products WHERE id = :pid
+    """), {"pid": product_id}).mappings().first()
+
+    if product:
+        prices = calculate_prices(max_cost, product["margin"])
+
+        db.execute(text("""
+            UPDATE products
+            SET cost = :cost,
+                price_kg = :pkg,
+                price_100g = :p100,
+                price_150g = :p150,
+                price_250g = :p250
+            WHERE id = :id
+        """), {
+            "id": product_id,
+            "cost": max_cost,
+            "pkg": prices["price_kg"],
+            "p100": prices["price_100g"],
+            "p150": prices["price_150g"],
+            "p250": prices["price_250g"]
+        })
+
+    db.commit()
+    return {"status": "created"}
+
+
+@app.delete("/api/products/{product_id}/suppliers/{supplier_id}")
+def delete_supplier(product_id: int, supplier_id: int, db: Session = Depends(get_db)):
+
+    # Borrar proveedor
+    db.execute(text("""
+        DELETE FROM product_suppliers WHERE id = :sid
+    """), {"sid": supplier_id})
+
+    # Recalcular costo máximo
+    suppliers = db.execute(text("""
+        SELECT cost FROM product_suppliers WHERE product_id = :pid
+    """), {"pid": product_id}).mappings().all()
+
+    max_cost = max([s["cost"] for s in suppliers]) if suppliers else 0.0
+
+    # Obtener margen actual
+    product = db.execute(text("""
+        SELECT margin FROM products WHERE id = :pid
+    """), {"pid": product_id}).mappings().first()
+
+    if product:
+        prices = calculate_prices(max_cost, product["margin"])
+
+        db.execute(text("""
+            UPDATE products
+            SET cost = :cost,
+                price_kg = :pkg,
+                price_100g = :p100,
+                price_150g = :p150,
+                price_250g = :p250
+            WHERE id = :id
+        """), {
+            "id": product_id,
+            "cost": max_cost,
+            "pkg": prices["price_kg"],
+            "p100": prices["price_100g"],
+            "p150": prices["price_150g"],
+            "p250": prices["price_250g"]
+        })
+
+    db.commit()
+    return {"status": "deleted"}
+
+
+# ============================================
+#        IMPORTACIÓN DESDE EXCEL (CORREGIDO)
+# ============================================
+
+@app.post("/api/products/import")
+def import_products(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    try:
+        df = pd.read_excel(file.file)
+
+        # Columnas esperadas según tu Excel real
+        required_cols = ["name", "type", "cost", "margin"]
+        for col in required_cols:
+            if col not in df.columns:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Falta la columna requerida: {col}"
+                )
+
+        count = 0
+
+        for _, row in df.iterrows():
+            cost = float(row["cost"]) if pd.notna(row["cost"]) else 0.0
+            margin = float(row["margin"]) if pd.notna(row["margin"]) else 0.0
+
+            prices = calculate_prices(cost, margin)
+
+            db.execute(text("""
+                INSERT INTO products
+                (name, type, cost, margin, price_kg, price_100g, price_150g, price_250g)
+                VALUES (:name, :type, :cost, :margin, :pkg, :p100, :p150, :p250)
+            """), {
+                "name": str(row["name"]),
+                "type": str(row["type"]),
                 "cost": cost,
                 "margin": margin,
                 "pkg": prices["price_kg"],
                 "p100": prices["price_100g"],
                 "p150": prices["price_150g"],
-                "p250": prices["price_250g"],
-            },
-        )
-        conn.commit()
+                "p250": prices["price_250g"]
+            })
 
-    return {"success": True}
+            count += 1
 
-@app.delete("/api/products/{id}")
-def delete_product(id: int):
-    with engine.connect() as conn:
-        conn.execute(text("DELETE FROM products WHERE id=:id"), {"id": id})
-        conn.execute(
-            text("DELETE FROM product_suppliers WHERE product_id=:id"), {"id": id}
-        )
-        conn.commit()
-    return {"success": True}
+        db.commit()
+        return {"status": "imported", "count": count}
 
-
-
-# ---------- Proveedores por producto ----------
-
-@app.get("/api/products/{id}/suppliers")
-def get_product_suppliers(id: int):
-    # Ordenar proveedores por nombre y luego por costo
-    with engine.connect() as conn:
-        res = conn.execute(
-            text(
-                """
-                SELECT * FROM product_suppliers 
-                WHERE product_id=:id 
-                ORDER BY supplier_name ASC, cost ASC
-                """
-            ),
-            {"id": id},
-        ).mappings().all()
-        return [dict(r) for r in res]
-
-
-@app.post("/api/products/{id}/suppliers")
-def add_supplier(id: int, s: Supplier):
-    with engine.connect() as conn:
-        # Insertar proveedor
-        conn.execute(
-            text(
-                """
-                INSERT INTO product_suppliers (product_id, supplier_name, cost) 
-                VALUES (:id, :name, :cost)
-                """
-            ),
-            {"id": id, "name": s.supplier_name, "cost": s.cost},
-        )
-
-        # Recalcular costo máximo y precios del producto
-        suppliers = conn.execute(
-            text("SELECT cost FROM product_suppliers WHERE product_id=:id"),
-            {"id": id},
-        ).mappings().all()
-        max_cost = max([sup["cost"] for sup in suppliers]) if suppliers else 0.0
-
-        product = conn.execute(
-            text("SELECT margin FROM products WHERE id=:id"), {"id": id}
-        ).mappings().first()
-
-        if product:
-            prices = calculate_prices(max_cost, product["margin"])
-            conn.execute(
-                text(
-                    """
-                    UPDATE products 
-                    SET cost=:cost, 
-                        price_kg=:pkg, 
-                        price_100g=:p100, 
-                        price_150g=:p150, 
-                        price_250g=:p250 
-                    WHERE id=:id
-                    """
-                ),
-                {
-                    "cost": max_cost,
-                    "pkg": prices["price_kg"],
-                    "p100": prices["price_100g"],
-                    "p150": prices["price_150g"],
-                    "p250": prices["price_250g"],
-                    "id": id,
-                },
-            )
-
-        conn.commit()
-    return {"success": True}
-
-
-@app.delete("/api/products/{product_id}/suppliers/{supplier_id}")
-def delete_supplier(product_id: int, supplier_id: int):
-    with engine.connect() as conn:
-        # Borrar proveedor
-        conn.execute(
-            text("DELETE FROM product_suppliers WHERE id=:sid"),
-            {"sid": supplier_id},
-        )
-
-        # Recalcular costo máximo y precios del producto
-        suppliers = conn.execute(
-            text("SELECT cost FROM product_suppliers WHERE product_id=:pid"),
-            {"pid": product_id},
-        ).mappings().all()
-
-        product = conn.execute(
-            text("SELECT margin, cost FROM products WHERE id=:pid"),
-            {"pid": product_id},
-        ).mappings().first()
-
-        if product:
-            max_cost = max([s["cost"] for s in suppliers]) if suppliers else 0.0
-            prices = calculate_prices(max_cost, product["margin"])
-            conn.execute(
-                text(
-                    """
-                    UPDATE products 
-                    SET cost=:cost, 
-                        price_kg=:pkg, 
-                        price_100g=:p100, 
-                        price_150g=:p150, 
-                        price_250g=:p250 
-                    WHERE id=:id
-                    """
-                ),
-                {
-                    "cost": max_cost,
-                    "pkg": prices["price_kg"],
-                    "p100": prices["price_100g"],
-                    "p150": prices["price_150g"],
-                    "p250": prices["price_250g"],
-                    "id": product_id,
-                },
-            )
-
-        conn.commit()
-    return {"success": True}
-
-
-# ---------- Importación desde Excel ----------
-
-@app.post("/api/products/import")
-def import_products(file: UploadFile = File(...)):
-    try:
-        df = pd.read_excel(file.file)
-        required_cols = ["Nombre", "Tipo", "Costo", "Margen"]
-        for col in required_cols:
-            if col not in df.columns:
-                raise HTTPException(
-                    status_code=400, detail=f"Falta la columna requerida: {col}"
-                )
-
-        with engine.connect() as conn:
-            count = 0
-            for _, row in df.iterrows():
-                cost = float(row["Costo"]) if pd.notna(row["Costo"]) else 0.0
-                margin = float(row["Margen"]) if pd.notna(row["Margen"]) else 0.0
-                prices = calculate_prices(cost, margin)
-
-                conn.execute(
-                    text(
-                        """
-                        INSERT INTO products 
-                        (name, type, cost, margin, price_kg, price_100g, price_150g, price_250g) 
-                        VALUES (:name, :type, :cost, :margin, :pkg, :p100, :p150, :p250)
-                        """
-                    ),
-                    {
-                        "name": str(row["Nombre"]),
-                        "type": str(row["Tipo"]),
-                        "cost": cost,
-                        "margin": margin,
-                        "pkg": prices["price_kg"],
-                        "p100": prices["price_100g"],
-                        "p150": prices["price_150g"],
-                        "p250": prices["price_250g"],
-                    },
-                )
-                count += 1
-            conn.commit()
-        return {"success": True, "imported_count": count}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 # ============================================
-#             MÓDULO CAJA DIARIA
+#             MÓDULO CAJA DIARIA (CORREGIDO)
 # ============================================
 
-@app.get("/api/cash")
-def get_cash():
-    with engine.connect() as conn:
-        res = conn.execute(
-            text("""
-                SELECT 
-                    id,
-                    date,
-                    weekday,
-                    cash,
-                    card,
-                    net_income,
-                    expenses,
-                    total
-                FROM cash
-                ORDER BY date ASC
-                LIMIT 100
-            """)
-        ).mappings().all()
+# 👉 Tu frontend usa /api/cash/all
+@app.get("/api/cash/all")
+def get_cash_all(db: Session = Depends(get_db)):
+    result = db.execute(text("""
+        SELECT id, date, weekday, cash, card, expenses,
+               (cash + card) AS net_income,
+               (cash + card - expenses) AS total
+        FROM cash
+        ORDER BY date ASC
+    """)).mappings().all()
 
-        registros = []
-        for r in res:
-            registros.append({
-                "id": r["id"],
-                "date": r["date"],
-                "weekday": r["weekday"],
-                "cash": float(r["cash"]) if r["cash"] is not None else 0.0,
-                "card": float(r["card"]) if r["card"] is not None else 0.0,
-                "net_income": float(r["net_income"]) if r["net_income"] is not None else 0.0,
-                "expenses": float(r["expenses"]) if r["expenses"] is not None else 0.0,
-                "total": float(r["total"]) if r["total"] is not None else 0.0,
-            })
-
-        return registros
+    return [dict(r) for r in result]
 
 
+# 👉 POST /api/cash
 @app.post("/api/cash")
-def create_cash(c: CashRecord):
-    # Calcular día de la semana a partir de la fecha
-    date_obj = datetime.datetime.strptime(c.date, "%Y-%m-%d")
-    weekdays = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
-    weekday = weekdays[date_obj.weekday()]
+def create_cash(payload: dict, db: Session = Depends(get_db)):
 
-    net = c.cash + c.card
-    total = net - c.expenses
+    date = payload["date"]
+    weekday = payload["weekday"]
+    cash = float(payload["cash"])
+    card = float(payload["card"])
+    expenses = float(payload["expenses"])
 
-    with engine.connect() as conn:
-        conn.execute(
-            text(
-                """
-                INSERT INTO cash 
-                (date, weekday, cash, card, net_income, expenses, total) 
-                VALUES (:date, :weekday, :cash, :card, :net, :expenses, :total)
-                """
-            ),
-            {
-                "date": c.date,
-                "weekday": weekday,
-                "cash": c.cash,
-                "card": c.card,
-                "net": net,
-                "expenses": c.expenses,
-                "total": total,
-            },
-        )
-        conn.commit()
-    return {"success": True}
+    net = cash + card
+    total = net - expenses
+
+    db.execute(text("""
+        INSERT INTO cash (date, weekday, cash, card, net_income, expenses, total)
+        VALUES (:date, :weekday, :cash, :card, :net, :expenses, :total)
+    """), {
+        "date": date,
+        "weekday": weekday,
+        "cash": cash,
+        "card": card,
+        "net": net,
+        "expenses": expenses,
+        "total": total
+    })
+
+    db.commit()
+    return {"status": "created"}
 
 
-@app.put("/api/cash/{id}")
-def update_cash(id: int, c: CashUpdate):
-    net = c.cash + c.card
-    total = net - c.expenses
-    with engine.connect() as conn:
-        conn.execute(
-            text(
-                """
-                UPDATE cash 
-                SET cash=:cash, 
-                    card=:card, 
-                    net_income=:net, 
-                    expenses=:expenses, 
-                    total=:total 
-                WHERE id=:id
-                """
-            ),
-            {
-                "cash": c.cash,
-                "card": c.card,
-                "net": net,
-                "expenses": c.expenses,
-                "total": total,
-                "id": id,
-            },
-        )
-        conn.commit()
-    return {"success": True}
+# 👉 PUT /api/cash/{id}
+@app.put("/api/cash/{cash_id}")
+def update_cash(cash_id: int, payload: dict, db: Session = Depends(get_db)):
+
+    cash = float(payload["cash"])
+    card = float(payload["card"])
+    expenses = float(payload["expenses"])
+
+    net = cash + card
+    total = net - expenses
+
+    db.execute(text("""
+        UPDATE cash
+        SET cash = :cash,
+            card = :card,
+            expenses = :expenses,
+            net_income = :net,
+            total = :total
+        WHERE id = :id
+    """), {
+        "id": cash_id,
+        "cash": cash,
+        "card": card,
+        "expenses": expenses,
+        "net": net,
+        "total": total
+    })
+
+    db.commit()
+    return {"status": "updated"}
 
 
-@app.delete("/api/cash/{id}")
-def delete_cash(id: int):
-    with engine.connect() as conn:
-        conn.execute(text("DELETE FROM cash WHERE id=:id"), {"id": id})
-        conn.commit()
-    return {"success": True}
+# 👉 DELETE /api/cash/{id}
+@app.delete("/api/cash/{cash_id}")
+def delete_cash(cash_id: int, db: Session = Depends(get_db)):
+    db.execute(text("DELETE FROM cash WHERE id = :id"), {"id": cash_id})
+    db.commit()
+    return {"status": "deleted"}
 
 
 # ============================================
-#             MÓDULO DASHBOARD
+#             MÓDULO DASHBOARD (CORREGIDO)
 # ============================================
 
 @app.get("/api/dashboard")
-def get_dashboard():
-    with engine.connect() as conn:
-        df = pd.read_sql(text("SELECT * FROM cash"), conn)
+def get_dashboard(db: Session = Depends(get_db)):
+
+    df = pd.read_sql(text("SELECT * FROM cash ORDER BY date ASC"), db.bind)
 
     if df.empty:
         return {
@@ -505,14 +456,16 @@ def get_dashboard():
         }
 
     df["date"] = pd.to_datetime(df["date"])
+    df["month"] = df["date"].dt.strftime("%Y-%m")
 
+    # ⭐ KPIs
     kpis = {
         "total_revenue": float(df["net_income"].sum()),
         "total_expenses": float(df["expenses"].sum()),
         "total_profit": float(df["total"].sum()),
     }
 
-    df["month"] = df["date"].dt.strftime("%Y-%m")
+    # ⭐ Resumen mensual
     monthly = (
         df.groupby("month")[["total", "cash", "card"]]
         .sum()
@@ -520,6 +473,7 @@ def get_dashboard():
         .to_dict(orient="records")
     )
 
+    # ⭐ Semanas reales
     df["week_start"] = df["date"] - pd.to_timedelta(df["date"].dt.dayofweek, unit="d")
     df["week_end"] = df["week_start"] + pd.Timedelta(days=6)
     df["week_range"] = (
@@ -528,18 +482,19 @@ def get_dashboard():
         + df["week_end"].dt.strftime("%d/%m")
     )
 
-    weekly_grouped = (
-        df.groupby(["month", "week_range"])["total"].sum().reset_index()
-    )
-    monthly_breakdown = {}
+    weekly_grouped = df.groupby(["month", "week_range"])["total"].sum().reset_index()
+
+    weekly_breakdown = {}
     for _, row in weekly_grouped.iterrows():
         m = row["month"]
-        if m not in monthly_breakdown:
-            monthly_breakdown[m] = []
-        monthly_breakdown[m].append(
-            {"week": row["week_range"], "total": float(row["total"])}
-        )
+        if m not in weekly_breakdown:
+            weekly_breakdown[m] = []
+        weekly_breakdown[m].append({
+            "week": row["week_range"],
+            "total": float(row["total"])
+        })
 
+    # ⭐ Métodos de pago
     payment_methods = {
         "cash": float(df["cash"].sum()),
         "card": float(df["card"].sum()),
@@ -548,9 +503,14 @@ def get_dashboard():
     return {
         "kpis": kpis,
         "monthly": monthly,
-        "weekly_breakdown": monthly_breakdown,
+        "weekly_breakdown": weekly_breakdown,
         "payment_methods": payment_methods,
     }
+
+
+# ============================================
+#             GENERACIÓN DE PDF
+# ============================================
 
 from fastapi.responses import StreamingResponse
 import pdfkit
@@ -563,7 +523,6 @@ def generate_pdf(data: dict):
     if not html:
         raise HTTPException(status_code=400, detail="HTML vacío")
 
-    # Generar PDF en memoria
     pdf_bytes = pdfkit.from_string(html, False)
 
     return StreamingResponse(
