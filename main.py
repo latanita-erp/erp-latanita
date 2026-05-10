@@ -44,8 +44,10 @@ def read_root():
 # ============================================
 
 from fastapi import Depends, HTTPException, Header
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy import text
 from passlib.context import CryptContext
+from sqlalchemy import create_engine
 
 pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -62,6 +64,9 @@ DB_URI = (
 )
 
 engine = create_engine(DB_URI, pool_pre_ping=True)
+
+# ⭐ ESTA LÍNEA ES CRÍTICA
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_db():
     db = SessionLocal()
@@ -104,9 +109,6 @@ def require_auth(authorization: str = Header(None)):
         raise HTTPException(status_code=401, detail="Token inválido")
 
     return token
-
-
-
 
 # ============================================
 #            FUNCIONES AUXILIARES
