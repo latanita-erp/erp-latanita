@@ -12,39 +12,9 @@
 <body>
 
     <!-- ========================= -->
-    <!--       LOGIN SCREEN        -->
+    <!--   APP DIRECTO (SIN LOGIN) -->
     <!-- ========================= -->
-    <div id="login-screen" class="glass-panel active">
-        <div class="login-box" style="text-align: center;">
-            <div class="logo" style="margin-bottom: 1rem; font-size: 1.2rem;">
-                <img src="static/logo.jpg" alt="Logo La Tanita" style="max-width: 150px; border-radius: 16px;">
-                Panadería y Fiambrería<br>
-                <strong style="font-size: 2rem; color: var(--primary-color);">La Tanita</strong>
-            </div>
-
-            <p>Inicia sesión para continuar</p>
-
-            <form id="login-form">
-                <div class="input-group">
-                    <label>Usuario</label>
-                    <input type="text" id="username" required>
-                </div>
-
-                <div class="input-group">
-                    <label>Contraseña</label>
-                    <input type="password" id="password" required>
-                </div>
-
-                <button type="submit" class="btn btn-primary btn-block">Ingresar</button>
-                <div id="login-error" class="error-msg"></div>
-            </form>
-        </div>
-    </div>
-
-    <!-- ========================= -->
-    <!--       APP PRINCIPAL       -->
-    <!-- ========================= -->
-    <div id="app-screen" class="hidden">
+    <div id="app-screen">
 
         <!-- SIDEBAR -->
         <aside class="sidebar">
@@ -64,10 +34,6 @@
                 <button class="nav-btn" onclick="window.open('static/print_100g.html', '_blank')">📄 Listado 100 g</button>
                 <button class="nav-btn" onclick="window.open('static/print_tecnico.html', '_blank')">📄 Listado Técnico</button>
             </nav>
-
-            <div class="sidebar-footer">
-                <button id="logout-btn" class="btn btn-danger btn-block">Cerrar Sesión</button>
-            </div>
         </aside>
 
         <!-- ========================= -->
