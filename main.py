@@ -43,10 +43,10 @@ def get_db():
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# ⭐ ABRIR DIRECTO EL DASHBOARD
+# ⭐ ABRIR DIRECTO EL INDEX (NO DASHBOARD)
 @app.get("/")
 def read_root():
-    return FileResponse("static/dashboard.html")
+    return FileResponse("static/index.html")
 
 # ============================================
 #            FUNCIONES AUXILIARES
