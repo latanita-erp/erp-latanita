@@ -968,14 +968,11 @@ function renderBestWorstTable(stats) {
     tbody.innerHTML = '';
 
     stats.forEach(row => {
-        const [by, bm, bd] = row.best.date.split('-');
-        const [wy, wm, wd] = row.worst.date.split('-');
-
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${formatMonthLiteral(row.month)}</td>
-            <td>${bd}/${bm}/${by} ($${formatMoney(row.best.total)})</td>
-            <td>${wd}/${wm}/${wy} ($${formatMoney(row.worst.total)})</td>
+            <td>${row.best.weekday} ($${formatMoney(row.best.total)})</td>
+            <td>${row.worst.weekday} ($${formatMoney(row.worst.total)})</td>
         `;
         tbody.appendChild(tr);
     });
