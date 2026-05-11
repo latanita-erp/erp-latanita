@@ -853,42 +853,15 @@ async function deleteCash(id) {
 let charts = {};
 
 async function fetchDashboard() {
-
-    // 1. Traer datos del backend
-    const res = await fetch('/api/dashboard');
-    state.dashboard = await res.json();
-
-    // 2. Renderizar KPIs y estructura principal
+    try {
+        const res = await fetch('/api/dashboard');
+        state.dashboard = await res.json();
+    } catch (e) {
+        console.error("Dashboard error", e);
+        state.dashboard = null;
+    }
     renderDashboard();
-
-    // 3. Renderizar gráficos del dashboard
-    // (todos usan state.cash que viene dentro de state.dashboard)
-    const cashData = state.dashboard.cash || [];
-
-    // --- Ventas por día del mes actual ---
-    renderDailySalesChart(cashData);
-
-    // --- Efectivo vs Tarjeta ---
-    renderPaymentChart(cashData);
-
-    // --- Comparativo mensual ---
-    renderMonthCompareChart(cashData);
-
-    // --- Mejor y peor día por mes ---
-    const stats = calculateMonthlyDayStats(cashData);
-    renderBestWorstTable(stats);
-
-    // --- Ranking de días por mes ---
-    const ranking = calculateMonthlyDayRanking(cashData);
-    renderMonthlyDayRanking(ranking);
-
-    // --- Distribución por día de la semana ---
-    renderWeekdayDistributionChart(cashData);
-
-    // --- Desglose semanal ---
-    renderWeeklyBreakdown(cashData);
 }
-
 
 // ---------- Cálculos de resumen mensual ----------
 
@@ -937,26 +910,32 @@ function calculateMonthlySummary(cashData) {
 }
 
 function renderMonthlySummary(summary) {
-    document.getElementById('sum-total-vendido').innerText = `$${formatMoney(summary.total_vendido)}`;
-    document.getElementById('sum-gastos').innerText = `$${formatMoney(summary.gastos)}`;
-    document.getElementById('sum-ganancia').innerText = `$${formatMoney(summary.ganancia)}`;
-    document.getElementById('sum-promedio').innerText = `$${formatMoney(summary.promedio_diario)}`;
-    document.getElementById('sum-dias').innerText = summary.dias_trabajados;
+    const elVendido = document.getElementById('sum-total-vendido');
+    const elGastos = document.getElementById('sum-gastos');
+    const elGanancia = document.getElementById('sum-ganancia');
+    const elPromedio = document.getElementById('sum-promedio');
+    const elDias = document.getElementById('sum-dias');
+    const elMejor = document.getElementById('sum-mejor-dia');
+    const elPeor = document.getElementById('sum-peor-dia');
+
+    if(elVendido) elVendido.innerText = `$${formatMoney(summary.total_vendido)}`;
+    if(elGastos) elGastos.innerText = `$${formatMoney(summary.gastos)}`;
+    if(elGanancia) elGanancia.innerText = `$${formatMoney(summary.ganancia)}`;
+    if(elPromedio) elPromedio.innerText = `$${formatMoney(summary.promedio_diario)}`;
+    if(elDias) elDias.innerText = summary.dias_trabajados;
 
     if (summary.mejor_dia) {
         const [y, m, d] = summary.mejor_dia.date.split('-');
-        document.getElementById('sum-mejor-dia').innerText =
-            `${d}/${m}/${y} ($${formatMoney(summary.mejor_dia.total)})`;
+        if(elMejor) elMejor.innerText = `${d}/${m}/${y} ($${formatMoney(summary.mejor_dia.total)})`;
     } else {
-        document.getElementById('sum-mejor-dia').innerText = '—';
+        if(elMejor) elMejor.innerText = '—';
     }
 
     if (summary.peor_dia) {
         const [y, m, d] = summary.peor_dia.date.split('-');
-        document.getElementById('sum-peor-dia').innerText =
-            `${d}/${m}/${y} ($${formatMoney(summary.peor_dia.total)})`;
+        if(elPeor) elPeor.innerText = `${d}/${m}/${y} ($${formatMoney(summary.peor_dia.total)})`;
     } else {
-        document.getElementById('sum-peor-dia').innerText = '—';
+        if(elPeor) elPeor.innerText = '—';
     }
 }
 
@@ -993,30 +972,7 @@ function calculateMonthlyDayStats(cashData) {
     return result;
 }
 
-function renderBestWorstTable(stats) {
-    const tbody = document.querySelector('#best-worst-table tbody');
-    if (!tbody) return;
 
-    tbody.innerHTML = '';
-
-    stats.forEach(row => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${formatMonthLiteral(row.month)}</td>
-
-            <!-- Mejor día en verde -->
-            <td style="color: var(--success-color); font-weight: bold;">
-                ${row.best.weekday} ($${formatMoney(row.best.total)})
-            </td>
-
-            <!-- Peor día en rojo -->
-            <td style="color: var(--danger-color); font-weight: bold;">
-                ${row.worst.weekday} ($${formatMoney(row.worst.total)})
-            </td>
-        `;
-        tbody.appendChild(tr);
-    });
-}
 
 function renderDailySalesChart(cashData) {
     const currentMonth = new Date().toISOString().slice(0, 7);
@@ -1031,7 +987,9 @@ function renderDailySalesChart(cashData) {
 
     const ctx = canvas.getContext("2d");
 
-    new Chart(ctx, {
+    if (charts.dailySales) charts.dailySales.destroy();
+
+    charts.dailySales = new Chart(ctx, {
         type: "bar",
         data: {
             labels,
@@ -1073,7 +1031,9 @@ function renderMonthlyComparisonChart(cashData) {
     const labels = months.map(m => formatMonthLiteral(m));
     const totals = months.map(m => byMonth[m].total);
 
-    const ctx = document.getElementById('chart-month-compare').getContext('2d');
+    const canvas = document.getElementById('chart-month-compare');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
 
     if (charts.monthCompare) charts.monthCompare.destroy();
 
@@ -1176,15 +1136,21 @@ function renderMonthlyDayRanking(stats) {
 // ---------- Render principal del Dashboard ----------
 
 function renderDashboard() {
+    if (!state.dashboard) return;
     const d = state.dashboard;
+    const cashData = state.cash || [];
 
     // KPIs
-    document.getElementById('kpi-revenue').innerText = `$${formatMoney(d.kpis.total_revenue)}`;
-    document.getElementById('kpi-expenses').innerText = `$${formatMoney(d.kpis.total_expenses)}`;
-    document.getElementById('kpi-profit').innerText = `$${formatMoney(d.kpis.total_profit)}`;
+    const elRevenue = document.getElementById('kpi-revenue');
+    const elExpenses = document.getElementById('kpi-expenses');
+    const elProfit = document.getElementById('kpi-profit');
+    
+    if(elRevenue) elRevenue.innerText = `$${formatMoney(d.kpis.total_revenue)}`;
+    if(elExpenses) elExpenses.innerText = `$${formatMoney(d.kpis.total_expenses)}`;
+    if(elProfit) elProfit.innerText = `$${formatMoney(d.kpis.total_profit)}`;
 
     // Resumen del mes (desde state.cash)
-    const summary = calculateMonthlySummary(state.cash);
+    const summary = calculateMonthlySummary(cashData);
     renderMonthlySummary(summary);
 
     // Tendencia mensual (simple: comparación último vs anterior)
@@ -1203,13 +1169,13 @@ function renderDashboard() {
 
         const fmtDiff = (v) => `${v >= 0 ? '▲' : '▼'} $${formatMoney(Math.abs(v))}`;
 
-        trendVentasEl.innerText = fmtDiff(diffVentas);
-        trendGastosEl.innerText = fmtDiff(diffGastos);
-        trendGananciaEl.innerText = fmtDiff(diffGanancia);
+        if(trendVentasEl) trendVentasEl.innerText = fmtDiff(diffVentas);
+        if(trendGastosEl) trendGastosEl.innerText = fmtDiff(diffGastos);
+        if(trendGananciaEl) trendGananciaEl.innerText = fmtDiff(diffGanancia);
     } else {
-        trendVentasEl.innerText = '—';
-        trendGastosEl.innerText = '—';
-        trendGananciaEl.innerText = '—';
+        if(trendVentasEl) trendVentasEl.innerText = '—';
+        if(trendGastosEl) trendGastosEl.innerText = '—';
+        if(trendGananciaEl) trendGananciaEl.innerText = '—';
     }
 
     // Limpiar gráficos previos
@@ -1219,86 +1185,79 @@ function renderDashboard() {
     Chart.defaults.color = '#94a3b8';
     Chart.defaults.font.family = 'Inter';
 
-    // 1. Ventas por mes
-    const ctxMonthly = document.getElementById('chart-monthly').getContext('2d');
-    charts.monthly = new Chart(ctxMonthly, {
-        type: 'bar',
-        data: {
-            labels: d.monthly.map(m => formatMonthLiteral(m.month)),
-            datasets: [{
-                label: 'Beneficio Neto',
-                data: d.monthly.map(m => m.total),
-                backgroundColor: '#3b82f6',
-                borderRadius: 4
-            }]
-        },
-        options: { responsive: true, plugins: { legend: { display: false } } }
-    });
+    // 1. Ventas por día del mes actual
+    renderDailySalesChart(cashData);
 
     // 2. Efectivo vs Tarjeta
-    const ctxPayment = document.getElementById('chart-payment').getContext('2d');
-    charts.payment = new Chart(ctxPayment, {
-        type: 'bar',
-        data: {
-            labels: d.monthly.map(m => formatMonthLiteral(m.month)),
-            datasets: [
-                {
-                    label: 'Efectivo',
-                    data: d.monthly.map(m => m.cash),
-                    backgroundColor: '#10b981',
-                    borderRadius: 4
-                },
-                {
-                    label: 'Tarjeta',
-                    data: d.monthly.map(m => m.card),
-                    backgroundColor: '#3b82f6',
-                    borderRadius: 4
-                }
-            ]
-        },
-        options: { responsive: true }
-    });
-
-    // 3. Desglose semanal
-    const container = document.getElementById('weekly-breakdown-container');
-    container.innerHTML = '';
-
-    if (!d.weekly_breakdown || Object.keys(d.weekly_breakdown).length === 0) {
-        container.innerHTML = '<p style="color: var(--text-secondary);">No hay datos semanales.</p>';
-    } else {
-        const months = Object.keys(d.weekly_breakdown).sort().reverse();
-        months.forEach(month => {
-            const monthDiv = document.createElement('div');
-            monthDiv.style.background = 'rgba(255,255,255,0.02)';
-            monthDiv.style.padding = '1.5rem';
-            monthDiv.style.borderRadius = '12px';
-            monthDiv.style.border = '1px solid var(--glass-border)';
-
-            let html = `<h4 style="margin-bottom: 1rem; color: var(--primary-color); font-size: 1.1rem;">Mes: ${formatMonthLiteral(month)}</h4>`;
-            html += `<table class="table" style="font-size: 0.95rem;"><tbody>`;
-            d.weekly_breakdown[month].forEach(w => {
-                html += `<tr>
-                            <td>Semana del <strong>${w.week}</strong></td>
-                            <td style="text-align: right; font-weight: bold; color: ${w.total >= 0 ? 'var(--success-color)' : 'var(--danger-color)'}">
-                                $${formatMoney(w.total)}
-                            </td>
-                         </tr>`;
-            });
-            html += `</tbody></table>`;
-            monthDiv.innerHTML = html;
-            container.appendChild(monthDiv);
+    const elPayment = document.getElementById('chart-payment');
+    if (elPayment) {
+        const ctxPayment = elPayment.getContext('2d');
+        charts.payment = new Chart(ctxPayment, {
+            type: 'bar',
+            data: {
+                labels: d.monthly.map(m => formatMonthLiteral(m.month)),
+                datasets: [
+                    {
+                        label: 'Efectivo',
+                        data: d.monthly.map(m => m.cash),
+                        backgroundColor: '#10b981',
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'Tarjeta',
+                        data: d.monthly.map(m => m.card),
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: { responsive: true }
         });
     }
 
-    // 4. Mejor/Peor día por mes
-    const stats = calculateMonthlyDayStats(state.cash);
-    renderBestWorstTable(stats);
+    // 3. Desglose semanal
+    const container = document.getElementById('weekly-breakdown-container');
+    if (container) {
+        container.innerHTML = '';
+        if (!d.weekly_breakdown || Object.keys(d.weekly_breakdown).length === 0) {
+            container.innerHTML = '<p style="color: var(--text-secondary);">No hay datos semanales.</p>';
+        } else {
+            const months = Object.keys(d.weekly_breakdown).sort().reverse();
+            months.forEach(month => {
+                const monthDiv = document.createElement('div');
+                monthDiv.style.background = 'rgba(255,255,255,0.02)';
+                monthDiv.style.padding = '1.5rem';
+                monthDiv.style.borderRadius = '12px';
+                monthDiv.style.border = '1px solid var(--glass-border)';
+
+                let html = `<h4 style="margin-bottom: 1rem; color: var(--primary-color); font-size: 1.1rem;">Mes: ${formatMonthLiteral(month)}</h4>`;
+                html += `<table class="table" style="font-size: 0.95rem;"><tbody>`;
+                d.weekly_breakdown[month].forEach(w => {
+                    html += `<tr>
+                                <td>Semana del <strong>${w.week}</strong></td>
+                                <td style="text-align: right; font-weight: bold; color: ${w.total >= 0 ? 'var(--success-color)' : 'var(--danger-color)'}">
+                                    $${formatMoney(w.total)}
+                                </td>
+                             </tr>`;
+                });
+                html += `</tbody></table>`;
+                monthDiv.innerHTML = html;
+                container.appendChild(monthDiv);
+            });
+        }
+    }
+
+
 
     // 5. Comparativo mensual
-    renderMonthlyComparisonChart(state.cash);
+    renderMonthlyComparisonChart(cashData);
 
     // 6. Distribución por día de la semana
-    renderWeekdayDistribution(state.cash);
+    renderWeekdayDistribution(cashData);
+
+    // 7. Ranking de días por mes
+    const ranking = calculateMonthlyDayRanking(cashData);
+    renderMonthlyDayRanking(ranking);
 }
 
 // --- INICIALIZACIÓN DE LA APP ---

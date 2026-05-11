@@ -261,97 +261,18 @@
 
             <!-- DASHBOARD -->
 <section id="dashboard" class="view active">
-
-    <!-- ========================= -->
-    <!--     RESUMEN DEL MES       -->
-    <!-- ========================= -->
-    <div class="glass-panel summary-box pretty-box">
-        <h3 class="section-title">📅 Resumen del Mes Actual</h3>
-
-        <div class="summary-grid pretty-grid">
-            <div class="summary-item pretty-item">
-                <label>Total Vendido</label>
-                <span id="sum-total-vendido">—</span>
-            </div>
-
-            <div class="summary-item pretty-item">
-                <label>Gastos</label>
-                <span id="sum-gastos">—</span>
-            </div>
-
-            <div class="summary-item pretty-item">
-                <label>Ganancia Neta</label>
-                <span id="sum-ganancia">—</span>
-            </div>
-
-            <div class="summary-item pretty-item highlight-green">
-                <label>Mejor Día</label>
-                <span id="sum-mejor-dia">—</span>
-            </div>
-
-            <div class="summary-item pretty-item highlight-red">
-                <label>Peor Día</label>
-                <span id="sum-peor-dia">—</span>
-            </div>
-
-            <div class="summary-item pretty-item">
-                <label>Promedio Diario</label>
-                <span id="sum-promedio">—</span>
-            </div>
-
-            <div class="summary-item pretty-item">
-                <label>Días Trabajados</label>
-                <span id="sum-dias">—</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- ========================= -->
-    <!--     TENDENCIA MENSUAL     -->
-    <!-- ========================= -->
-    <div class="glass-panel summary-box pretty-box">
-        <h3 class="section-title">📊 Tendencia Mensual</h3>
-
-        <div class="summary-grid pretty-grid">
-            <div class="summary-item pretty-item">
-                <label>Ventas vs Mes Anterior</label>
-                <span id="trend-ventas">—</span>
-            </div>
-
-            <div class="summary-item pretty-item">
-                <label>Gastos vs Mes Anterior</label>
-                <span id="trend-gastos">—</span>
-            </div>
-
-            <div class="summary-item pretty-item">
-                <label>Ganancia vs Mes Anterior</label>
-                <span id="trend-ganancia">—</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- ========================= -->
-    <!-- DISTRIBUCIÓN POR DÍA      -->
-    <!-- ========================= -->
-    <div class="glass-panel pretty-box">
-        <h3 class="section-title">📆 Distribución por Día de la Semana</h3>
-        <canvas id="chart-weekday-distribution" height="120"></canvas>
-    </div>
-
-    <!-- ========================= -->
-    <!--   KPI PRINCIPALES         -->
-    <!-- ========================= -->
+    <!-- ⭐ KPI PRINCIPALES (HISTÓRICO) -->
     <header class="dash-header">
         <h1>📈 Dashboard de Rendimiento</h1>
         <p>Resumen financiero global actualizado</p>
     </header>
 
-    <div class="kpi-grid-modern pretty-kpi-grid">
+    <div class="kpi-grid-modern pretty-kpi-grid" style="margin-bottom: 2rem;">
 
         <div class="kpi-card-modern pretty-kpi">
             <div class="kpi-icon">💰</div>
             <div class="kpi-info">
-                <h3>Ingresos Totales</h3>
+                <h3>Ingresos Históricos</h3>
                 <div class="kpi-value" id="kpi-revenue">$0.00</div>
             </div>
         </div>
@@ -359,7 +280,7 @@
         <div class="kpi-card-modern pretty-kpi">
             <div class="kpi-icon">📉</div>
             <div class="kpi-info">
-                <h3>Gastos Totales</h3>
+                <h3>Gastos Históricos</h3>
                 <div class="kpi-value" id="kpi-expenses">$0.00</div>
             </div>
         </div>
@@ -367,15 +288,12 @@
         <div class="kpi-card-modern pretty-kpi highlight">
             <div class="kpi-icon">📈</div>
             <div class="kpi-info">
-                <h3>Beneficio Neto</h3>
+                <h3>Beneficio Neto Total</h3>
                 <div class="kpi-value" id="kpi-profit">$0.00</div>
             </div>
         </div>
 
     </div>
-
-    <!-- DASHBOARD -->
-<section id="dashboard" class="view active">
 
     <!-- ⭐ RESUMEN DEL MES -->
     <div class="glass-panel summary-box pretty-box">
@@ -441,39 +359,6 @@
         </div>
     </div>
 
-    <!-- ⭐ KPI PRINCIPALES -->
-    <header class="dash-header">
-        <h1>📈 Dashboard de Rendimiento</h1>
-        <p>Resumen financiero global actualizado</p>
-    </header>
-
-    <div class="kpi-grid-modern pretty-kpi-grid">
-
-        <div class="kpi-card-modern pretty-kpi">
-            <div class="kpi-icon">💰</div>
-            <div class="kpi-info">
-                <h3>Ingresos Totales</h3>
-                <div class="kpi-value" id="kpi-revenue">$0.00</div>
-            </div>
-        </div>
-
-        <div class="kpi-card-modern pretty-kpi">
-            <div class="kpi-icon">📉</div>
-            <div class="kpi-info">
-                <h3>Gastos Totales</h3>
-                <div class="kpi-value" id="kpi-expenses">$0.00</div>
-            </div>
-        </div>
-
-        <div class="kpi-card-modern pretty-kpi highlight">
-            <div class="kpi-icon">📈</div>
-            <div class="kpi-info">
-                <h3>Beneficio Neto</h3>
-                <div class="kpi-value" id="kpi-profit">$0.00</div>
-            </div>
-        </div>
-
-    </div>
 
     <!-- ========================= -->
     <!--        GRÁFICOS           -->
@@ -502,14 +387,15 @@
             <div id="weekly-breakdown-container" style="margin-top: 1rem;"></div>
         </div>
 
+
+
         <div class="chart-box glass-panel pretty-box">
-            <h3 class="section-title">🏆 Mejor y Peor Día por Mes</h3>
-            <table class="table pretty-table" id="best-worst-table">
+            <h3 class="section-title">🏅 Ranking Días por Mes</h3>
+            <table class="table pretty-table" id="ranking-days-table">
                 <thead>
                     <tr>
                         <th>Mes</th>
-                        <th>Mejor Día</th>
-                        <th>Peor Día</th>
+                        <th>Ranking de Ventas</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -518,10 +404,17 @@
 
     </div>
 
-    <!-- FILA 3: Comparativo mensual -->
-    <div class="chart-box glass-panel pretty-box small-chart full-width">
-        <h3 class="section-title">📊 Comparativo Mensual</h3>
-        <canvas id="chart-month-compare"></canvas>
+    <!-- FILA 3: Comparativo mensual y Distribución -->
+    <div class="charts-grid-compact">
+        <div class="chart-box glass-panel pretty-box small-chart">
+            <h3 class="section-title">📊 Comparativo Mensual</h3>
+            <canvas id="chart-month-compare"></canvas>
+        </div>
+
+        <div class="chart-box glass-panel pretty-box small-chart">
+            <h3 class="section-title">📆 Distribución por Día</h3>
+            <canvas id="chart-weekday-distribution"></canvas>
+        </div>
     </div>
 
 </section>
