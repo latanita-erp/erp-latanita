@@ -30,8 +30,8 @@ async def basic_auth(request: Request, call_next):
         decoded_credentials = base64.b64decode(encoded_credentials).decode("utf-8")
         username, _, password = decoded_credentials.partition(":")
         
-        # Usuario: admin / Contraseña: latanita2026
-        if username != "admin" or password != "latanita2026":
+        # Usuario: cboveda / Contraseña: Latanita1198$
+        if username != "cboveda" or password != "Latanita1198$":
             return Response(headers={"WWW-Authenticate": 'Basic realm="Acceso"'}, status_code=401)
     except Exception:
         return Response(headers={"WWW-Authenticate": 'Basic realm="Acceso"'}, status_code=401)
