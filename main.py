@@ -8,15 +8,35 @@ import datetime
 import urllib.parse
 import pandas as pd
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Request, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
-import pdfkit
 import io
+import base64
 
 app = FastAPI()
+
+@app.middleware("http")
+async def basic_auth(request: Request, call_next):
+    # Proteger toda la aplicación con usuario y contraseña
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Basic "):
+        return Response(headers={"WWW-Authenticate": 'Basic realm="Acceso"'}, status_code=401)
+    
+    encoded_credentials = auth_header.split(" ")[1]
+    try:
+        decoded_credentials = base64.b64decode(encoded_credentials).decode("utf-8")
+        username, _, password = decoded_credentials.partition(":")
+        
+        # Usuario: admin / Contraseña: latanita2026
+        if username != "admin" or password != "latanita2026":
+            return Response(headers={"WWW-Authenticate": 'Basic realm="Acceso"'}, status_code=401)
+    except Exception:
+        return Response(headers={"WWW-Authenticate": 'Basic realm="Acceso"'}, status_code=401)
+        
+    return await call_next(request)
 
 # ============================================
 #        CONEXIÓN A SUPABASE (POOLER)
@@ -458,26 +478,5 @@ def get_dashboard(db: Session = Depends(get_db)):
         "weekly_breakdown": weekly_breakdown,
         "payment_methods": payment_methods,
     }
-
-
-# ============================================
-#             GENERACIÓN DE PDF
-# ============================================
-
-@app.post("/api/generate-pdf")
-def generate_pdf(data: dict):
-    html = data.get("html", "")
-
-    if not html:
-        raise HTTPException(status_code=400, detail="HTML vacío")
-
-    # TEMPORAL: evitar error por falta de wkhtmltopdf
-    pdf_bytes = b"%PDF-1.4\n%PDF disabled temporarily\n"
-
-    return StreamingResponse(
-        io.BytesIO(pdf_bytes),
-        media_type="application/pdf",
-        headers={"Content-Disposition": "inline; filename=lista.pdf"}
-    )
 
 
