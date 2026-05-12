@@ -113,89 +113,68 @@ async function fetchProducts() {
         ...p,
         cost: parseFloat(p.cost),
         margin: parseFloat(p.margin),
-        price_kg: parseFloat(p.price_kg)
+        price_kg: parseFloat(p.price_kg),
+        price_100g: parseFloat(p.price_100g),
+        price_150g: parseFloat(p.price_150g),
+        price_250g: parseFloat(p.price_250g)
     }));
 
-    renderProducts();
+    renderProductsTable(state.products);
 }
 
-function renderProducts() {
-    const tbody = document.querySelector('#products-table tbody');
-    tbody.innerHTML = '';
+// ======================================================
+//                 RENDER TABLA DE PRODUCTOS
+// ======================================================
 
-    state.products.forEach(p => {
-        const tr = document.createElement('tr');
+function renderProductsTable(products) {
+
+    // 1) Filtrar productos con precio 0
+    products = products.filter(p => p.price_kg > 0);
+
+    const tbody = document.querySelector("#products-table tbody");
+    if (!tbody) return;
+
+    tbody.innerHTML = "";
+
+    products.forEach(p => {
+
+        // 2) Colores por tipo
+        const typeClass = {
+            FIAMBRES: "type-fiambres",
+            QUESOS: "type-quesos",
+            ENCURTIDOS: "type-encurtidos",
+            BEBIDAS: "type-bebidas"
+        }[p.type] || "";
+
+        // 3) Precios por gramos (si NO es bebida)
+        const price100 = p.type === "BEBIDAS" ? "" : `$${formatMoney(p.price_kg / 10)}`;
+        const price150 = p.type === "BEBIDAS" ? "" : `$${formatMoney(p.price_kg * 0.15)}`;
+        const price250 = p.type === "BEBIDAS" ? "" : `$${formatMoney(p.price_kg * 0.25)}`;
+
+        // 4) Precio KG o Unitario
+        const priceKgUn = `$${formatMoney(p.price_kg)}`;
+
+        // 5) Crear fila
+        const tr = document.createElement("tr");
+        tr.classList.add(typeClass);
+
         tr.innerHTML = `
-            <td class="prod-name"><strong>${p.name}</strong></td>
-            <td class="prod-type">${p.type}</td>
-            <td class="prod-cost" data-value="${p.cost}">$${formatMoney(p.cost)}</td>
-            <td class="prod-margin" data-value="${p.margin}">${p.margin}%</td>
-            <td class="prod-pricekg" data-value="${p.price_kg}"><strong>$${formatMoney(p.price_kg)}</strong></td>
-            <td class="prod-price100" data-value="${p.price_100g}">$${formatMoney(p.price_100g)}</td>
-            <td class="prod-price150" data-value="${p.price_150g}">$${formatMoney(p.price_150g)}</td>
-            <td class="prod-price250" data-value="${p.price_250g}">$${formatMoney(p.price_250g)}</td>
+            <td><strong>${p.name}</strong></td>
+            <td>${p.type}</td>
+            <td>$${formatMoney(p.cost)}</td>
+            <td>${p.margin}%</td>
+            <td><strong>${priceKgUn}</strong></td>
+            <td>${price100}</td>
+            <td>${price150}</td>
+            <td>${price250}</td>
+
             <td style="display: flex; gap: 0.5rem;">
                 <button class="btn btn-secondary" onclick="openEditProduct(${p.id})">✏️ Editar</button>
                 <button class="btn btn-danger" onclick="deleteProduct(${p.id})">🗑️</button>
             </td>
         `;
+
         tbody.appendChild(tr);
-    });
-}
-
-// ======================================================
-//                 DISTRIBUCIÓN SEMANAL (GRÁFICO)
-// ======================================================
-
-function calculateWeekdayDistribution(cashData) {
-    const days = {
-        "LUNES": 0,
-        "MARTES": 0,
-        "MIÉRCOLES": 0,
-        "JUEVES": 0,
-        "VIERNES": 0,
-        "SÁBADO": 0,
-        "DOMINGO": 0
-    };
-
-    cashData.forEach(row => {
-        const day = row.weekday.toUpperCase();
-        if (days[day] !== undefined) {
-            days[day] += row.total;
-        }
-    });
-
-    return days;
-}
-
-function renderWeekdayDistribution(cashData) {
-    const data = calculateWeekdayDistribution(cashData);
-
-    const labels = Object.keys(data);
-    const values = Object.values(data);
-
-    const ctx = document.getElementById("chart-weekday-distribution").getContext("2d");
-
-    if (charts.weekday) charts.weekday.destroy();
-
-    charts.weekday = new Chart(ctx, {
-        type: "bar",
-        data: {
-            labels,
-            datasets: [{
-                label: "Ganancia por Día",
-                data: values,
-                backgroundColor: [
-                    "#3b82f6", "#10b981", "#f59e0b",
-                    "#6366f1", "#ef4444", "#8b5cf6", "#14b8a6"
-                ],
-                borderRadius: 6
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: { y: { beginAtZero: true } }
-        }
     });
 }
 
@@ -236,39 +215,8 @@ async function deleteProduct(id) {
 }
 
 // ======================================================
-//                 IMPORTAR EXCEL
-// ======================================================
-
-async function handleExcelUpload(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-        const res = await fetch('/api/products/import', {
-            method: 'POST',
-            body: formData
-        });
-
-        if (res.ok) {
-            alert('Productos importados correctamente.');
-            fetchProducts();
-        } else {
-            const err = await res.json();
-            alert('Error al importar: ' + err.detail);
-        }
-    } catch (err) {
-        alert('Error de conexión.');
-    }
-
-    e.target.value = '';
-}
-
-// =====================================================
 //                 EDICIÓN DE PRODUCTOS
-// =====================================================
+// ======================================================
 
 function calculatePrices(cost, margin) {
     const base = cost * (1 + margin / 100);
@@ -282,18 +230,6 @@ function updateNewPrice() {
     document.getElementById("edit-product-new-price").value = newPrice;
 }
 
-function updatePromoPrice() {
-    const price250 = Number(document.getElementById("edit-product-price250").value);
-    const promo = Number(document.getElementById("edit-product-promotion").value);
-
-    if (promo > 0) {
-        const final = price250 * (1 - promo / 100);
-        document.getElementById("edit-product-price250-promo").value = final.toFixed(2);
-    } else {
-        document.getElementById("edit-product-price250-promo").value = "";
-    }
-}
-
 function openEditProduct(id) {
     const p = state.products.find(x => x.id === id);
 
@@ -304,33 +240,28 @@ function openEditProduct(id) {
     document.getElementById("edit-product-margin").value = p.margin;
     document.getElementById("edit-product-old-price").value = p.price_kg;
 
-    document.getElementById("edit-product-price250").value = p.price_250g;
-    document.getElementById("edit-product-promotion").value = p.promotion || 0;
-
-    if (p.promotion > 0) {
-        const final = p.price_250g * (1 - p.promotion / 100);
-        document.getElementById("edit-product-price250-promo").value = final.toFixed(2);
-    } else {
-        document.getElementById("edit-product-price250-promo").value = "";
-    }
-
     updateNewPrice();
     toggleModal("modal-edit-product");
 }
 
 document.getElementById("edit-product-cost").addEventListener("input", updateNewPrice);
 document.getElementById("edit-product-margin").addEventListener("input", updateNewPrice);
-document.getElementById("edit-product-promotion").addEventListener("input", updatePromoPrice);
 
 document.getElementById("edit-product-form").addEventListener("submit", async (e) => {
     e.preventDefault();
 
     const id = document.getElementById("edit-product-id").value;
-    const cost = parseFloat(document.getElementById("edit-product-cost").value);
-    const margin = parseFloat(document.getElementById("edit-product-margin").value);
-    const promotion = Number(document.getElementById("edit-product-promotion").value);
 
-    const payload = { cost, margin, promotion };
+    const payload = {
+        name: document.getElementById("edit-product-name").value,
+        type: document.getElementById("edit-product-type").value,
+        cost: parseFloat(document.getElementById("edit-product-cost").value),
+        margin: parseFloat(document.getElementById("edit-product-margin").value),
+        price_kg: calculatePrices(
+            parseFloat(document.getElementById("edit-product-cost").value),
+            parseFloat(document.getElementById("edit-product-margin").value)
+        )
+    };
 
     await fetch(`/api/products/${id}`, {
         method: 'PUT',
@@ -342,11 +273,15 @@ document.getElementById("edit-product-form").addEventListener("submit", async (e
     fetchProducts();
 });
 
-// =====================================================
+// ======================================================
 //                 AJUSTE MASIVO DE MÁRGENES
-// =====================================================
+// ======================================================
 
 let lastMassUpdateBackup = null;
+
+document.getElementById("btn-mass-margin").addEventListener("click", () => {
+    toggleModal("modal-mass-margin");
+});
 
 document.getElementById("mass-margin-form").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -365,17 +300,120 @@ document.getElementById("mass-margin-form").addEventListener("submit", async (e)
     try {
         lastMassUpdateBackup = state.products.map(p => ({
             id: p.id,
+            cost: p.cost,
             margin: p.margin,
             price_kg: p.price_kg
         }));
 
         for (const p of state.products) {
             const newMargin = p.margin + value;
+            const newPriceKg = calculatePrices(p.cost, newMargin);
 
             await fetch(`/api/products/${p.id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ margin: newMargin })
+                body: JSON.stringify({
+                    cost: p.cost,
+                    margin: newMargin,
+                    price_kg: newPriceKg
+                })
+            });
+        }
+
+        await fetchProducts();
+        toggleModal("modal-mass-margin");
+        showToast(`Ajuste aplicado correctamente (+${value}%)`, "success");
+
+    } catch (err) {
+        console.error(err);
+        showToast("Error aplicando el ajuste", "error");
+    }
+
+    btn.disabled = false;
+    btn.innerText = "Aplicar Aumento";
+});
+
+// ======================================================
+//                 DESHACER AJUSTE MASIVO
+// ======================================================
+
+document.getElementById("btn-undo-mass-margin").addEventListener("click", () => {
+    undoMassMargin();
+});
+
+async function undoMassMargin() {
+    if (!lastMassUpdateBackup) {
+        alert("No hay un aumento masivo previo para deshacer.");
+        return;
+    }
+
+    for (const item of lastMassUpdateBackup) {
+        await fetch(`/api/products/${item.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                cost: item.cost,
+                margin: item.margin,
+                price_kg: item.price_kg
+            })
+        });
+    }
+
+    lastMassUpdateBackup = null;
+    await fetchProducts();
+    alert("Se restauraron los márgenes y precios previos al aumento masivo.");
+}
+
+// =====================================================
+//                 AJUSTE MASIVO DE MÁRGENES
+// =====================================================
+
+let lastMassUpdateBackup = null;
+
+// Abrir modal desde el botón
+document.getElementById("btn-mass-margin").addEventListener("click", () => {
+    toggleModal("modal-mass-margin");
+});
+
+// Aplicar ajuste masivo
+document.getElementById("mass-margin-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const btn = e.submitter;
+    const value = parseFloat(document.getElementById("mass-margin-value").value);
+
+    if (isNaN(value)) {
+        showToast("Ingresá un número válido", "error");
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerText = "Aplicando...";
+
+    try {
+        // Backup completo
+        lastMassUpdateBackup = state.products.map(p => ({
+            id: p.id,
+            margin: p.margin,
+            price_kg: p.price_kg,
+            cost: p.cost
+        }));
+
+        // Aplicar aumento
+        for (const p of state.products) {
+            const newMargin = p.margin + value;
+
+            const newPriceKg =
+                Math.ceil((p.cost * (1 + newMargin / 100)) / 100) * 100;
+
+            await fetch(`/api/products/${p.id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    cost: p.cost,
+                    margin: newMargin,
+                    price_kg: newPriceKg
+                })
             });
         }
 
@@ -396,6 +434,10 @@ document.getElementById("mass-margin-form").addEventListener("submit", async (e)
 //                 DESHACER AJUSTE MASIVO
 // =====================================================
 
+document.getElementById("btn-undo-mass-margin").addEventListener("click", () => {
+    undoMassMargin();
+});
+
 async function undoMassMargin() {
     if (!lastMassUpdateBackup) {
         alert("No hay un aumento masivo previo para deshacer.");
@@ -407,6 +449,7 @@ async function undoMassMargin() {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
+                cost: item.cost,
                 margin: item.margin,
                 price_kg: item.price_kg
             })
@@ -414,7 +457,7 @@ async function undoMassMargin() {
     }
 
     lastMassUpdateBackup = null;
-    fetchProducts();
+    await fetchProducts();
     alert("Se restauraron los márgenes y precios previos al aumento masivo.");
 }
 
