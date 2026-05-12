@@ -420,21 +420,28 @@
 </section>
 
             <!-- PRODUCTOS -->
-            <section id="products" class="view hidden">
-                <header class="flex-between">
-                    <div>
-                        <h1>Gestión de Productos</h1>
-                        <p>Catálogo y cálculos automáticos</p>
-                    </div>
+<section id="products" class="view hidden">
+    <header class="flex-between">
+        <div>
+            <h1>Gestión de Productos</h1>
+            <p>Catálogo y cálculos automáticos</p>
+        </div>
 
-                    <div class="actions">
-                        <input type="file" id="excel-file" accept=".xlsx,.xls" hidden>
-                        <button class="btn btn-secondary" onclick="document.getElementById('excel-file').click()">📥 Importar Excel</button>
-                        <button class="btn btn-primary" onclick="toggleModal('modal-add-product')">➕ Nuevo Producto</button>
-                        <button class="btn btn-primary" onclick="toggleModal('modal-mass-margin')">Ajuste Masivo</button>
-                        <button class="btn btn-secondary" onclick="undoMassMargin()">Deshacer ajuste</button>
-                    </div>
-                </header>
+        <div class="actions">
+            <!-- ❌ Importar Excel eliminado -->
+            
+            <!-- ✔ Nuevo Producto -->
+            <button class="btn btn-primary" onclick="toggleModal('modal-add-product')">➕ Nuevo Producto</button>
+
+            <!-- ✔ Ajuste Masivo -->
+            <button id="btn-mass-margin" class="btn btn-primary">Ajuste Masivo</button>
+
+            <!-- ✔ Deshacer Ajuste -->
+            <button id="btn-undo-mass-margin" class="btn btn-secondary">Deshacer ajuste</button>
+        </div>
+    </header>
+</section>
+
 
                 <div class="glass-panel">
                     <h3>Productos</h3>
