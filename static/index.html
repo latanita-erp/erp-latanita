@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>La Tanita - Sistema de Gestión</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+
+    <!-- ========================= -->
+    <!--   APP DIRECTO (SIN LOGIN) -->
+    <!-- ========================= -->
+    <div id="app-screen">
+
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <div class="logo" style="text-align: center; margin-bottom: 2rem;">
+                <img src="static/logo.jpg" alt="Logo La Tanita" style="max-width: 80px; border-radius: 50%;">
+                <br>La Tanita
+            </div>
+
+            <nav>
+                <button class="nav-btn active" data-target="dashboard">📊 Dashboard</button>
+                <button class="nav-btn" data-target="products">📦 Productos</button>
+                <button class="nav-btn" data-target="cash">💰 Caja Diaria</button>
+
+                <hr class="menu-divider">
+
+                <button class="nav-btn" onclick="window.open('static/print.html', '_blank')">📄 Listado General</button>
+                <button class="nav-btn" onclick="window.open('static/print_100g.html', '_blank')">📄 Listado 100 g</button>
+                <button class="nav-btn" onclick="window.open('static/print_tecnico.html', '_blank')">📄 Listado Técnico</button>
+            </nav>
+        </aside>
+
+        <!-- ========================= -->
+        <!--          MODALES          -->
+        <!-- ========================= -->
+
+        <!-- MODAL ADD PRODUCT -->
+        <div id="modal-add-product" class="modal-overlay hidden">
+            <div class="modal-content glass-panel">
+                <div class="modal-header">
+                    <h2>Crear Producto Manual</h2>
+                    <button class="close-btn" onclick="toggleModal('modal-add-product')">×</button>
+                </div>
+
+                <form id="add-product-form">
+                    <div class="input-group">
+                        <label>Nombre del Producto</label>
+                        <input type="text" id="prod-name" required>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Tipo / Categoría</label>
+                        <input type="text" id="prod-type" required>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Costo Unitario ($)</label>
+                        <input type="number" step="0.01" id="prod-cost" required>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Margen de Ganancia (%)</label>
+                        <input type="number" step="0.01" id="prod-margin" required>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Precio 250 g</label>
+                        <input type="number" id="prod-price250" disabled>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Descuento (%)</label>
+                        <input type="number" id="prod-promotion" min="0" max="100">
+                    </div>
+
+                    <div class="input-group">
+                        <label>Precio Promo 250 g</label>
+                        <input type="number" id="prod-price250-promo" disabled>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-block mt-2">Guardar y Calcular Precios</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL SUPPLIERS -->
+        <div id="modal-suppliers" class="modal-overlay hidden">
+            <div class="modal-content glass-panel" style="max-width: 600px;">
+                <div class="modal-header">
+                    <h2>Proveedores: <span id="sup-prod-name"></span></h2>
+                    <button class="close-btn" onclick="toggleModal('modal-suppliers')">×</button>
+                </div>
+
+                <form id="add-supplier-form" style="display:flex; gap:1rem;">
+                    <input type="hidden" id="sup-prod-id">
+                    <input type="text" id="sup-name" placeholder="Nombre Proveedor" required>
+                    <input type="number" step="0.01" id="sup-cost" placeholder="Costo ($)" required>
+                    <button class="btn btn-primary">Añadir</button>
+                </form>
+
+                <table class="table" id="suppliers-table">
+                    <thead>
+                        <tr><th>Proveedor</th><th>Costo</th><th>Acción</th></tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- MODAL EDIT PRODUCT -->
+        <div id="modal-edit-product" class="modal-overlay hidden">
+            <div class="modal-content glass-panel" style="max-width:450px;">
+                <div class="modal-header">
+                    <h2>Editar Producto</h2>
+                    <button class="close-btn" onclick="toggleModal('modal-edit-product')">×</button>
+                </div>
+
+                <form id="edit-product-form">
+                    <input type="hidden" id="edit-product-id">
+
+                    <div class="input-group">
+                        <label>Nombre</label>
+                        <input type="text" id="edit-product-name" readonly>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Tipo</label>
+                        <input type="text" id="edit-product-type" readonly>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Costo Actual ($)</label>
+                        <input type="number" step="0.01" id="edit-product-cost" required>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Margen (%)</label>
+                        <input type="number" step="0.01" id="edit-product-margin" required>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Precio Anterior ($/kg)</label>
+                        <input type="text" id="edit-product-old-price" readonly>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Nuevo Precio ($/kg)</label>
+                        <input type="text" id="edit-product-new-price" readonly>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Precio 250 g</label>
+                        <input type="number" id="edit-product-price250" readonly>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Descuento (%)</label>
+                        <input type="number" id="edit-product-promotion" min="0" max="100">
+                    </div>
+
+                    <div class="input-group">
+                        <label>Precio Promo 250 g</label>
+                        <input type="number" id="edit-product-price250-promo" readonly>
+                    </div>
+
+                    <div style="display:flex; gap:10px;">
+                        <button type="button" class="btn btn-secondary" onclick="toggleModal('modal-edit-product')">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" style="flex:1;">Guardar Cambios</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL EDITAR CAJA -->
+<div id="modal-edit-cash" class="modal-overlay hidden">
+    <div class="modal-content glass-panel" style="max-width: 450px;">
+
+        <div class="modal-header">
+            <h2>Editar Registro de Caja</h2>
+            <button class="close-btn" onclick="toggleModal('modal-edit-cash')">×</button>
+        </div>
+
+        <form id="edit-cash-form" class="cash-grid">
+
+            <input type="hidden" id="edit-cash-id">
+
+            <div class="input-group">
+                <label>Fecha</label>
+                <input type="date" id="edit-cash-date" required>
+            </div>
+
+            <div class="input-group">
+                <label>Día</label>
+                <input type="text" id="edit-cash-weekday" readonly>
+            </div>
+
+            <div class="input-group">
+                <label>Efectivo ($)</label>
+                <input type="number" step="0.01" id="edit-cash-cash" required>
+            </div>
+
+            <div class="input-group">
+                <label>Tarjeta ($)</label>
+                <input type="number" step="0.01" id="edit-cash-card" required>
+            </div>
+
+            <div class="input-group">
+                <label>Gastos ($)</label>
+                <input type="number" step="0.01" id="edit-cash-expenses" required>
+            </div>
+
+            <div style="display:flex; gap:10px; margin-top: 1rem;">
+                <button type="button" class="btn btn-secondary" onclick="toggleModal('modal-edit-cash')">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn btn-primary" style="flex:1;">
+                    Guardar Cambios
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+</div>
+
+
+        <!-- MODAL AJUSTE MASIVO -->
+        <div id="modal-mass-margin" class="modal-overlay">
+            <div class="modal-content glass-panel" style="max-width:400px;">
+                <div class="modal-header">
+                    <h2>Ajuste Masivo de Márgenes</h2>
+                    <button class="close-btn" onclick="toggleModal('modal-mass-margin')">×</button>
+                </div>
+
+                <form id="mass-margin-form">
+                    <div class="input-group">
+                        <label>Aumento (%)</label>
+                        <input type="number" id="mass-margin-value" step="0.01" required>
+                    </div>
+
+                    <p style="font-size:0.85rem;">Este porcentaje se sumará al margen actual de cada producto.</p>
+
+                    <div style="display:flex; gap:10px;">
+                        <button type="button" class="btn btn-secondary" onclick="toggleModal('modal-mass-margin')">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" style="flex:1;">Aplicar Aumento</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ========================= -->
+        <!--     CONTENIDO PRINCIPAL   -->
+        <!-- ========================= -->
+        <main class="content">
+
+            <!-- DASHBOARD -->
+<section id="dashboard" class="view active">
+    <!-- ⭐ KPI PRINCIPALES (HISTÓRICO) -->
+    <header class="dash-header">
+        <h1>📈 Dashboard de Rendimiento</h1>
+        <p>Resumen financiero global actualizado</p>
+    </header>
+
+    <div class="kpi-grid-modern pretty-kpi-grid" style="margin-bottom: 2rem;">
+
+        <div class="kpi-card-modern pretty-kpi">
+            <div class="kpi-icon">💰</div>
+            <div class="kpi-info">
+                <h3>Ingresos Históricos</h3>
+                <div class="kpi-value" id="kpi-revenue">$0.00</div>
+            </div>
+        </div>
+
+        <div class="kpi-card-modern pretty-kpi">
+            <div class="kpi-icon">📉</div>
+            <div class="kpi-info">
+                <h3>Gastos Históricos</h3>
+                <div class="kpi-value" id="kpi-expenses">$0.00</div>
+            </div>
+        </div>
+
+        <div class="kpi-card-modern pretty-kpi highlight">
+            <div class="kpi-icon">📈</div>
+            <div class="kpi-info">
+                <h3>Beneficio Neto Total</h3>
+                <div class="kpi-value" id="kpi-profit">$0.00</div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ⭐ RESUMEN DEL MES -->
+    <div class="glass-panel summary-box pretty-box">
+        <h3 class="section-title">📅 Resumen del Mes Actual</h3>
+
+        <div class="summary-grid pretty-grid">
+            <div class="summary-item pretty-item">
+                <label>Total Vendido</label>
+                <span id="sum-total-vendido">—</span>
+            </div>
+
+            <div class="summary-item pretty-item">
+                <label>Gastos</label>
+                <span id="sum-gastos">—</span>
+            </div>
+
+            <div class="summary-item pretty-item">
+                <label>Ganancia Neta</label>
+                <span id="sum-ganancia">—</span>
+            </div>
+
+            <div class="summary-item pretty-item highlight-green">
+                <label>Mejor Día</label>
+                <span id="sum-mejor-dia">—</span>
+            </div>
+
+            <div class="summary-item pretty-item highlight-red">
+                <label>Peor Día</label>
+                <span id="sum-peor-dia">—</span>
+            </div>
+
+            <div class="summary-item pretty-item">
+                <label>Promedio Diario</label>
+                <span id="sum-promedio">—</span>
+            </div>
+
+            <div class="summary-item pretty-item">
+                <label>Días Trabajados</label>
+                <span id="sum-dias">—</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ⭐ TENDENCIA MENSUAL -->
+    <div class="glass-panel summary-box pretty-box">
+        <h3 class="section-title">📊 Tendencia Mensual</h3>
+
+        <div class="summary-grid pretty-grid">
+            <div class="summary-item pretty-item">
+                <label>Ventas vs Mes Anterior</label>
+                <span id="trend-ventas">—</span>
+            </div>
+
+            <div class="summary-item pretty-item">
+                <label>Gastos vs Mes Anterior</label>
+                <span id="trend-gastos">—</span>
+            </div>
+
+            <div class="summary-item pretty-item">
+                <label>Ganancia vs Mes Anterior</label>
+                <span id="trend-ganancia">—</span>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ========================= -->
+    <!--        GRÁFICOS           -->
+    <!-- ========================= -->
+
+    <!-- FILA 1: Ventas por día + Efectivo vs Tarjeta -->
+    <div class="charts-grid-compact">
+
+        <div class="chart-box glass-panel pretty-box small-chart">
+            <h3 class="section-title">📅 Ventas por Día (Mes Actual)</h3>
+            <canvas id="chart-daily-sales"></canvas>
+        </div>
+
+        <div class="chart-box glass-panel pretty-box small-chart">
+            <h3 class="section-title">💳 Efectivo vs Tarjeta</h3>
+            <canvas id="chart-payment"></canvas>
+        </div>
+
+    </div>
+
+    <!-- FILA 2: Desglose semanal + Mejor/Peor día -->
+    <div class="charts-grid-compact">
+
+        <div class="chart-box glass-panel pretty-box">
+            <h3 class="section-title">📆 Desglose Semanal</h3>
+            <div id="weekly-breakdown-container" style="margin-top: 1rem;"></div>
+        </div>
+
+
+
+        <div class="chart-box glass-panel pretty-box">
+            <h3 class="section-title">🏅 Ranking Días por Mes</h3>
+            <table class="table pretty-table" id="ranking-days-table">
+                <thead>
+                    <tr>
+                        <th>Mes</th>
+                        <th>Ranking de Ventas</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <!-- FILA 3: Comparativo mensual y Distribución -->
+    <div class="charts-grid-compact">
+        <div class="chart-box glass-panel pretty-box small-chart">
+            <h3 class="section-title">📊 Comparativo Mensual</h3>
+            <canvas id="chart-month-compare"></canvas>
+        </div>
+
+        <div class="chart-box glass-panel pretty-box small-chart">
+            <h3 class="section-title">📆 Distribución por Día</h3>
+            <canvas id="chart-weekday-distribution"></canvas>
+        </div>
+    </div>
+
+</section>
+
+            <!-- PRODUCTOS -->
+            <section id="products" class="view hidden">
+                <header class="flex-between">
+                    <div>
+                        <h1>Gestión de Productos</h1>
+                        <p>Catálogo y cálculos automáticos</p>
+                    </div>
+
+                    <div class="actions">
+                        <input type="file" id="excel-file" accept=".xlsx,.xls" hidden>
+                        <button class="btn btn-secondary" onclick="document.getElementById('excel-file').click()">📥 Importar Excel</button>
+                        <button class="btn btn-primary" onclick="toggleModal('modal-add-product')">➕ Nuevo Producto</button>
+                        <button class="btn btn-primary" onclick="toggleModal('modal-mass-margin')">Ajuste Masivo</button>
+                        <button class="btn btn-secondary" onclick="undoMassMargin()">Deshacer ajuste</button>
+                    </div>
+                </header>
+
+                <div class="glass-panel">
+                    <h3>Productos</h3>
+                    <table class="table" id="products-table">
+                        <thead>
+                            <tr><th>Nombre</th><th>Tipo</th><th>Costo</th><th>Margen</th><th>Precio KG</th><th>Acción</th></tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- CAJA -->
+<section id="cash" class="view hidden">
+
+    <header class="cash-header">
+        <h1>Caja Diaria</h1>
+        <p>Registro de ingresos, egresos y totales del día</p>
+    </header>
+
+    <!-- FORMULARIO NUEVO CIERRE -->
+    <div class="glass-panel cash-form-box">
+        <h3>Nuevo Cierre de Caja</h3>
+
+        <form id="cash-form" class="cash-grid">
+
+            <div class="input-group">
+                <label>Fecha</label>
+                <input type="date" id="cash-date" required>
+            </div>
+
+            <div class="input-group">
+                <label>Día</label>
+                <input type="text" id="cash-weekday" readonly>
+            </div>
+
+            <div class="input-group">
+                <label>Efectivo ($)</label>
+                <input type="number" step="0.01" id="cash-cash" required>
+            </div>
+
+            <div class="input-group">
+                <label>Tarjeta ($)</label>
+                <input type="number" step="0.01" id="cash-card" required>
+            </div>
+
+            <div class="input-group">
+                <label>Gastos ($)</label>
+                <input type="number" step="0.01" id="cash-expenses" required>
+            </div>
+
+            <div class="input-group flex-end">
+                <button class="btn btn-primary">Guardar Cierre</button>
+            </div>
+
+        </form>
+    </div>
+
+    <!-- HISTORIAL -->
+    <div class="glass-panel cash-history-box">
+        <h3>Historial Reciente</h3>
+
+        <table class="table cash-table">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Día</th>
+                    <th>Efectivo</th>
+                    <th>Tarjeta</th>
+                    <th>Ingresos Netos</th>
+                    <th>Gastos</th>
+                    <th>Total Neto</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+
+            <tbody id="cash-table-body">
+                <!-- Llenado por JS -->
+            </tbody>
+        </table>
+    </div>
+
+</section>
+
+    <!-- ========================= -->
+    <!--          SCRIPTS          -->
+    <!-- ========================= -->
+    <script src="static/script.js"></script>
+
+</body>
+</html>
