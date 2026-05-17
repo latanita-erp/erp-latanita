@@ -12,9 +12,34 @@
 <body>
 
     <!-- ========================= -->
-    <!--   APP DIRECTO (SIN LOGIN) -->
+    <!--       LOGIN SCREEN        -->
     <!-- ========================= -->
-    <div id="app-screen">
+    <div id="login-screen" class="login-wrapper active">
+        <div class="login-glass-panel">
+            <div class="login-logo">
+                <img src="static/logo.jpg" alt="La Tanita">
+            </div>
+            <h2>Bienvenido</h2>
+            <p>Ingresá tus credenciales para continuar</p>
+            <form id="login-form">
+                <div class="input-group">
+                    <label>Usuario</label>
+                    <input type="text" id="login-user" required placeholder="tu usuario">
+                </div>
+                <div class="input-group">
+                    <label>Contraseña</label>
+                    <input type="password" id="login-pass" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block" style="margin-top: 1rem; padding: 0.8rem; font-size: 1rem;">Ingresar</button>
+            </form>
+            <div id="login-error" style="color: var(--danger-color); margin-top: 1rem; text-align: center; display: none; font-weight: 500;">Credenciales incorrectas</div>
+        </div>
+    </div>
+
+    <!-- ========================= -->
+    <!--        APP SCREEN         -->
+    <!-- ========================= -->
+    <div id="app-screen" class="hidden">
 
         <!-- SIDEBAR -->
         <aside class="sidebar">
@@ -34,6 +59,11 @@
                 <button class="nav-btn" onclick="window.open('static/print_100g.html', '_blank')">📄 Listado 100 g</button>
                 <button class="nav-btn" onclick="window.open('static/print_tecnico.html', '_blank')">📄 Listado Técnico</button>
             </nav>
+
+            <div style="margin-top: auto; padding-top: 1rem; width: 100%;">
+                <hr class="menu-divider">
+                <button class="nav-btn logout-btn" onclick="logout()" style="width: 100%;">🚪 Cerrar Sesión</button>
+            </div>
         </aside>
 
         <!-- ========================= -->
@@ -56,7 +86,12 @@
 
                     <div class="input-group">
                         <label>Tipo / Categoría</label>
-                        <input type="text" id="prod-type" required>
+                        <select id="prod-type" required>
+                            <option value="FIAMBRES">FIAMBRES</option>
+                            <option value="QUESOS">QUESOS</option>
+                            <option value="ENCURTIDOS">ENCURTIDOS</option>
+                            <option value="BEBIDAS">BEBIDAS</option>
+                        </select>
                     </div>
 
                     <div class="input-group">
@@ -126,12 +161,17 @@
 
                     <div class="input-group">
                         <label>Nombre</label>
-                        <input type="text" id="edit-product-name" readonly>
+                        <input type="text" id="edit-product-name" required>
                     </div>
 
                     <div class="input-group">
                         <label>Tipo</label>
-                        <input type="text" id="edit-product-type" readonly>
+                        <select id="edit-product-type" required>
+                            <option value="FIAMBRES">FIAMBRES</option>
+                            <option value="QUESOS">QUESOS</option>
+                            <option value="ENCURTIDOS">ENCURTIDOS</option>
+                            <option value="BEBIDAS">BEBIDAS</option>
+                        </select>
                     </div>
 
                     <div class="input-group">
@@ -231,7 +271,7 @@
 
 
         <!-- MODAL AJUSTE MASIVO -->
-        <div id="modal-mass-margin" class="modal-overlay">
+        <div id="modal-mass-margin" class="modal-overlay hidden">
             <div class="modal-content glass-panel" style="max-width:400px;">
                 <div class="modal-header">
                     <h2>Ajuste Masivo de Márgenes</h2>
@@ -315,21 +355,6 @@
                 <span id="sum-ganancia">—</span>
             </div>
 
-            <div class="summary-item pretty-item highlight-green">
-                <label>Mejor Día</label>
-                <span id="sum-mejor-dia">—</span>
-            </div>
-
-            <div class="summary-item pretty-item highlight-red">
-                <label>Peor Día</label>
-                <span id="sum-peor-dia">—</span>
-            </div>
-
-            <div class="summary-item pretty-item">
-                <label>Promedio Diario</label>
-                <span id="sum-promedio">—</span>
-            </div>
-
             <div class="summary-item pretty-item">
                 <label>Días Trabajados</label>
                 <span id="sum-dias">—</span>
@@ -364,42 +389,17 @@
     <!--        GRÁFICOS           -->
     <!-- ========================= -->
 
-    <!-- FILA 1: Ventas por día + Efectivo vs Tarjeta -->
     <div class="charts-grid-compact">
 
-        <div class="chart-box glass-panel pretty-box small-chart">
+        <div class="chart-box glass-panel pretty-box small-chart" style="max-height: none;">
             <h3 class="section-title">📅 Ventas por Día (Mes Actual)</h3>
             <canvas id="chart-daily-sales"></canvas>
+            <div id="weekly-totals" style="margin-top: 15px;"></div>
         </div>
 
-        <div class="chart-box glass-panel pretty-box small-chart">
+        <div class="chart-box glass-panel pretty-box small-chart" style="max-height: none;">
             <h3 class="section-title">💳 Efectivo vs Tarjeta</h3>
             <canvas id="chart-payment"></canvas>
-        </div>
-
-    </div>
-
-    <!-- FILA 2: Desglose semanal + Mejor/Peor día -->
-    <div class="charts-grid-compact">
-
-        <div class="chart-box glass-panel pretty-box">
-            <h3 class="section-title">📆 Desglose Semanal</h3>
-            <div id="weekly-breakdown-container" style="margin-top: 1rem;"></div>
-        </div>
-
-
-
-        <div class="chart-box glass-panel pretty-box">
-            <h3 class="section-title">🏅 Ranking Días por Mes</h3>
-            <table class="table pretty-table" id="ranking-days-table">
-                <thead>
-                    <tr>
-                        <th>Mes</th>
-                        <th>Ranking de Ventas</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
         </div>
 
     </div>
@@ -411,8 +411,8 @@
             <canvas id="chart-month-compare"></canvas>
         </div>
 
-        <div class="chart-box glass-panel pretty-box small-chart">
-            <h3 class="section-title">📆 Distribución por Día</h3>
+        <div class="chart-box glass-panel pretty-box small-chart" style="max-height: none;">
+            <h3 class="section-title">📆 Distribución y Ranking por Día</h3>
             <canvas id="chart-weekday-distribution"></canvas>
         </div>
     </div>
@@ -428,8 +428,6 @@
                     </div>
 
                     <div class="actions">
-                        <input type="file" id="excel-file" accept=".xlsx,.xls" hidden>
-                        <button class="btn btn-secondary" onclick="document.getElementById('excel-file').click()">📥 Importar Excel</button>
                         <button class="btn btn-primary" onclick="toggleModal('modal-add-product')">➕ Nuevo Producto</button>
                         <button class="btn btn-primary" onclick="toggleModal('modal-mass-margin')">Ajuste Masivo</button>
                         <button class="btn btn-secondary" onclick="undoMassMargin()">Deshacer ajuste</button>
@@ -440,7 +438,7 @@
                     <h3>Productos</h3>
                     <table class="table" id="products-table">
                         <thead>
-                            <tr><th>Nombre</th><th>Tipo</th><th>Costo</th><th>Margen</th><th>Precio KG</th><th>Acción</th></tr>
+                            <tr><th>Nombre</th><th>Tipo</th><th>Costo</th><th>Margen</th><th>Precio KG/UN</th><th>Precio por 100 gr.</th><th>Precio por 150 gr.</th><th>Precio por 250 gr.</th><th>Acción</th></tr>
                         </thead>
                         <tbody></tbody>
                     </table>

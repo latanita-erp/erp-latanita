@@ -29,12 +29,57 @@ function formatMonthLiteral(monthStr) {
 }
 
 // ======================================================
-//                 MOSTRAR APP DIRECTO
+//                 AUTH & FETCH OVERRIDE
 // ======================================================
 
+const originalFetch = window.fetch;
+window.fetch = async function() {
+    let [resource, config] = arguments;
+    if (!config) config = {};
+    if (!config.headers) config.headers = {};
+    
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+        config.headers['Authorization'] = `Basic ${token}`;
+    }
+    
+    const response = await originalFetch(resource, config);
+    if (response.status === 401) {
+        localStorage.removeItem('auth_token');
+        showLogin();
+    }
+    return response;
+};
+
+function showLogin() {
+    const login = document.getElementById('login-screen');
+    const app = document.getElementById('app-screen');
+    if (login) {
+        login.classList.add('active');
+        login.classList.remove('hidden');
+    }
+    if (app) {
+        app.classList.add('hidden');
+        app.classList.remove('active');
+    }
+}
+
 function showApp() {
-    document.getElementById('login-screen')?.classList.add('hidden');
-    document.getElementById('app-screen')?.classList.remove('hidden');
+    const login = document.getElementById('login-screen');
+    const app = document.getElementById('app-screen');
+    if (login) {
+        login.classList.remove('active');
+        login.classList.add('hidden');
+    }
+    if (app) {
+        app.classList.remove('hidden');
+        app.classList.add('active');
+    }
+}
+
+function logout() {
+    localStorage.removeItem('auth_token');
+    showLogin();
 }
 
 // ======================================================
@@ -43,7 +88,44 @@ function showApp() {
 
 document.addEventListener('DOMContentLoaded', async () => {
 
-    showApp();
+    if (!localStorage.getItem('auth_token')) {
+        showLogin();
+    } else {
+        showApp();
+    }
+
+    // Login Form Handler
+    document.getElementById('login-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const user = document.getElementById('login-user').value;
+        const pass = document.getElementById('login-pass').value;
+        const errorEl = document.getElementById('login-error');
+        
+        const token = btoa(`${user}:${pass}`);
+        
+        try {
+            const res = await originalFetch('/api/products', {
+                headers: { 'Authorization': `Basic ${token}` }
+            });
+            
+            if (res.ok) {
+                localStorage.setItem('auth_token', token);
+                errorEl.style.display = 'none';
+                e.target.reset();
+                showApp();
+                init();
+            } else {
+                errorEl.style.display = 'block';
+            }
+        } catch (err) {
+            errorEl.innerText = "Error de conexión";
+            errorEl.style.display = 'block';
+        }
+    });
+
+// ======================================================
+//                 INICIALIZACIÓN GENERAL
+// ======================================================
 
     // Navegación entre vistas
     document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -124,16 +206,27 @@ function renderProducts() {
     tbody.innerHTML = '';
 
     state.products.forEach(p => {
+        if (p.price_kg === 0) return;
+
+        const isBebida = p.type === "BEBIDAS";
+        const p100 = isBebida ? "" : `$${formatMoney(p.price_100g)}`;
+        const p150 = isBebida ? "" : `$${formatMoney(p.price_150g)}`;
+        const p250 = isBebida ? "" : `$${formatMoney(p.price_250g)}`;
+
+        // Convert type to lowercase and replace spaces to create a safe CSS class
+        const typeClass = `row-${p.type.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+
         const tr = document.createElement('tr');
+        tr.className = typeClass;
         tr.innerHTML = `
             <td class="prod-name"><strong>${p.name}</strong></td>
             <td class="prod-type">${p.type}</td>
             <td class="prod-cost" data-value="${p.cost}">$${formatMoney(p.cost)}</td>
             <td class="prod-margin" data-value="${p.margin}">${p.margin}%</td>
             <td class="prod-pricekg" data-value="${p.price_kg}"><strong>$${formatMoney(p.price_kg)}</strong></td>
-            <td class="prod-price100" data-value="${p.price_100g}">$${formatMoney(p.price_100g)}</td>
-            <td class="prod-price150" data-value="${p.price_150g}">$${formatMoney(p.price_150g)}</td>
-            <td class="prod-price250" data-value="${p.price_250g}">$${formatMoney(p.price_250g)}</td>
+            <td class="prod-price100" data-value="${p.price_100g}">${p100}</td>
+            <td class="prod-price150" data-value="${p.price_150g}">${p150}</td>
+            <td class="prod-price250" data-value="${p.price_250g}">${p250}</td>
             <td style="display: flex; gap: 0.5rem;">
                 <button class="btn btn-secondary" onclick="openEditProduct(${p.id})">✏️ Editar</button>
                 <button class="btn btn-danger" onclick="deleteProduct(${p.id})">🗑️</button>
@@ -174,6 +267,19 @@ function renderWeekdayDistribution(cashData) {
     const labels = Object.keys(data);
     const values = Object.values(data);
 
+    let maxVal = -Infinity;
+    let minVal = Infinity;
+    values.forEach(v => {
+        if (v > maxVal) maxVal = v;
+        if (v < minVal && v > 0) minVal = v; // only consider days with some value as min
+    });
+
+    const bgColors = values.map(v => {
+        if (v === maxVal && v > 0) return "rgba(16, 185, 129, 0.8)"; // success-color
+        if (v === minVal && v > 0) return "rgba(239, 68, 68, 0.8)"; // danger-color
+        return "rgba(99, 102, 241, 0.6)";
+    });
+
     const ctx = document.getElementById("chart-weekday-distribution").getContext("2d");
 
     if (charts.weekday) charts.weekday.destroy();
@@ -185,16 +291,14 @@ function renderWeekdayDistribution(cashData) {
             datasets: [{
                 label: "Ganancia por Día",
                 data: values,
-                backgroundColor: [
-                    "#3b82f6", "#10b981", "#f59e0b",
-                    "#6366f1", "#ef4444", "#8b5cf6", "#14b8a6"
-                ],
+                backgroundColor: bgColors,
                 borderRadius: 6
             }]
         },
         options: {
             responsive: true,
-            scales: { y: { beginAtZero: true } }
+            scales: { y: { beginAtZero: true } },
+            plugins: { legend: { display: false } }
         }
     });
 }
@@ -326,11 +430,13 @@ document.getElementById("edit-product-form").addEventListener("submit", async (e
     e.preventDefault();
 
     const id = document.getElementById("edit-product-id").value;
+    const name = document.getElementById("edit-product-name").value;
+    const type = document.getElementById("edit-product-type").value;
     const cost = parseFloat(document.getElementById("edit-product-cost").value);
     const margin = parseFloat(document.getElementById("edit-product-margin").value);
     const promotion = Number(document.getElementById("edit-product-promotion").value);
 
-    const payload = { cost, margin, promotion };
+    const payload = { name, type, cost, margin, promotion };
 
     await fetch(`/api/products/${id}`, {
         method: 'PUT',
@@ -977,10 +1083,32 @@ function calculateMonthlyDayStats(cashData) {
 function renderDailySalesChart(cashData) {
     const currentMonth = new Date().toISOString().slice(0, 7);
 
-    const rows = cashData.filter(r => r.date.startsWith(currentMonth));
+    const rows = cashData.filter(r => r.date.startsWith(currentMonth)).sort((a,b) => a.date.localeCompare(b.date));
 
     const labels = rows.map(r => r.date.split("-")[2]); // día del mes
     const values = rows.map(r => r.net_income); // ventas netas
+
+    const weekColors = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6"];
+    let currentWeekIndex = 0;
+    let lastWeekday = -1;
+    const bgColors = [];
+    const weeklyTotals = [];
+
+    rows.forEach(r => {
+        const dateParts = r.date.split("-");
+        const date = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+        const weekday = date.getDay() === 0 ? 6 : date.getDay() - 1; // 0=Mon, 6=Sun
+        
+        if (lastWeekday !== -1 && weekday < lastWeekday) {
+            currentWeekIndex++;
+        }
+        lastWeekday = weekday;
+        
+        bgColors.push(weekColors[currentWeekIndex % weekColors.length]);
+        
+        if (!weeklyTotals[currentWeekIndex]) weeklyTotals[currentWeekIndex] = 0;
+        weeklyTotals[currentWeekIndex] += r.net_income;
+    });
 
     const canvas = document.getElementById("chart-daily-sales");
     if (!canvas) return;
@@ -996,9 +1124,7 @@ function renderDailySalesChart(cashData) {
             datasets: [{
                 label: "Ventas del Día",
                 data: values,
-                backgroundColor: "rgba(0, 123, 255, 0.6)",
-                borderColor: "rgba(0, 123, 255, 1)",
-                borderWidth: 1,
+                backgroundColor: bgColors,
                 borderRadius: 6
             }]
         },
@@ -1006,9 +1132,22 @@ function renderDailySalesChart(cashData) {
             responsive: true,
             scales: {
                 y: { beginAtZero: true }
-            }
+            },
+            plugins: { legend: { display: false } }
         }
     });
+
+    const totalsDiv = document.getElementById("weekly-totals");
+    if (totalsDiv) {
+        let html = "<div style='display:flex; justify-content:center; gap: 10px; flex-wrap:wrap;'>";
+        weeklyTotals.forEach((tot, i) => {
+            if (tot > 0) {
+                html += `<div style="padding:0.4rem 0.8rem; background:${weekColors[i%weekColors.length]}22; border-left:4px solid ${weekColors[i%weekColors.length]}; border-radius:6px; font-size:0.9rem;">Semana ${i+1}: <strong style="color:white">$${formatMoney(tot)}</strong></div>`;
+            }
+        });
+        html += "</div>";
+        totalsDiv.innerHTML = html;
+    }
 }
 
 // ---------- Comparativo mensual ----------
@@ -1215,53 +1354,16 @@ function renderDashboard() {
         });
     }
 
-    // 3. Desglose semanal
-    const container = document.getElementById('weekly-breakdown-container');
-    if (container) {
-        container.innerHTML = '';
-        if (!d.weekly_breakdown || Object.keys(d.weekly_breakdown).length === 0) {
-            container.innerHTML = '<p style="color: var(--text-secondary);">No hay datos semanales.</p>';
-        } else {
-            const months = Object.keys(d.weekly_breakdown).sort().reverse();
-            months.forEach(month => {
-                const monthDiv = document.createElement('div');
-                monthDiv.style.background = 'rgba(255,255,255,0.02)';
-                monthDiv.style.padding = '1.5rem';
-                monthDiv.style.borderRadius = '12px';
-                monthDiv.style.border = '1px solid var(--glass-border)';
-
-                let html = `<h4 style="margin-bottom: 1rem; color: var(--primary-color); font-size: 1.1rem;">Mes: ${formatMonthLiteral(month)}</h4>`;
-                html += `<table class="table" style="font-size: 0.95rem;"><tbody>`;
-                d.weekly_breakdown[month].forEach(w => {
-                    html += `<tr>
-                                <td>Semana del <strong>${w.week}</strong></td>
-                                <td style="text-align: right; font-weight: bold; color: ${w.total >= 0 ? 'var(--success-color)' : 'var(--danger-color)'}">
-                                    $${formatMoney(w.total)}
-                                </td>
-                             </tr>`;
-                });
-                html += `</tbody></table>`;
-                monthDiv.innerHTML = html;
-                container.appendChild(monthDiv);
-            });
-        }
-    }
-
-
-
     // 5. Comparativo mensual
     renderMonthlyComparisonChart(cashData);
 
     // 6. Distribución por día de la semana
     renderWeekdayDistribution(cashData);
-
-    // 7. Ranking de días por mes
-    const ranking = calculateMonthlyDayRanking(cashData);
-    renderMonthlyDayRanking(ranking);
 }
 
 // --- INICIALIZACIÓN DE LA APP ---
 async function init() {
+    if (!localStorage.getItem('auth_token')) return;
     await fetchCash();
     await fetchDashboard();
     await fetchProducts();
