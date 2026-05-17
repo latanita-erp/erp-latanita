@@ -84,7 +84,7 @@
 
     <script>
         function formatMoney(val) {
-            if (val === undefined || val === null || isNaN(val)) return "0,00";
+            if (val === null || val === undefined) return "0,00";
             return Number(val).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
 

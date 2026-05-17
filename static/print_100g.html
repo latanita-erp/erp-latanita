@@ -84,7 +84,8 @@
 
     <script>
         function formatMoney(val) {
-            return val.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            if (val === null || val === undefined) return "0,00";
+            return Number(val).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
 
         async function loadPrices() {
