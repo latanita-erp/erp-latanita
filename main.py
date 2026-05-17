@@ -41,8 +41,10 @@ async def basic_auth(request: Request, call_next):
         decoded_credentials = base64.b64decode(encoded_credentials).decode("utf-8")
         username, _, password = decoded_credentials.partition(":")
         
-        # Usuario: cboveda / Contraseña: Latanita1198$
-        if username != "cboveda" or password != "Latanita1198$":
+        expected_user = os.getenv("ERP_USERNAME", "cboveda")
+        expected_pass = os.getenv("ERP_PASSWORD", "Latanita1198$")
+        
+        if username != expected_user or password != expected_pass:
             return unauthorized()
     except Exception:
         return unauthorized()
