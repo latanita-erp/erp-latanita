@@ -20,10 +20,21 @@ app = FastAPI()
 
 @app.middleware("http")
 async def basic_auth(request: Request, call_next):
-    # Proteger toda la aplicación con usuario y contraseña
+    # Exempt root and static files from authentication
+    if request.url.path == "/" or request.url.path.startswith("/static/"):
+        return await call_next(request)
+
+    # Only protect API routes
+    if not request.url.path.startswith("/api/"):
+        return await call_next(request)
+
     auth_header = request.headers.get("Authorization")
+    
+    def unauthorized():
+        return Response(content='{"detail": "Unauthorized"}', media_type="application/json", status_code=401)
+
     if not auth_header or not auth_header.startswith("Basic "):
-        return Response(headers={"WWW-Authenticate": 'Basic realm="Acceso"'}, status_code=401)
+        return unauthorized()
     
     encoded_credentials = auth_header.split(" ")[1]
     try:
@@ -32,9 +43,9 @@ async def basic_auth(request: Request, call_next):
         
         # Usuario: cboveda / Contraseña: Latanita1198$
         if username != "cboveda" or password != "Latanita1198$":
-            return Response(headers={"WWW-Authenticate": 'Basic realm="Acceso"'}, status_code=401)
+            return unauthorized()
     except Exception:
-        return Response(headers={"WWW-Authenticate": 'Basic realm="Acceso"'}, status_code=401)
+        return unauthorized()
         
     return await call_next(request)
 
@@ -216,15 +227,35 @@ def create_product(payload: dict, db: Session = Depends(get_db)):
 @app.put("/api/products/{product_id}")
 def update_product(product_id: int, payload: dict, db: Session = Depends(get_db)):
 
-    cost = float(payload.get("cost", 0))
-    margin = float(payload.get("margin", 0))
-    promotion = float(payload.get("promotion", 0))
+    product = db.execute(text("SELECT name, type, cost, margin, promotion FROM products WHERE id = :id"), {"id": product_id}).mappings().first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    name = payload.get("name", product["name"])
+    type_ = payload.get("type", product["type"])
+    
+    cost_val = payload.get("cost")
+    if cost_val is None:
+        cost_val = product["cost"]
+    cost = float(cost_val) if cost_val is not None else 0.0
+    
+    margin_val = payload.get("margin")
+    if margin_val is None:
+        margin_val = product["margin"]
+    margin = float(margin_val) if margin_val is not None else 0.0
+    
+    promo_val = payload.get("promotion")
+    if promo_val is None:
+        promo_val = product["promotion"]
+    promotion = float(promo_val) if promo_val is not None else 0.0
 
     prices = calculate_prices(cost, margin)
 
     db.execute(text("""
         UPDATE products
-        SET cost = :cost,
+        SET name = :name,
+            type = :type,
+            cost = :cost,
             margin = :margin,
             promotion = :promotion,
             price_kg = :price_kg,
@@ -234,6 +265,8 @@ def update_product(product_id: int, payload: dict, db: Session = Depends(get_db)
         WHERE id = :id
     """), {
         "id": product_id,
+        "name": name,
+        "type": type_,
         "cost": cost,
         "margin": margin,
         "promotion": promotion,
