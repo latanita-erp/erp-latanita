@@ -94,7 +94,14 @@
                 new Date().toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'});
 
             try {
-                const res = await fetch('/api/products');
+                const token = localStorage.getItem('auth_token');
+                if (!token) {
+                    document.getElementById('content').innerHTML = "No estás autenticado. Cierra esta ventana e inicia sesión.";
+                    return;
+                }
+                const res = await fetch('/api/products', {
+                    headers: { 'Authorization': `Basic ${token}` }
+                });
                 const products = await res.json();
 
                 // AGRUPAR POR TIPO
