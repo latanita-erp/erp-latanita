@@ -16,6 +16,21 @@
             margin: 0;
             padding: 0;
         }
+        @media print {
+            .no-print { display: none !important; }
+        }
+        .print-btn {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
         .header {
             text-align: center;
             border-bottom: 2px solid #000;
@@ -77,6 +92,7 @@
         <img src="logo.jpg" alt="La Tanita" onerror="this.style.display='none'">
         <h1>Panadería y Fiambrería La Tanita</h1>
         <h2>Lista de Precios por 100 g</h2>
+        <button class="print-btn no-print" onclick="window.print()">🖨️ Imprimir Listado</button>
     </div>
 
     <div class="date" id="print-date"></div>
@@ -104,10 +120,11 @@
                 });
                 const products = await res.json();
 
-                // Filtrar fiambres y quesos (flexible)
+                // Filtrar fiambres y quesos y omitir los que tengan precio 0
                 const filtered = products.filter(p => {
                     const t = (p.type || "").toLowerCase();
-                    return t.includes("fiam") || t.includes("ques");
+                    const isFiamQueso = t.includes("fiam") || t.includes("ques");
+                    return isFiamQueso && (p.price_100g || 0) > 0;
                 });
 
                 // Agrupar por tipo
@@ -154,8 +171,6 @@
                 });
 
                 document.getElementById('content').innerHTML = html;
-
-                setTimeout(() => window.print(), 500);
 
             } catch (err) {
                 document.getElementById('content').innerHTML = "Error al cargar la lista.";
