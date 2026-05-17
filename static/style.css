@@ -563,3 +563,130 @@ input:focus, select:focus { border-color: var(--primary-color); }
     color: var(--primary-color);
 }
 
+/* ========================= */
+/*     DISEÑO RESPONSIVO     */
+/* ========================= */
+
+.mobile-header {
+    display: none;
+}
+
+.mobile-menu-btn {
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 1.8rem;
+    cursor: pointer;
+}
+
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    backdrop-filter: blur(2px);
+}
+.sidebar-overlay.active {
+    display: block;
+}
+
+@media screen and (max-width: 768px) {
+    .mobile-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.5rem;
+        background: var(--sidebar-bg);
+        border-bottom: 1px solid var(--glass-border);
+        z-index: 900;
+    }
+
+    .mobile-logo {
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+
+    .mobile-logo img {
+        width: 35px;
+        border-radius: 50%;
+        border: 1px solid var(--primary-color);
+    }
+
+    #app-screen {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: -300px;
+        width: 280px;
+        height: 100vh;
+        z-index: 1100;
+        transition: left 0.3s ease;
+        box-shadow: 4px 0 24px rgba(0,0,0,0.5);
+    }
+
+    .sidebar.open {
+        left: 0;
+    }
+
+    .sidebar .logo {
+        display: none;
+    }
+
+    .content {
+        padding: 1rem;
+    }
+
+    .pretty-grid, .pretty-kpi-grid, .charts-grid-compact, .cash-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .glass-panel {
+        overflow-x: auto;
+        padding: 1rem;
+    }
+
+    .table th, .table td {
+        white-space: nowrap;
+    }
+
+    .section-title, .dash-header h1 {
+        font-size: 1.5rem;
+    }
+    .dash-header p {
+        font-size: 0.9rem;
+    }
+    
+    .flex-between {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+    
+    .actions {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        gap: 0.5rem;
+    }
+    
+    .actions .btn {
+        width: 100%;
+    }
+
+    .modal-content {
+        padding: 1rem;
+        max-width: 95%;
+    }
+}
+

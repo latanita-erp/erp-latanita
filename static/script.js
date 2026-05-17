@@ -1371,3 +1371,33 @@ async function init() {
 
 window.onload = init;
 
+// =====================================================
+//                 MENÚ MÓVIL
+// =====================================================
+document.addEventListener('DOMContentLoaded', () => {
+    const mobileMenuBtn = document.getElementById('mobile-menu-toggle');
+    const sidebar = document.querySelector('.sidebar');
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
+
+    if (mobileMenuBtn && sidebar && sidebarOverlay) {
+        mobileMenuBtn.addEventListener('click', () => {
+            sidebar.classList.add('open');
+            sidebarOverlay.classList.add('active');
+        });
+
+        sidebarOverlay.addEventListener('click', () => {
+            sidebar.classList.remove('open');
+            sidebarOverlay.classList.remove('active');
+        });
+
+        const navButtons = document.querySelectorAll('.nav-btn');
+        navButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (window.innerWidth <= 768) {
+                    sidebar.classList.remove('open');
+                    sidebarOverlay.classList.remove('active');
+                }
+            });
+        });
+    }
+});
