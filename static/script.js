@@ -263,7 +263,16 @@ function calculateWeekdayDistribution(cashData) {
 function renderWeekdayDistribution(cashData) {
     const data = calculateWeekdayDistribution(cashData);
 
-    const labels = Object.keys(data);
+    const counts = {
+        "LUNES": 0, "MARTES": 0, "MIÉRCOLES": 0, "JUEVES": 0,
+        "VIERNES": 0, "SÁBADO": 0, "DOMINGO": 0
+    };
+    cashData.forEach(row => {
+        const day = row.weekday ? row.weekday.toUpperCase() : "";
+        if (counts[day] !== undefined) counts[day]++;
+    });
+
+    const labels = Object.keys(data).map(day => `${day} (${counts[day]})`);
     const values = Object.values(data);
 
     let maxVal = -Infinity;
