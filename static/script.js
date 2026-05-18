@@ -206,7 +206,6 @@ function renderProducts() {
     tbody.innerHTML = '';
 
     state.products.forEach(p => {
-        if (p.price_kg === 0) return;
 
         const isBebida = p.type === "BEBIDAS";
         const p100 = isBebida ? "" : `$${formatMoney(p.price_100g)}`;
