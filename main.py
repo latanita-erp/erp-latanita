@@ -15,6 +15,14 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 import io
 import base64
+from pydantic import BaseModel
+from typing import Optional
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 app = FastAPI()
 
@@ -55,9 +63,9 @@ async def basic_auth(request: Request, call_next):
 #        CONEXIÓN A SUPABASE (POOLER)
 # ============================================
 
-DB_URI = (
-    "postgresql+pg8000://postgres.juzwfwgonamxyuvoxgbj:"
-    "Latanita1198!@aws-1-sa-east-1.pooler.supabase.com:6543/postgres"
+DB_URI = os.getenv(
+    "DATABASE_URL",
+    "postgresql+pg8000://postgres.juzwfwgonamxyuvoxgbj:Latanita1198!@aws-1-sa-east-1.pooler.supabase.com:6543/postgres"
 )
 
 engine = create_engine(DB_URI, pool_pre_ping=True)
@@ -100,6 +108,35 @@ def calculate_prices(cost, margin):
     }
 
 # ============================================
+#             MODELOS PYDANTIC
+# ============================================
+
+class CashPayload(BaseModel):
+    date: str
+    weekday: str
+    cash: float
+    card: float
+    expenses: float
+
+class ProductPayload(BaseModel):
+    name: str
+    type: str
+    cost: float
+    margin: float
+    promotion: float = 0.0
+
+class ProductUpdatePayload(BaseModel):
+    name: Optional[str] = None
+    type: Optional[str] = None
+    cost: Optional[float] = None
+    margin: Optional[float] = None
+    promotion: Optional[float] = None
+
+class SupplierPayload(BaseModel):
+    supplier_name: str
+    cost: float
+
+# ============================================
 #             MÓDULO CAJA DIARIA (FINAL)
 # ============================================
 
@@ -123,13 +160,13 @@ def get_cash_all(db: Session = Depends(get_db)):
 
 
 @app.post("/api/cash")
-def create_cash(payload: dict, db: Session = Depends(get_db)):
+def create_cash(payload: CashPayload, db: Session = Depends(get_db)):
 
-    date = payload["date"]
-    weekday = payload["weekday"]
-    cash = float(payload["cash"])
-    card = float(payload["card"])
-    expenses = float(payload["expenses"])
+    date = payload.date
+    weekday = payload.weekday
+    cash = payload.cash
+    card = payload.card
+    expenses = payload.expenses
 
     net = cash + card
     total = net - expenses
@@ -152,11 +189,11 @@ def create_cash(payload: dict, db: Session = Depends(get_db)):
 
 
 @app.put("/api/cash/{cash_id}")
-def update_cash(cash_id: int, payload: dict, db: Session = Depends(get_db)):
+def update_cash(cash_id: int, payload: CashPayload, db: Session = Depends(get_db)):
 
-    cash = float(payload["cash"])
-    card = float(payload["card"])
-    expenses = float(payload["expenses"])
+    cash = payload.cash
+    card = payload.card
+    expenses = payload.expenses
 
     net = cash + card
     total = net - expenses
@@ -205,17 +242,18 @@ def get_products(db: Session = Depends(get_db)):
 
 
 @app.post("/api/products")
-def create_product(payload: dict, db: Session = Depends(get_db)):
-    prices = calculate_prices(payload["cost"], payload["margin"])
+def create_product(payload: ProductPayload, db: Session = Depends(get_db)):
+    prices = calculate_prices(payload.cost, payload.margin)
 
     db.execute(text("""
-        INSERT INTO products (name, type, cost, margin, price_kg, price_100g, price_150g, price_250g)
-        VALUES (:name, :type, :cost, :margin, :price_kg, :price_100g, :price_150g, :price_250g)
+        INSERT INTO products (name, type, cost, margin, promotion, price_kg, price_100g, price_150g, price_250g)
+        VALUES (:name, :type, :cost, :margin, :promotion, :price_kg, :price_100g, :price_150g, :price_250g)
     """), {
-        "name": payload["name"],
-        "type": payload["type"],
-        "cost": payload["cost"],
-        "margin": payload["margin"],
+        "name": payload.name,
+        "type": payload.type,
+        "cost": payload.cost,
+        "margin": payload.margin,
+        "promotion": payload.promotion,
         "price_kg": prices["price_kg"],
         "price_100g": prices["price_100g"],
         "price_150g": prices["price_150g"],
@@ -227,29 +265,17 @@ def create_product(payload: dict, db: Session = Depends(get_db)):
 
 
 @app.put("/api/products/{product_id}")
-def update_product(product_id: int, payload: dict, db: Session = Depends(get_db)):
+def update_product(product_id: int, payload: ProductUpdatePayload, db: Session = Depends(get_db)):
 
     product = db.execute(text("SELECT name, type, cost, margin, promotion FROM products WHERE id = :id"), {"id": product_id}).mappings().first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    name = payload.get("name", product["name"])
-    type_ = payload.get("type", product["type"])
-    
-    cost_val = payload.get("cost")
-    if cost_val is None:
-        cost_val = product["cost"]
-    cost = float(cost_val) if cost_val is not None else 0.0
-    
-    margin_val = payload.get("margin")
-    if margin_val is None:
-        margin_val = product["margin"]
-    margin = float(margin_val) if margin_val is not None else 0.0
-    
-    promo_val = payload.get("promotion")
-    if promo_val is None:
-        promo_val = product["promotion"]
-    promotion = float(promo_val) if promo_val is not None else 0.0
+    name = payload.name if payload.name is not None else product["name"]
+    type_ = payload.type if payload.type is not None else product["type"]
+    cost = payload.cost if payload.cost is not None else product["cost"]
+    margin = payload.margin if payload.margin is not None else product["margin"]
+    promotion = payload.promotion if payload.promotion is not None else product["promotion"]
 
     prices = calculate_prices(cost, margin)
 
@@ -307,10 +333,10 @@ def get_product_suppliers(product_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/api/products/{product_id}/suppliers")
-def add_supplier(product_id: int, payload: dict, db: Session = Depends(get_db)):
+def add_supplier(product_id: int, payload: SupplierPayload, db: Session = Depends(get_db)):
 
-    supplier_name = payload["supplier_name"]
-    cost = float(payload["cost"])
+    supplier_name = payload.supplier_name
+    cost = payload.cost
 
     db.execute(text("""
         INSERT INTO product_suppliers (product_id, supplier_name, cost)

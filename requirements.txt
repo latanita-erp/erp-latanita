@@ -8,3 +8,4 @@ sqlalchemy
 pg8000
 pdfkit
 passlib[bcrypt]
+python-dotenv
