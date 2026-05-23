@@ -317,6 +317,10 @@ function renderWeekdayDistribution(cashData) {
 
 document.getElementById('add-product-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const btn = e.submitter;
+    const originalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = "Guardando...";
 
     const payload = {
         name: document.getElementById('prod-name').value,
@@ -331,6 +335,8 @@ document.getElementById('add-product-form').addEventListener('submit', async (e)
         body: JSON.stringify(payload)
     });
 
+    btn.disabled = false;
+    btn.innerText = originalText;
     toggleModal('modal-add-product');
     e.target.reset();
     fetchProducts();
@@ -415,6 +421,10 @@ document.getElementById("edit-product-margin").addEventListener("input", updateN
 
 document.getElementById("edit-product-form").addEventListener("submit", async (e) => {
     e.preventDefault();
+    const btn = e.submitter;
+    const originalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = "Guardando...";
 
     const id = document.getElementById("edit-product-id").value;
     const name = document.getElementById("edit-product-name").value;
@@ -431,6 +441,8 @@ document.getElementById("edit-product-form").addEventListener("submit", async (e
         body: JSON.stringify(payload)
     });
 
+    btn.disabled = false;
+    btn.innerText = originalText;
     toggleModal('modal-edit-product');
     fetchProducts();
 });
@@ -925,6 +937,10 @@ function renderCash() {
 
 document.getElementById('cash-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const btn = e.submitter;
+    const originalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = "Guardando...";
 
     const date = document.getElementById('cash-date').value;
     let weekday = document.getElementById('cash-weekday').value;
@@ -945,6 +961,8 @@ document.getElementById('cash-form').addEventListener('submit', async (e) => {
         body: JSON.stringify(payload)
     });
 
+    btn.disabled = false;
+    btn.innerText = originalText;
     e.target.reset();
     fetchCash();
 });
@@ -975,6 +993,10 @@ document.getElementById("edit-cash-date").addEventListener("change", (e) => {
 
 document.getElementById('edit-cash-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const btn = e.submitter;
+    const originalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = "Guardando...";
 
     const id = document.getElementById('edit-cash-id').value;
     const date = document.getElementById('edit-cash-date').value;
@@ -996,6 +1018,8 @@ document.getElementById('edit-cash-form').addEventListener('submit', async (e) =
         body: JSON.stringify(payload)
     });
 
+    btn.disabled = false;
+    btn.innerText = originalText;
     toggleModal('modal-edit-cash');
     fetchCash();
 });
