@@ -315,6 +315,28 @@ function renderWeekdayDistribution(cashData) {
 //                 AGREGAR PRODUCTO
 // ======================================================
 
+function updateAddProductPrice() {
+    const cost = parseFloat(document.getElementById("prod-cost").value) || 0;
+    const margin = parseFloat(document.getElementById("prod-margin").value) || 0;
+    const newPrice = calculatePrices(cost, margin);
+    document.getElementById("prod-new-price").value = newPrice;
+}
+
+function updateAddProductMargin() {
+    const cost = parseFloat(document.getElementById("prod-cost").value) || 0;
+    const newPrice = parseFloat(document.getElementById("prod-new-price").value) || 0;
+    if (cost > 0) {
+        const exactMargin = ((newPrice / cost) - 1) * 100;
+        document.getElementById("prod-margin").value = exactMargin.toFixed(2);
+    } else {
+        document.getElementById("prod-margin").value = 0;
+    }
+}
+
+document.getElementById("prod-cost").addEventListener("input", updateAddProductPrice);
+document.getElementById("prod-margin").addEventListener("input", updateAddProductPrice);
+document.getElementById("prod-new-price").addEventListener("input", updateAddProductMargin);
+
 document.getElementById('add-product-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = e.submitter;
@@ -400,6 +422,17 @@ function updateNewPrice() {
     document.getElementById("edit-product-new-price").value = newPrice;
 }
 
+function updateNewMargin() {
+    const cost = parseFloat(document.getElementById("edit-product-cost").value) || 0;
+    const newPrice = parseFloat(document.getElementById("edit-product-new-price").value) || 0;
+    if (cost > 0) {
+        const exactMargin = ((newPrice / cost) - 1) * 100;
+        document.getElementById("edit-product-margin").value = exactMargin.toFixed(2);
+    } else {
+        document.getElementById("edit-product-margin").value = 0;
+    }
+}
+
 
 function openEditProduct(id) {
     const p = state.products.find(x => x.id === id);
@@ -418,6 +451,7 @@ function openEditProduct(id) {
 
 document.getElementById("edit-product-cost").addEventListener("input", updateNewPrice);
 document.getElementById("edit-product-margin").addEventListener("input", updateNewPrice);
+document.getElementById("edit-product-new-price").addEventListener("input", updateNewMargin);
 
 document.getElementById("edit-product-form").addEventListener("submit", async (e) => {
     e.preventDefault();
