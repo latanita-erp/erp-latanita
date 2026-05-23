@@ -253,11 +253,15 @@ input:focus, select:focus { border-color: var(--primary-color); }
 .table tbody tr.row-quesos { background-color: rgba(245, 158, 11, 0.08); }
 .table tbody tr.row-encurtidos { background-color: rgba(16, 185, 129, 0.08); }
 .table tbody tr.row-bebidas { background-color: rgba(59, 130, 246, 0.08); }
+.table tbody tr.row-dulces { background-color: rgba(236, 72, 153, 0.08); } /* Pink */
+.table tbody tr.row-panificados { background-color: rgba(139, 92, 246, 0.08); } /* Purple */
 
 .table tbody tr.row-fiambres:hover { background-color: rgba(239, 68, 68, 0.15); }
 .table tbody tr.row-quesos:hover { background-color: rgba(245, 158, 11, 0.15); }
 .table tbody tr.row-encurtidos:hover { background-color: rgba(16, 185, 129, 0.15); }
 .table tbody tr.row-bebidas:hover { background-color: rgba(59, 130, 246, 0.15); }
+.table tbody tr.row-dulces:hover { background-color: rgba(236, 72, 153, 0.15); }
+.table tbody tr.row-panificados:hover { background-color: rgba(139, 92, 246, 0.15); }
 
 /* ============================
    MODALES — CONFIGURACIÓN FINAL
