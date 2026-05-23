@@ -394,17 +394,6 @@ function updateNewPrice() {
     document.getElementById("edit-product-new-price").value = newPrice;
 }
 
-function updatePromoPrice() {
-    const price250 = Number(document.getElementById("edit-product-price250").value);
-    const promo = Number(document.getElementById("edit-product-promotion").value);
-
-    if (promo > 0) {
-        const final = price250 * (1 - promo / 100);
-        document.getElementById("edit-product-price250-promo").value = final.toFixed(2);
-    } else {
-        document.getElementById("edit-product-price250-promo").value = "";
-    }
-}
 
 function openEditProduct(id) {
     const p = state.products.find(x => x.id === id);
@@ -414,17 +403,8 @@ function openEditProduct(id) {
     document.getElementById("edit-product-type").value = p.type;
     document.getElementById("edit-product-cost").value = p.cost;
     document.getElementById("edit-product-margin").value = p.margin;
+    document.getElementById("edit-product-old-cost").value = p.cost;
     document.getElementById("edit-product-old-price").value = p.price_kg;
-
-    document.getElementById("edit-product-price250").value = p.price_250g;
-    document.getElementById("edit-product-promotion").value = p.promotion || 0;
-
-    if (p.promotion > 0) {
-        const final = p.price_250g * (1 - p.promotion / 100);
-        document.getElementById("edit-product-price250-promo").value = final.toFixed(2);
-    } else {
-        document.getElementById("edit-product-price250-promo").value = "";
-    }
 
     updateNewPrice();
     toggleModal("modal-edit-product");
@@ -432,7 +412,6 @@ function openEditProduct(id) {
 
 document.getElementById("edit-product-cost").addEventListener("input", updateNewPrice);
 document.getElementById("edit-product-margin").addEventListener("input", updateNewPrice);
-document.getElementById("edit-product-promotion").addEventListener("input", updatePromoPrice);
 
 document.getElementById("edit-product-form").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -442,7 +421,7 @@ document.getElementById("edit-product-form").addEventListener("submit", async (e
     const type = document.getElementById("edit-product-type").value;
     const cost = parseFloat(document.getElementById("edit-product-cost").value);
     const margin = parseFloat(document.getElementById("edit-product-margin").value);
-    const promotion = Number(document.getElementById("edit-product-promotion").value);
+    const promotion = 0;
 
     const payload = { name, type, cost, margin, promotion };
 
@@ -841,29 +820,102 @@ function renderCash() {
     if (!tbody) return;
 
     tbody.innerHTML = '';
-    state.cash.forEach(c => {
-        const [y, m, d] = c.date.split('-');
-        const formattedDate = `${d}/${m}/${y}`;
 
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${formattedDate}</td>
-            <td>${c.weekday}</td>
-            <td>$${formatMoney(c.cash)}</td>
-            <td>$${formatMoney(c.card)}</td>
-            <td>$${formatMoney(c.net_income)}</td>
-            <td>$${formatMoney(c.expenses)}</td>
-            <td style="color: ${c.total >= 0 ? 'var(--success-color)' : 'var(--danger-color)'}; font-weight: bold;">
-                $${formatMoney(c.total)}
+    if (!state.cash || state.cash.length === 0) return;
+
+    // Agrupar por mes
+    const byMonth = {};
+    state.cash.forEach(c => {
+        const month = c.date.slice(0, 7); // YYYY-MM
+        if (!byMonth[month]) {
+            byMonth[month] = {
+                rows: [],
+                cashTotal: 0,
+                cardTotal: 0,
+                netTotal: 0,
+                expensesTotal: 0,
+                profitTotal: 0
+            };
+        }
+        byMonth[month].rows.push(c);
+        byMonth[month].cashTotal += c.cash;
+        byMonth[month].cardTotal += c.card;
+        byMonth[month].netTotal += c.net_income;
+        byMonth[month].expensesTotal += c.expenses;
+        byMonth[month].profitTotal += c.total;
+    });
+
+    // Ordenar los meses de forma descendente (el más reciente arriba)
+    const sortedMonths = Object.keys(byMonth).sort((a, b) => b.localeCompare(a));
+    const currentMonth = sortedMonths[0];
+
+    sortedMonths.forEach(month => {
+        const mData = byMonth[month];
+        const isCurrent = month === currentMonth;
+        
+        // Crear fila cabecera del mes
+        const headerTr = document.createElement('tr');
+        headerTr.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+        headerTr.style.cursor = 'pointer';
+        headerTr.innerHTML = `
+            <td colspan="2" style="font-weight: bold; font-size: 1.1em; color: var(--text-color);">
+                <span style="display: inline-block; width: 20px;">${isCurrent ? '▼' : '▶'}</span>
+                ${formatMonthLiteral(month)}
             </td>
-            <td style="display: flex; gap: 0.5rem;">
-                <button class="btn btn-secondary" style="padding: 0.3rem 0.6rem;"
-                    onclick="openEditCash(${c.id}, '${c.date}', ${c.cash}, ${c.card}, ${c.expenses})">✏️</button>
-                <button class="btn btn-danger" style="padding: 0.3rem 0.6rem;"
-                    onclick="deleteCash(${c.id})">🗑️</button>
+            <td style="font-weight: bold;">$${formatMoney(mData.cashTotal)}</td>
+            <td style="font-weight: bold;">$${formatMoney(mData.cardTotal)}</td>
+            <td style="font-weight: bold; color: var(--primary-color);">$${formatMoney(mData.netTotal)}</td>
+            <td style="font-weight: bold;">$${formatMoney(mData.expensesTotal)}</td>
+            <td style="font-weight: bold; font-size: 1.1em; color: ${mData.profitTotal >= 0 ? 'var(--success-color)' : 'var(--danger-color)'};">
+                $${formatMoney(mData.profitTotal)}
             </td>
+            <td></td>
         `;
-        tbody.appendChild(tr);
+        
+        tbody.appendChild(headerTr);
+
+        const monthRows = [];
+        
+        // Ordenar los días dentro del mes de forma descendente
+        mData.rows.sort((a,b) => b.date.localeCompare(a.date));
+
+        mData.rows.forEach(c => {
+            const [y, m, d] = c.date.split('-');
+            const formattedDate = `${d}/${m}/${y}`;
+
+            const tr = document.createElement('tr');
+            tr.style.display = isCurrent ? 'table-row' : 'none';
+            // Añadir un poco de opacidad/estilo para diferenciar que son filas hijas
+            tr.style.backgroundColor = 'transparent';
+            tr.innerHTML = `
+                <td style="padding-left: 2rem;">${formattedDate}</td>
+                <td>${c.weekday}</td>
+                <td>$${formatMoney(c.cash)}</td>
+                <td>$${formatMoney(c.card)}</td>
+                <td>$${formatMoney(c.net_income)}</td>
+                <td>$${formatMoney(c.expenses)}</td>
+                <td style="color: ${c.total >= 0 ? 'var(--success-color)' : 'var(--danger-color)'}; font-weight: bold;">
+                    $${formatMoney(c.total)}
+                </td>
+                <td style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-secondary" style="padding: 0.3rem 0.6rem;"
+                        onclick="openEditCash(${c.id}, '${c.date}', ${c.cash}, ${c.card}, ${c.expenses})">✏️</button>
+                    <button class="btn btn-danger" style="padding: 0.3rem 0.6rem;"
+                        onclick="deleteCash(${c.id})">🗑️</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+            monthRows.push(tr);
+        });
+
+        // Evento para expandir/colapsar
+        headerTr.addEventListener('click', () => {
+            const isExpanded = headerTr.querySelector('span').innerText === '▼';
+            headerTr.querySelector('span').innerText = isExpanded ? '▶' : '▼';
+            monthRows.forEach(tr => {
+                tr.style.display = isExpanded ? 'none' : 'table-row';
+            });
+        });
     });
 }
 
