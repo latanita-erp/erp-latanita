@@ -1203,7 +1203,11 @@ function renderDailySalesChart(cashData) {
 
     const rows = cashData.filter(r => r.date.startsWith(currentMonth)).sort((a,b) => a.date.localeCompare(b.date));
 
-    const labels = rows.map(r => r.date.split("-")[2]); // día del mes
+    const labels = rows.map(r => {
+        const day = r.date.split("-")[2];
+        const initial = r.weekday ? r.weekday.charAt(0) : "";
+        return `${initial} ${day}`;
+    });
     const values = rows.map(r => r.net_income); // ventas netas
 
     const weekColors = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6"];
