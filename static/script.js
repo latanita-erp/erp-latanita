@@ -253,7 +253,7 @@ function calculateWeekdayDistribution(cashData) {
     cashData.forEach(row => {
         const day = row.weekday.toUpperCase();
         if (days[day] !== undefined) {
-            days[day] += row.total;
+            days[day] += row.net_income;
         }
     });
 
@@ -297,7 +297,7 @@ function renderWeekdayDistribution(cashData) {
         data: {
             labels,
             datasets: [{
-                label: "Ganancia por Día",
+                label: "Ingresos por Día",
                 data: values,
                 backgroundColor: bgColors,
                 borderRadius: 6
@@ -1345,7 +1345,7 @@ function calculateMonthlyDayRanking(cashData) {
         };
 
         rows.forEach(r => {
-            totalsByWeekday[r.weekday] += r.total;
+            totalsByWeekday[r.weekday] += r.net_income;
         });
 
         // Convertir a array y ordenar de mayor a menor
