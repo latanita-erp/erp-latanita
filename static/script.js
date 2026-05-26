@@ -272,17 +272,26 @@ function renderWeekdayDistribution(cashData) {
         if (counts[day] !== undefined) counts[day]++;
     });
 
-    const labels = Object.keys(data).map(day => `${day} (${counts[day]})`);
+    const labels = Object.keys(data).map(day => {
+        const text = `${day} (${counts[day]})`;
+        return day === "DOMINGO" ? `${text} (Medio Turno)` : text;
+    });
     const values = Object.values(data);
+    const keys = Object.keys(data);
 
     let maxVal = -Infinity;
     let minVal = Infinity;
-    values.forEach(v => {
-        if (v > maxVal) maxVal = v;
-        if (v < minVal && v > 0) minVal = v; // only consider days with some value as min
+    keys.forEach(day => {
+        if (day !== "DOMINGO") {
+            const v = data[day];
+            if (v > maxVal) maxVal = v;
+            if (v < minVal && v > 0) minVal = v; // only consider days with some value as min
+        }
     });
 
-    const bgColors = values.map(v => {
+    const bgColors = keys.map(day => {
+        const v = data[day];
+        if (day === "DOMINGO") return "rgba(156, 163, 175, 0.4)"; // muted color for medio turno
         if (v === maxVal && v > 0) return "rgba(16, 185, 129, 0.8)"; // success-color
         if (v === minVal && v > 0) return "rgba(239, 68, 68, 0.8)"; // danger-color
         return "rgba(99, 102, 241, 0.6)";
@@ -1348,14 +1357,18 @@ function calculateMonthlyDayRanking(cashData) {
             totalsByWeekday[r.weekday] += r.net_income;
         });
 
-        // Convertir a array y ordenar de mayor a menor
+        // Convertir a array y ordenar de mayor a menor (excluyendo domingo)
         const ranking = Object.entries(totalsByWeekday)
+            .filter(([weekday]) => weekday !== "DOMINGO")
             .map(([weekday, total]) => ({ weekday, total }))
             .sort((a, b) => b.total - a.total);
 
+        const domingoTotal = totalsByWeekday["DOMINGO"];
+
         result.push({
             month,
-            ranking
+            ranking,
+            domingoTotal
         });
     });
 
@@ -1374,20 +1387,26 @@ function renderMonthlyDayRanking(stats) {
         // Crear lista ordenada de días
         const rankingList = row.ranking
             .map((r, i) => {
+                const isBest = i === 0;
+                const isWorst = i === row.ranking.length - 1;
                 const color =
-                    i === 0 ? "var(--success-color)" :   // mejor día
-                    i === 6 ? "var(--danger-color)" :    // peor día
+                    isBest ? "var(--success-color)" :   // mejor día
+                    isWorst ? "var(--danger-color)" :    // peor día
                     "inherit";
 
-                return `<div style="color:${color}; font-weight:${i === 0 || i === 6 ? 'bold' : 'normal'};">
+                return `<div style="color:${color}; font-weight:${isBest || isWorst ? 'bold' : 'normal'};">
                             ${i + 1}. ${r.weekday} — $${formatMoney(r.total)}
                         </div>`;
             })
             .join("");
 
+        const domingoText = `<div style="color:#9ca3af; font-style: italic; margin-top: 6px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 4px;">
+                                - DOMINGO (Medio Turno) — $${formatMoney(row.domingoTotal)}
+                             </div>`;
+
         tr.innerHTML = `
             <td>${formatMonthLiteral(row.month)}</td>
-            <td>${rankingList}</td>
+            <td>${rankingList}${domingoText}</td>
         `;
 
         tbody.appendChild(tr);
