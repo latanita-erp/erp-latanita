@@ -5,8 +5,12 @@
 let state = {
     products: [],
     cash: [],
-    dashboard: null
+    dashboard: null,
+    suppliers: [],
+    expenseCategories: []
 };
+let currentExpenseList = []; // For cash forms
+
 
 function formatMoney(val) {
     return val.toLocaleString('es-AR', { 
@@ -181,6 +185,7 @@ async function loadData(view) {
     if (view === 'products') await fetchProducts();
     if (view === 'cash') await fetchCash();
     if (view === 'dashboard') await fetchDashboard();
+    if (view === 'suppliers-global') await fetchGlobalSuppliers();
 }
 
 // ======================================================
@@ -227,7 +232,8 @@ function renderProducts() {
             <td class="prod-price150" data-value="${p.price_150g}">${p150}</td>
             <td class="prod-price250" data-value="${p.price_250g}">${p250}</td>
             <td style="display: flex; gap: 0.5rem;">
-                <button class="btn btn-secondary" onclick="openEditProduct(${p.id})">✏️ Editar</button>
+                <button class="btn btn-secondary" onclick="openSuppliers(${p.id}, '${p.name.replace("'", "\'")}')">🚚 Prov.</button>
+                <button class="btn btn-secondary" onclick="openEditProduct(${p.id})">✏️</button>
                 <button class="btn btn-danger" onclick="deleteProduct(${p.id})">🗑️</button>
             </td>
         `;
@@ -474,9 +480,9 @@ document.getElementById("edit-product-form").addEventListener("submit", async (e
     const type = document.getElementById("edit-product-type").value;
     const cost = parseFloat(document.getElementById("edit-product-cost").value);
     const margin = parseFloat(document.getElementById("edit-product-margin").value);
-    const promotion = 0;
+    
 
-    const payload = { name, type, cost, margin, promotion };
+    const payload = { name, type, cost, margin };
 
     await fetch(`/api/products/${id}`, {
         method: 'PUT',
@@ -725,6 +731,16 @@ function generateTechnicalList() {
 async function openSuppliers(productId, productName) {
     document.getElementById('sup-prod-name').innerText = productName;
     document.getElementById('sup-prod-id').value = productId;
+    
+    const sel = document.getElementById('sup-id');
+    sel.innerHTML = '<option value="">Seleccionar Proveedor...</option>';
+    state.suppliers.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        opt.innerText = s.name;
+        sel.appendChild(opt);
+    });
+
     await fetchSuppliers(productId);
     toggleModal('modal-suppliers');
 }
@@ -748,11 +764,13 @@ async function fetchSuppliers(productId) {
         const tr = document.createElement('tr');
         if (isMin) tr.style.background = 'rgba(16, 185, 129, 0.1)';
 
+        const dateStr = s.updated_at ? new Date(s.updated_at).toLocaleDateString('es-AR') : '-';
         tr.innerHTML = `
             <td>${isMin ? '🟢 ' : ''}${s.supplier_name}</td>
             <td style="font-weight:${isMin ? 'bold' : 'normal'}; color:${isMin ? 'var(--success-color)' : 'inherit'}">
                 $${formatMoney(s.cost)}
             </td>
+            <td style="font-size:0.85em; color:#666;">${dateStr}</td>
             <td>
                 <button class="btn btn-danger" onclick="deleteSupplier(${productId}, ${s.id})" style="padding: 0.3rem 0.6rem;">
                     ❌
@@ -769,7 +787,7 @@ document.getElementById('add-supplier-form').addEventListener('submit', async (e
     const productId = document.getElementById('sup-prod-id').value;
 
     const payload = {
-        supplier_name: document.getElementById('sup-name').value,
+        supplier_id: parseInt(document.getElementById('sup-id').value),
         cost: parseFloat(document.getElementById('sup-cost').value)
     };
 
@@ -954,7 +972,7 @@ function renderCash() {
                 </td>
                 <td style="display: flex; gap: 0.5rem;">
                     <button class="btn btn-secondary" style="padding: 0.3rem 0.6rem;"
-                        onclick="openEditCash(${c.id}, '${c.date}', ${c.cash}, ${c.card}, ${c.expenses})">✏️</button>
+                        onclick="openEditCash(${c.id})">✏️</button>
                     <button class="btn btn-danger" style="padding: 0.3rem 0.6rem;"
                         onclick="deleteCash(${c.id})">🗑️</button>
                 </td>
@@ -993,9 +1011,9 @@ document.getElementById('cash-form').addEventListener('submit', async (e) => {
     const payload = {
         date,
         weekday,
-        cash: parseFloat(document.getElementById('cash-cash').value),
-        card: parseFloat(document.getElementById('cash-card').value),
-        expenses: parseFloat(document.getElementById('cash-expenses').value)
+        cash: parseFloat(document.getElementById('cash-cash').value || 0),
+        card: parseFloat(document.getElementById('cash-card').value || 0),
+        expense_list: currentExpenseList
     };
 
     await fetch('/api/cash', {
@@ -1007,6 +1025,8 @@ document.getElementById('cash-form').addEventListener('submit', async (e) => {
     btn.disabled = false;
     btn.innerText = originalText;
     e.target.reset();
+    currentExpenseList = [];
+    renderExpenseItems('cash');
     fetchCash();
 });
 
@@ -1014,15 +1034,18 @@ document.getElementById('cash-form').addEventListener('submit', async (e) => {
 //                 EDITAR REGISTRO
 // =====================================================
 
-function openEditCash(id, date, cash, card, expenses) {
-    document.getElementById('edit-cash-id').value = id;
+function openEditCash(id) {
+    const c = state.cash.find(x => x.id === id);
+    if(!c) return;
 
-    document.getElementById('edit-cash-date').value = date;
-    document.getElementById('edit-cash-weekday').value = getWeekdayFromDate(date);
+    document.getElementById('edit-cash-id').value = c.id;
+    document.getElementById('edit-cash-date').value = c.date;
+    document.getElementById('edit-cash-weekday').value = c.weekday;
+    document.getElementById('edit-cash-cash').value = c.cash;
+    document.getElementById('edit-cash-card').value = c.card;
 
-    document.getElementById('edit-cash-cash').value = cash;
-    document.getElementById('edit-cash-card').value = card;
-    document.getElementById('edit-cash-expenses').value = expenses;
+    currentExpenseList = JSON.parse(JSON.stringify(c.expense_list || []));
+    renderExpenseItems('edit');
 
     toggleModal('modal-edit-cash');
 }
@@ -1050,9 +1073,9 @@ document.getElementById('edit-cash-form').addEventListener('submit', async (e) =
     const payload = {
         date,
         weekday,
-        cash: parseFloat(document.getElementById('edit-cash-cash').value),
-        card: parseFloat(document.getElementById('edit-cash-card').value),
-        expenses: parseFloat(document.getElementById('edit-cash-expenses').value)
+        cash: parseFloat(document.getElementById('edit-cash-cash').value || 0),
+        card: parseFloat(document.getElementById('edit-cash-card').value || 0),
+        expense_list: currentExpenseList
     };
 
     await fetch(`/api/cash/${id}`, {
@@ -1505,6 +1528,8 @@ function renderDashboard() {
 // --- INICIALIZACIÓN DE LA APP ---
 async function init() {
     if (!localStorage.getItem('auth_token')) return;
+    await fetchExpenseCategories();
+    await fetchGlobalSuppliers();
     await fetchCash();
     await fetchDashboard();
     await fetchProducts();

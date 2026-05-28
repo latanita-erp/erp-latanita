@@ -63,6 +63,7 @@
             <nav>
                 <button class="nav-btn active" data-target="dashboard">📊 Dashboard</button>
                 <button class="nav-btn" data-target="products">📦 Productos</button>
+                <button class="nav-btn" data-target="suppliers-global">🚚 Proveedores</button>
                 <button class="nav-btn" data-target="cash">💰 Caja Diaria</button>
 
                 <hr class="menu-divider">
@@ -81,6 +82,56 @@
         <!-- ========================= -->
         <!--          MODALES          -->
         <!-- ========================= -->
+
+        <!-- MODAL GLOBAL SUPPLIER -->
+        <div id="modal-global-supplier" class="modal-overlay hidden">
+            <div class="modal-content glass-panel" style="max-width:450px;">
+                <div class="modal-header">
+                    <h2 id="global-supplier-modal-title">Proveedor</h2>
+                    <button class="close-btn" onclick="toggleModal('modal-global-supplier')">×</button>
+                </div>
+                <form id="global-supplier-form">
+                    <input type="hidden" id="gs-id">
+                    <div class="input-group">
+                        <label>Nombre</label>
+                        <input type="text" id="gs-name" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Teléfono</label>
+                        <input type="text" id="gs-phone">
+                    </div>
+                    <div class="input-group">
+                        <label>Email</label>
+                        <input type="email" id="gs-email">
+                    </div>
+                    <div class="input-group">
+                        <label>Vendedor (Contacto)</label>
+                        <input type="text" id="gs-salesperson">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block mt-2">Guardar</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL EXPENSE CATEGORIES -->
+        <div id="modal-expense-categories" class="modal-overlay hidden">
+            <div class="modal-content glass-panel" style="max-width:500px;">
+                <div class="modal-header">
+                    <h2>Administrar Categorías de Gastos</h2>
+                    <button class="close-btn" onclick="toggleModal('modal-expense-categories')">×</button>
+                </div>
+                <form id="add-expense-category-form" style="display:flex; gap:10px; margin-bottom:1rem;">
+                    <input type="text" id="new-exp-cat-name" placeholder="Nueva Categoría" required style="flex:1;">
+                    <button type="submit" class="btn btn-primary">Agregar</button>
+                </form>
+                <table class="table" id="expense-categories-table">
+                    <thead>
+                        <tr><th>Categoría</th><th>Acción</th></tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
 
         <!-- MODAL ADD PRODUCT -->
         <div id="modal-add-product" class="modal-overlay hidden">
@@ -140,14 +191,16 @@
 
                 <form id="add-supplier-form" style="display:flex; gap:1rem;">
                     <input type="hidden" id="sup-prod-id">
-                    <input type="text" id="sup-name" placeholder="Nombre Proveedor" required>
-                    <input type="number" step="0.01" id="sup-cost" placeholder="Costo ($)" required>
+                    <select id="sup-id" required style="flex:1;">
+                        <option value="">Cargando proveedores...</option>
+                    </select>
+                    <input type="number" step="0.01" id="sup-cost" placeholder="Costo ($)" required style="width:100px;">
                     <button class="btn btn-primary">Añadir</button>
                 </form>
 
                 <table class="table" id="suppliers-table">
                     <thead>
-                        <tr><th>Proveedor</th><th>Costo</th><th>Acción</th></tr>
+                        <tr><th>Proveedor</th><th>Costo</th><th>Actualizado</th><th>Acción</th></tr>
                     </thead>
                     <tbody></tbody>
                 </table>
@@ -250,12 +303,21 @@
                 <input type="number" step="0.01" id="edit-cash-card" required>
             </div>
 
-            <div class="input-group">
-                <label>Gastos ($)</label>
-                <input type="number" step="0.01" id="edit-cash-expenses" required>
+            <div class="input-group" style="grid-column: 1 / -1;">
+                <label>Gastos</label>
+                <div id="edit-cash-expenses-list" style="margin-bottom: 10px;"></div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <select id="edit-cash-expense-category" style="flex:1;"></select>
+                    <button type="button" class="btn btn-secondary" onclick="toggleModal('modal-expense-categories')" title="Administrar Categorías">⚙️</button>
+                    <input type="number" step="0.01" id="edit-cash-expense-amount" placeholder="Monto" style="width:100px;">
+                    <button type="button" class="btn btn-secondary" onclick="addExpenseItem('edit')">Agregar Gasto</button>
+                </div>
+                <div style="margin-top: 10px; font-weight: bold; text-align: right;">
+                    Total Gastos: $<span id="edit-cash-total-expenses">0.00</span>
+                </div>
             </div>
 
-            <div style="display:flex; gap:10px; margin-top: 1rem;">
+            <div style="display:flex; gap:10px; margin-top: 1rem; grid-column: 1 / -1;">
                 <button type="button" class="btn btn-secondary" onclick="toggleModal('modal-edit-cash')">
                     Cancelar
                 </button>
@@ -445,6 +507,28 @@
                 </div>
             </section>
 
+            <!-- PROVEEDORES GLOBALES -->
+            <section id="suppliers-global" class="view hidden">
+                <header class="flex-between">
+                    <div>
+                        <h1>Proveedores Globales</h1>
+                        <p>Directorio de proveedores</p>
+                    </div>
+                    <div class="actions">
+                        <button class="btn btn-primary" onclick="openAddGlobalSupplier()">➕ Nuevo Proveedor</button>
+                    </div>
+                </header>
+
+                <div class="glass-panel">
+                    <table class="table" id="global-suppliers-table">
+                        <thead>
+                            <tr><th>Nombre</th><th>Teléfono</th><th>Email</th><th>Vendedor</th><th>Acción</th></tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
             <!-- CAJA -->
 <section id="cash" class="view hidden">
 
@@ -479,13 +563,22 @@
                 <input type="number" step="0.01" id="cash-card" required>
             </div>
 
-            <div class="input-group">
-                <label>Gastos ($)</label>
-                <input type="number" step="0.01" id="cash-expenses" required>
+            <div class="input-group" style="grid-column: 1 / -1;">
+                <label>Gastos</label>
+                <div id="cash-expenses-list" style="margin-bottom: 10px;"></div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <select id="cash-expense-category" style="flex:1;"></select>
+                    <button type="button" class="btn btn-secondary" onclick="toggleModal('modal-expense-categories')" title="Administrar Categorías">⚙️</button>
+                    <input type="number" step="0.01" id="cash-expense-amount" placeholder="Monto" style="width:100px;">
+                    <button type="button" class="btn btn-secondary" onclick="addExpenseItem('cash')">Agregar Gasto</button>
+                </div>
+                <div style="margin-top: 10px; font-weight: bold; text-align: right;">
+                    Total Gastos: $<span id="cash-total-expenses">0.00</span>
+                </div>
             </div>
 
-            <div class="input-group flex-end">
-                <button class="btn btn-primary">Guardar Cierre</button>
+            <div class="input-group flex-end" style="grid-column: 1 / -1; justify-content: flex-end;">
+                <button type="submit" class="btn btn-primary">Guardar Cierre</button>
             </div>
 
         </form>
