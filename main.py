@@ -7,6 +7,7 @@ import math
 import datetime
 import urllib.parse
 import pandas as pd
+from collections import defaultdict
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Request, Response
 from fastapi.staticfiles import StaticFiles
@@ -16,7 +17,7 @@ from sqlalchemy.orm import sessionmaker, declarative_base, Session
 import io
 import base64
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
 try:
     from dotenv import load_dotenv
@@ -49,8 +50,11 @@ async def basic_auth(request: Request, call_next):
         decoded_credentials = base64.b64decode(encoded_credentials).decode("utf-8")
         username, _, password = decoded_credentials.partition(":")
         
-        expected_user = os.getenv("ERP_USERNAME", "cboveda")
-        expected_pass = os.getenv("ERP_PASSWORD", "Latanita1198$")
+        expected_user = os.getenv("ERP_USERNAME")
+        expected_pass = os.getenv("ERP_PASSWORD")
+        
+        if not expected_user: expected_user = "cboveda"
+        if not expected_pass: expected_pass = "Latanita1198$"
         
         if username != expected_user or password != expected_pass:
             return unauthorized()
@@ -63,10 +67,9 @@ async def basic_auth(request: Request, call_next):
 #        CONEXIÓN A SUPABASE (POOLER)
 # ============================================
 
-DB_URI = os.getenv(
-    "DATABASE_URL",
-    "postgresql+pg8000://postgres.juzwfwgonamxyuvoxgbj:Latanita1198!@aws-1-sa-east-1.pooler.supabase.com:6543/postgres"
-)
+DB_URI = os.getenv("DATABASE_URL")
+if not DB_URI:
+    raise ValueError("DATABASE_URL is not set in environment variables")
 
 engine = create_engine(DB_URI, pool_pre_ping=True)
 
@@ -111,52 +114,147 @@ def calculate_prices(cost, margin):
 #             MODELOS PYDANTIC
 # ============================================
 
+class ExpenseItemPayload(BaseModel):
+    category_id: int
+    amount: float
+
 class CashPayload(BaseModel):
     date: str
     weekday: str
     cash: float
     card: float
-    expenses: float
+    expense_list: List[ExpenseItemPayload] = []
 
 class ProductPayload(BaseModel):
     name: str
     type: str
     cost: float
     margin: float
-    promotion: float = 0.0
 
 class ProductUpdatePayload(BaseModel):
     name: Optional[str] = None
     type: Optional[str] = None
     cost: Optional[float] = None
     margin: Optional[float] = None
-    promotion: Optional[float] = None
 
 class SupplierPayload(BaseModel):
-    supplier_name: str
+    supplier_id: int
     cost: float
 
+class ExpenseCategoryPayload(BaseModel):
+    name: str
+
+class SupplierBase(BaseModel):
+    name: str
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    salesperson: Optional[str] = None
+
 # ============================================
-#             MÓDULO CAJA DIARIA (FINAL)
+#             MÓDULO PROVEEDORES GLOBALES
+# ============================================
+
+@app.get("/api/suppliers")
+def get_suppliers(db: Session = Depends(get_db)):
+    result = db.execute(text("""
+        SELECT id, name, phone, email, salesperson
+        FROM suppliers
+        ORDER BY name ASC
+    """)).mappings().all()
+    return [dict(r) for r in result]
+
+@app.post("/api/suppliers")
+def create_supplier(payload: SupplierBase, db: Session = Depends(get_db)):
+    db.execute(text("""
+        INSERT INTO suppliers (name, phone, email, salesperson)
+        VALUES (:name, :phone, :email, :salesperson)
+    """), {
+        "name": payload.name,
+        "phone": payload.phone,
+        "email": payload.email,
+        "salesperson": payload.salesperson
+    })
+    db.commit()
+    return {"status": "created"}
+
+@app.put("/api/suppliers/{supplier_id}")
+def update_supplier(supplier_id: int, payload: SupplierBase, db: Session = Depends(get_db)):
+    db.execute(text("""
+        UPDATE suppliers
+        SET name = :name, phone = :phone, email = :email, salesperson = :salesperson
+        WHERE id = :id
+    """), {
+        "id": supplier_id,
+        "name": payload.name,
+        "phone": payload.phone,
+        "email": payload.email,
+        "salesperson": payload.salesperson
+    })
+    db.commit()
+    return {"status": "updated"}
+
+@app.delete("/api/suppliers/{supplier_id}")
+def delete_supplier(supplier_id: int, db: Session = Depends(get_db)):
+    db.execute(text("DELETE FROM suppliers WHERE id = :id"), {"id": supplier_id})
+    db.commit()
+    return {"status": "deleted"}
+
+# ============================================
+#             MÓDULO GASTOS CATEGORÍAS
+# ============================================
+
+@app.get("/api/expense-categories")
+def get_expense_categories(db: Session = Depends(get_db)):
+    result = db.execute(text("SELECT id, name, is_custom FROM expense_categories ORDER BY id ASC")).mappings().all()
+    return [dict(r) for r in result]
+
+@app.post("/api/expense-categories")
+def create_expense_category(payload: ExpenseCategoryPayload, db: Session = Depends(get_db)):
+    db.execute(text("INSERT INTO expense_categories (name, is_custom) VALUES (:name, TRUE)"), {"name": payload.name})
+    db.commit()
+    return {"status": "created"}
+
+@app.delete("/api/expense-categories/{cat_id}")
+def delete_expense_category(cat_id: int, db: Session = Depends(get_db)):
+    try:
+        db.execute(text("DELETE FROM expense_categories WHERE id = :id AND is_custom = TRUE"), {"id": cat_id})
+        db.commit()
+        return {"status": "deleted"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="No se puede borrar porque está en uso o es por defecto.")
+
+# ============================================
+#             MÓDULO CAJA DIARIA
 # ============================================
 
 @app.get("/api/cash/all")
 def get_cash_all(db: Session = Depends(get_db)):
-    result = db.execute(text("""
+    cash_result = db.execute(text("""
         SELECT 
-            id,
-            date,
-            weekday,
-            cash,
-            card,
-            expenses,
+            id, date, weekday, cash, card, expenses,
             (cash + card) AS net_income,
             (cash + card - expenses) AS total
         FROM cash
         ORDER BY date ASC
     """)).mappings().all()
 
-    return [dict(r) for r in result]
+    expenses_result = db.execute(text("""
+        SELECT e.id, e.cash_id, e.category_id, e.amount, c.name as category_name 
+        FROM expenses e JOIN expense_categories c ON e.category_id = c.id
+    """)).mappings().all()
+
+    expenses_by_cash = defaultdict(list)
+    for e in expenses_result:
+        expenses_by_cash[e["cash_id"]].append(dict(e))
+
+    final_result = []
+    for c in cash_result:
+        c_dict = dict(c)
+        c_dict["expense_list"] = expenses_by_cash.get(c["id"], [])
+        final_result.append(c_dict)
+
+    return final_result
 
 
 @app.post("/api/cash")
@@ -166,23 +264,32 @@ def create_cash(payload: CashPayload, db: Session = Depends(get_db)):
     weekday = payload.weekday
     cash = payload.cash
     card = payload.card
-    expenses = payload.expenses
+    total_expenses = sum([e.amount for e in payload.expense_list])
 
     net = cash + card
-    total = net - expenses
+    total = net - total_expenses
 
-    db.execute(text("""
+    result = db.execute(text("""
         INSERT INTO cash (date, weekday, cash, card, expenses, net_income, total)
         VALUES (:date, :weekday, :cash, :card, :expenses, :net, :total)
+        RETURNING id
     """), {
         "date": date,
         "weekday": weekday,
         "cash": cash,
         "card": card,
-        "expenses": expenses,
+        "expenses": total_expenses,
         "net": net,
         "total": total
     })
+    
+    cash_id = result.scalar()
+
+    for exp in payload.expense_list:
+        db.execute(text("""
+            INSERT INTO expenses (cash_id, category_id, amount)
+            VALUES (:cid, :cat, :amt)
+        """), {"cid": cash_id, "cat": exp.category_id, "amt": exp.amount})
 
     db.commit()
     return {"status": "created"}
@@ -193,28 +300,32 @@ def update_cash(cash_id: int, payload: CashPayload, db: Session = Depends(get_db
 
     cash = payload.cash
     card = payload.card
-    expenses = payload.expenses
+    total_expenses = sum([e.amount for e in payload.expense_list])
 
     net = cash + card
-    total = net - expenses
+    total = net - total_expenses
 
     db.execute(text("""
         UPDATE cash
         SET 
-            cash = :cash,
-            card = :card,
-            expenses = :expenses,
-            net_income = :net,
-            total = :total
+            cash = :cash, card = :card, expenses = :expenses,
+            net_income = :net, total = :total
         WHERE id = :id
     """), {
         "id": cash_id,
         "cash": cash,
         "card": card,
-        "expenses": expenses,
+        "expenses": total_expenses,
         "net": net,
         "total": total
     })
+
+    db.execute(text("DELETE FROM expenses WHERE cash_id = :id"), {"id": cash_id})
+    for exp in payload.expense_list:
+        db.execute(text("""
+            INSERT INTO expenses (cash_id, category_id, amount)
+            VALUES (:cid, :cat, :amt)
+        """), {"cid": cash_id, "cat": exp.category_id, "amt": exp.amount})
 
     db.commit()
     return {"status": "updated"}
@@ -222,18 +333,19 @@ def update_cash(cash_id: int, payload: CashPayload, db: Session = Depends(get_db
 
 @app.delete("/api/cash/{cash_id}")
 def delete_cash(cash_id: int, db: Session = Depends(get_db)):
+    db.execute(text("DELETE FROM expenses WHERE cash_id = :id"), {"id": cash_id})
     db.execute(text("DELETE FROM cash WHERE id = :id"), {"id": cash_id})
     db.commit()
     return {"status": "deleted"}
 
 # ============================================
-#             MÓDULO PRODUCTOS (FINAL)
+#             MÓDULO PRODUCTOS
 # ============================================
 
 @app.get("/api/products")
 def get_products(db: Session = Depends(get_db)):
     result = db.execute(text("""
-        SELECT id, name, type, cost, margin, promotion,
+        SELECT id, name, type, cost, margin,
                price_kg, price_100g, price_150g, price_250g
         FROM products
         ORDER BY type ASC, name ASC
@@ -246,14 +358,13 @@ def create_product(payload: ProductPayload, db: Session = Depends(get_db)):
     prices = calculate_prices(payload.cost, payload.margin)
 
     db.execute(text("""
-        INSERT INTO products (name, type, cost, margin, promotion, price_kg, price_100g, price_150g, price_250g)
-        VALUES (:name, :type, :cost, :margin, :promotion, :price_kg, :price_100g, :price_150g, :price_250g)
+        INSERT INTO products (name, type, cost, margin, price_kg, price_100g, price_150g, price_250g)
+        VALUES (:name, :type, :cost, :margin, :price_kg, :price_100g, :price_150g, :price_250g)
     """), {
         "name": payload.name,
         "type": payload.type,
         "cost": payload.cost,
         "margin": payload.margin,
-        "promotion": payload.promotion,
         "price_kg": prices["price_kg"],
         "price_100g": prices["price_100g"],
         "price_150g": prices["price_150g"],
@@ -267,7 +378,7 @@ def create_product(payload: ProductPayload, db: Session = Depends(get_db)):
 @app.put("/api/products/{product_id}")
 def update_product(product_id: int, payload: ProductUpdatePayload, db: Session = Depends(get_db)):
 
-    product = db.execute(text("SELECT name, type, cost, margin, promotion FROM products WHERE id = :id"), {"id": product_id}).mappings().first()
+    product = db.execute(text("SELECT name, type, cost, margin FROM products WHERE id = :id"), {"id": product_id}).mappings().first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
@@ -275,7 +386,6 @@ def update_product(product_id: int, payload: ProductUpdatePayload, db: Session =
     type_ = payload.type if payload.type is not None else product["type"]
     cost = payload.cost if payload.cost is not None else product["cost"]
     margin = payload.margin if payload.margin is not None else product["margin"]
-    promotion = payload.promotion if payload.promotion is not None else product["promotion"]
 
     prices = calculate_prices(cost, margin)
 
@@ -285,7 +395,6 @@ def update_product(product_id: int, payload: ProductUpdatePayload, db: Session =
             type = :type,
             cost = :cost,
             margin = :margin,
-            promotion = :promotion,
             price_kg = :price_kg,
             price_100g = :price_100g,
             price_150g = :price_150g,
@@ -297,7 +406,6 @@ def update_product(product_id: int, payload: ProductUpdatePayload, db: Session =
         "type": type_,
         "cost": cost,
         "margin": margin,
-        "promotion": promotion,
         "price_kg": prices["price_kg"],
         "price_100g": prices["price_100g"],
         "price_150g": prices["price_150g"],
@@ -310,41 +418,45 @@ def update_product(product_id: int, payload: ProductUpdatePayload, db: Session =
 
 @app.delete("/api/products/{product_id}")
 def delete_product(product_id: int, db: Session = Depends(get_db)):
-    db.execute(text("DELETE FROM products WHERE id = :id"), {"id": product_id})
     db.execute(text("DELETE FROM product_suppliers WHERE product_id = :id"), {"id": product_id})
+    db.execute(text("DELETE FROM products WHERE id = :id"), {"id": product_id})
     db.commit()
     return {"status": "deleted"}
 
 
 # ============================================
-#        PROVEEDORES POR PRODUCTO (FINAL)
+#        PROVEEDORES POR PRODUCTO
 # ============================================
 
 @app.get("/api/products/{product_id}/suppliers")
 def get_product_suppliers(product_id: int, db: Session = Depends(get_db)):
     result = db.execute(text("""
-        SELECT id, supplier_name, cost
-        FROM product_suppliers
-        WHERE product_id = :pid
-        ORDER BY supplier_name ASC, cost ASC
+        SELECT ps.id, ps.supplier_id, s.name as supplier_name, ps.cost, ps.updated_at
+        FROM product_suppliers ps
+        JOIN suppliers s ON ps.supplier_id = s.id
+        WHERE ps.product_id = :pid
+        ORDER BY s.name ASC, ps.cost ASC
     """), {"pid": product_id}).mappings().all()
 
-    return [dict(r) for r in result]
+    res_list = []
+    for r in result:
+        d = dict(r)
+        if d.get("updated_at"):
+            d["updated_at"] = d["updated_at"].isoformat()
+        res_list.append(d)
+    return res_list
 
 
 @app.post("/api/products/{product_id}/suppliers")
 def add_supplier(product_id: int, payload: SupplierPayload, db: Session = Depends(get_db)):
 
-    supplier_name = payload.supplier_name
-    cost = payload.cost
-
     db.execute(text("""
-        INSERT INTO product_suppliers (product_id, supplier_name, cost)
-        VALUES (:pid, :name, :cost)
+        INSERT INTO product_suppliers (product_id, supplier_id, cost)
+        VALUES (:pid, :sid, :cost)
     """), {
         "pid": product_id,
-        "name": supplier_name,
-        "cost": cost
+        "sid": payload.supplier_id,
+        "cost": payload.cost
     })
 
     suppliers = db.execute(text("""
@@ -423,7 +535,7 @@ def delete_supplier(product_id: int, supplier_id: int, db: Session = Depends(get
 
 
 # ============================================
-#        IMPORTACIÓN DESDE EXCEL (FINAL)
+#        IMPORTACIÓN DESDE EXCEL
 # ============================================
 
 @app.post("/api/products/import")
@@ -472,7 +584,7 @@ def import_products(file: UploadFile = File(...), db: Session = Depends(get_db))
 
 
 # ============================================
-#             MÓDULO DASHBOARD (FINAL)
+#             MÓDULO DASHBOARD
 # ============================================
 
 @app.get("/api/dashboard")
@@ -539,5 +651,3 @@ def get_dashboard(db: Session = Depends(get_db)):
         "weekly_breakdown": weekly_breakdown,
         "payment_methods": payment_methods,
     }
-
-
