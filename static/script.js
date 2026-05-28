@@ -1107,189 +1107,148 @@ async function deleteCash(id) {
 // =====================================================
 
 let charts = {};
+let selectedMonth = '';
 
 async function fetchDashboard() {
-    try {
-        const res = await fetch('/api/dashboard');
-        state.dashboard = await res.json();
-    } catch (e) {
-        console.error("Dashboard error", e);
-        state.dashboard = null;
-    }
+    // We don't even need /api/dashboard anymore because we have state.cash and state.expenseCategories
+    // Let's populate the month filter
+    populateMonthFilter();
     renderDashboard();
 }
 
-// ---------- Cálculos de resumen mensual ----------
-
-function calculateMonthlySummary(cashData) {
-    if (!cashData || cashData.length === 0) {
-        return {
-            total_vendido: 0,
-            gastos: 0,
-            ganancia: 0,
-            mejor_dia: null,
-            peor_dia: null,
-            promedio_diario: 0,
-            dias_trabajados: 0
-        };
+function populateMonthFilter() {
+    const cashData = state.cash || [];
+    const filter = document.getElementById('dashboard-month-filter');
+    if(!filter) return;
+    
+    const months = [...new Set(cashData.map(r => r.date.slice(0, 7)))].sort().reverse();
+    
+    filter.innerHTML = '';
+    months.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m;
+        opt.innerText = formatMonthLiteral(m);
+        filter.appendChild(opt);
+    });
+    
+    // Default to most recent month
+    if(months.length > 0) {
+        selectedMonth = months[0];
+        filter.value = selectedMonth;
     }
+    
+    filter.addEventListener('change', (e) => {
+        selectedMonth = e.target.value;
+        renderDashboard();
+    });
+}
 
-    // Tomamos el último mes con datos como "mes actual" lógico
+function renderDashboard() {
+    const cashData = state.cash || [];
+    
+    // Historic Calculations
+    const histRevenue = cashData.reduce((acc, r) => acc + r.net_income, 0);
+    const histExpenses = cashData.reduce((acc, r) => acc + r.expenses, 0);
+    const histProfit = cashData.reduce((acc, r) => acc + r.total, 0);
+    
+    document.getElementById('hist-revenue').innerText = `$${formatMoney(histRevenue)}`;
+    document.getElementById('hist-expenses').innerText = `$${formatMoney(histExpenses)}`;
+    document.getElementById('hist-profit').innerText = `$${formatMoney(histProfit)}`;
+    
+    // Filter by selected month
+    const monthRows = cashData.filter(r => r.date.startsWith(selectedMonth));
+    
+    // Current Month KPIs
+    const rev = monthRows.reduce((acc, r) => acc + r.net_income, 0);
+    const exp = monthRows.reduce((acc, r) => acc + r.expenses, 0);
+    const prof = monthRows.reduce((acc, r) => acc + r.total, 0);
+    
+    document.getElementById('kpi-revenue').innerText = `$${formatMoney(rev)}`;
+    document.getElementById('kpi-expenses').innerText = `$${formatMoney(exp)}`;
+    document.getElementById('kpi-profit').innerText = `$${formatMoney(prof)}`;
+    
+    // Update period labels
+    const periodStr = formatMonthLiteral(selectedMonth);
+    document.querySelectorAll('.kpi-period').forEach(el => el.innerText = periodStr);
+    
+    // Trend logic (compare selected month vs previous)
     const months = [...new Set(cashData.map(r => r.date.slice(0, 7)))].sort();
-    const currentMonth = months[months.length - 1];
-
-    const monthRows = cashData.filter(r => r.date.startsWith(currentMonth));
-
-    const total_vendido = monthRows.reduce((acc, r) => acc + r.net_income, 0);
-    const gastos = monthRows.reduce((acc, r) => acc + r.expenses, 0);
-    const ganancia = monthRows.reduce((acc, r) => acc + r.total, 0);
-    const dias_trabajados = monthRows.length;
-    const promedio_diario = dias_trabajados > 0 ? ganancia / dias_trabajados : 0;
-
-    let mejor = null;
-    let peor = null;
-
-    monthRows.forEach(r => {
-        if (!mejor || r.total > mejor.total) mejor = r;
-        if (!peor || r.total < peor.total) peor = r;
-    });
-
-    return {
-        total_vendido,
-        gastos,
-        ganancia,
-        mejor_dia: mejor,
-        peor_dia: peor,
-        promedio_diario,
-        dias_trabajados
-    };
-}
-
-function renderMonthlySummary(summary) {
-    const elVendido = document.getElementById('sum-total-vendido');
-    const elGastos = document.getElementById('sum-gastos');
-    const elGanancia = document.getElementById('sum-ganancia');
-    const elPromedio = document.getElementById('sum-promedio');
-    const elDias = document.getElementById('sum-dias');
-    const elMejor = document.getElementById('sum-mejor-dia');
-    const elPeor = document.getElementById('sum-peor-dia');
-
-    if(elVendido) elVendido.innerText = `$${formatMoney(summary.total_vendido)}`;
-    if(elGastos) elGastos.innerText = `$${formatMoney(summary.gastos)}`;
-    if(elGanancia) elGanancia.innerText = `$${formatMoney(summary.ganancia)}`;
-    if(elPromedio) elPromedio.innerText = `$${formatMoney(summary.promedio_diario)}`;
-    if(elDias) elDias.innerText = summary.dias_trabajados;
-
-    if (summary.mejor_dia) {
-        const [y, m, d] = summary.mejor_dia.date.split('-');
-        if(elMejor) elMejor.innerText = `${d}/${m}/${y} ($${formatMoney(summary.mejor_dia.total)})`;
+    const idx = months.indexOf(selectedMonth);
+    if (idx > 0) {
+        const prevMonth = months[idx - 1];
+        const prevRows = cashData.filter(r => r.date.startsWith(prevMonth));
+        const pRev = prevRows.reduce((acc, r) => acc + r.net_income, 0);
+        const pExp = prevRows.reduce((acc, r) => acc + r.expenses, 0);
+        const pProf = prevRows.reduce((acc, r) => acc + r.total, 0);
+        
+        const diffVentas = rev - pRev;
+        const diffGastos = exp - pExp;
+        const diffGanancia = prof - pProf;
+        
+        const fmtDiff = (v) => `${v >= 0 ? '▲' : '▼'} $${formatMoney(Math.abs(v))}`;
+        document.getElementById('trend-ventas').innerText = fmtDiff(diffVentas);
+        document.getElementById('trend-gastos').innerText = fmtDiff(diffGastos);
+        document.getElementById('trend-ganancia').innerText = fmtDiff(diffGanancia);
     } else {
-        if(elMejor) elMejor.innerText = '—';
+        document.getElementById('trend-ventas').innerText = '—';
+        document.getElementById('trend-gastos').innerText = '—';
+        document.getElementById('trend-ganancia').innerText = '—';
     }
 
-    if (summary.peor_dia) {
-        const [y, m, d] = summary.peor_dia.date.split('-');
-        if(elPeor) elPeor.innerText = `${d}/${m}/${y} ($${formatMoney(summary.peor_dia.total)})`;
-    } else {
-        if(elPeor) elPeor.innerText = '—';
-    }
+    // Limpiar gráficos
+    Object.values(charts).forEach(c => c && c.destroy && c.destroy());
+    charts = {};
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.font.family = 'Inter';
+
+    // 1. Daily Sales Chart
+    renderDailySalesChart(monthRows);
+    
+    // 2. Expenses Category Pie Chart
+    renderExpensesCategoryChart(monthRows);
+    
+    // 3. Efectivo vs Tarjeta (For the selected month)
+    renderPaymentChart(monthRows);
+    
+    // 4. Comparativo mensual
+    renderMonthlyComparisonChart(cashData);
 }
 
-// ---------- Estadísticas mejor/peor día por mes ----------
-
-function calculateMonthlyDayStats(cashData) {
-    const byMonth = {};
-
-    cashData.forEach(r => {
-        const month = r.date.slice(0, 7);
-        if (!byMonth[month]) byMonth[month] = [];
-        byMonth[month].push(r);
-    });
-
-    const result = [];
-
-    Object.keys(byMonth).sort().forEach(month => {
-        const rows = byMonth[month];
-        let best = null;
-        let worst = null;
-
-        rows.forEach(r => {
-            if (!best || r.total > best.total) best = r;
-            if (!worst || r.total < worst.total) worst = r;
-        });
-
-        result.push({
-            month,
-            best,
-            worst
-        });
-    });
-
-    return result;
-}
-
-
-
-function renderDailySalesChart(cashData) {
-    const currentMonth = new Date().toISOString().slice(0, 7);
-
-    const rows = cashData.filter(r => r.date.startsWith(currentMonth)).sort((a,b) => a.date.localeCompare(b.date));
-
-    const labels = rows.map(r => {
+function renderDailySalesChart(rows) {
+    const sorted = [...rows].sort((a,b) => a.date.localeCompare(b.date));
+    const labels = sorted.map(r => {
         const day = r.date.split("-")[2];
         const initial = r.weekday ? r.weekday.charAt(0) : "";
         return `${initial} ${day}`;
     });
-    const values = rows.map(r => r.net_income); // ventas netas
+    const values = sorted.map(r => r.net_income);
 
-    const weekColors = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6"];
+    const weekColors = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899"];
     let currentWeekIndex = 0;
     let lastWeekday = -1;
     const bgColors = [];
     const weeklyTotals = [];
 
-    rows.forEach(r => {
+    sorted.forEach(r => {
         const dateParts = r.date.split("-");
         const date = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
-        const weekday = date.getDay() === 0 ? 6 : date.getDay() - 1; // 0=Mon, 6=Sun
-        
-        if (lastWeekday !== -1 && weekday < lastWeekday) {
-            currentWeekIndex++;
-        }
+        const weekday = date.getDay() === 0 ? 6 : date.getDay() - 1;
+        if (lastWeekday !== -1 && weekday < lastWeekday) currentWeekIndex++;
         lastWeekday = weekday;
         
         bgColors.push(weekColors[currentWeekIndex % weekColors.length]);
-        
         if (!weeklyTotals[currentWeekIndex]) weeklyTotals[currentWeekIndex] = 0;
         weeklyTotals[currentWeekIndex] += r.net_income;
     });
 
     const canvas = document.getElementById("chart-daily-sales");
-    if (!canvas) return;
-
-    const ctx = canvas.getContext("2d");
-
-    if (charts.dailySales) charts.dailySales.destroy();
-
-    charts.dailySales = new Chart(ctx, {
-        type: "bar",
-        data: {
-            labels,
-            datasets: [{
-                label: "Ventas del Día",
-                data: values,
-                backgroundColor: bgColors,
-                borderRadius: 6
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                y: { beginAtZero: true }
-            },
-            plugins: { legend: { display: false } }
-        }
-    });
+    if (canvas) {
+        charts.dailySales = new Chart(canvas.getContext("2d"), {
+            type: "bar",
+            data: { labels, datasets: [{ data: values, backgroundColor: bgColors, borderRadius: 6 }] },
+            options: { responsive: true, scales: { y: { beginAtZero: true } }, plugins: { legend: { display: false } } }
+        });
+    }
 
     const totalsDiv = document.getElementById("weekly-totals");
     if (totalsDiv) {
@@ -1304,20 +1263,84 @@ function renderDailySalesChart(cashData) {
     }
 }
 
-// ---------- Comparativo mensual ----------
+function renderExpensesCategoryChart(rows) {
+    const byCategory = {};
+    
+    rows.forEach(r => {
+        if (r.expense_list && r.expense_list.length > 0) {
+            r.expense_list.forEach(exp => {
+                const catName = exp.category_name || state.expenseCategories.find(c => c.id == exp.category_id)?.name || 'Otros';
+                if (!byCategory[catName]) byCategory[catName] = 0;
+                byCategory[catName] += exp.amount;
+            });
+        }
+    });
+    
+    const labels = Object.keys(byCategory);
+    const data = Object.values(byCategory);
+    
+    const canvas = document.getElementById("chart-expenses-category");
+    if (!canvas) return;
+    
+    if (data.length === 0) {
+        // No expenses
+        charts.expensesCategory = new Chart(canvas.getContext("2d"), {
+            type: "doughnut",
+            data: { labels: ["Sin Gastos"], datasets: [{ data: [1], backgroundColor: ["#333"] }] },
+            options: { responsive: true, plugins: { tooltip: { enabled: false } } }
+        });
+        return;
+    }
+
+    const colors = ["#ef4444", "#f97316", "#f59e0b", "#84cc16", "#10b981", "#06b6d4", "#3b82f6", "#8b5cf6", "#d946ef", "#f43f5e"];
+    
+    charts.expensesCategory = new Chart(canvas.getContext("2d"), {
+        type: "doughnut",
+        data: {
+            labels,
+            datasets: [{
+                data,
+                backgroundColor: colors.slice(0, labels.length),
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            cutout: '60%',
+            plugins: {
+                legend: { position: 'right', labels: { color: '#e2e8f0', font: { size: 11 } } }
+            }
+        }
+    });
+}
+
+function renderPaymentChart(rows) {
+    const totalCash = rows.reduce((acc, r) => acc + r.cash, 0);
+    const totalCard = rows.reduce((acc, r) => acc + r.card, 0);
+    
+    const canvas = document.getElementById('chart-payment');
+    if(!canvas) return;
+    
+    charts.payment = new Chart(canvas.getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: ['Efectivo', 'Tarjeta'],
+            datasets: [{
+                data: [totalCash, totalCard],
+                backgroundColor: ['#10b981', '#3b82f6'],
+                borderRadius: 4
+            }]
+        },
+        options: { responsive: true, plugins: { legend: { display: false } }, indexAxis: 'y' }
+    });
+}
 
 function renderMonthlyComparisonChart(cashData) {
     const byMonth = {};
-
     cashData.forEach(r => {
         const month = r.date.slice(0, 7);
-        if (!byMonth[month]) {
-            byMonth[month] = { total: 0, cash: 0, card: 0, expenses: 0 };
-        }
+        if (!byMonth[month]) byMonth[month] = { total: 0 };
         byMonth[month].total += r.total;
-        byMonth[month].cash += r.cash;
-        byMonth[month].card += r.card;
-        byMonth[month].expenses += r.expenses;
     });
 
     const months = Object.keys(byMonth).sort();
@@ -1326,203 +1349,22 @@ function renderMonthlyComparisonChart(cashData) {
 
     const canvas = document.getElementById('chart-month-compare');
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-
-    if (charts.monthCompare) charts.monthCompare.destroy();
-
-    charts.monthCompare = new Chart(ctx, {
-        type: 'bar',
+    
+    charts.monthCompare = new Chart(canvas.getContext('2d'), {
+        type: 'line',
         data: {
             labels,
             datasets: [{
-                label: 'Beneficio Neto por Mes',
+                label: 'Beneficio Neto',
                 data: totals,
-                backgroundColor: '#6366f1',
-                borderRadius: 4
+                borderColor: '#8b5cf6',
+                backgroundColor: 'rgba(139, 92, 246, 0.2)',
+                fill: true,
+                tension: 0.4
             }]
         },
-        options: {
-            responsive: true,
-            plugins: { legend: { display: false } }
-        }
+        options: { responsive: true, plugins: { legend: { display: false } } }
     });
-}
-
-// ---------- Ranking de días del mes ----------
-
-function calculateMonthlyDayRanking(cashData) {
-    const byMonth = {};
-
-    // Agrupar por mes
-    cashData.forEach(r => {
-        const month = r.date.slice(0, 7);
-        if (!byMonth[month]) byMonth[month] = [];
-        byMonth[month].push(r);
-    });
-
-    const result = [];
-
-    Object.keys(byMonth).sort().forEach(month => {
-        const rows = byMonth[month];
-
-        // Acumulador por día de la semana
-        const totalsByWeekday = {
-            LUNES: 0,
-            MARTES: 0,
-            MIÉRCOLES: 0,
-            JUEVES: 0,
-            VIERNES: 0,
-            SÁBADO: 0,
-            DOMINGO: 0
-        };
-
-        rows.forEach(r => {
-            totalsByWeekday[r.weekday] += r.net_income;
-        });
-
-        // Convertir a array y ordenar de mayor a menor (excluyendo domingo)
-        const ranking = Object.entries(totalsByWeekday)
-            .filter(([weekday]) => weekday !== "DOMINGO")
-            .map(([weekday, total]) => ({ weekday, total }))
-            .sort((a, b) => b.total - a.total);
-
-        const domingoTotal = totalsByWeekday["DOMINGO"];
-
-        result.push({
-            month,
-            ranking,
-            domingoTotal
-        });
-    });
-
-    return result;
-}
-
-function renderMonthlyDayRanking(stats) {
-    const tbody = document.querySelector('#ranking-days-table tbody');
-    if (!tbody) return;
-
-    tbody.innerHTML = '';
-
-    stats.forEach(row => {
-        const tr = document.createElement('tr');
-
-        // Crear lista ordenada de días
-        const rankingList = row.ranking
-            .map((r, i) => {
-                const isBest = i === 0;
-                const isWorst = i === row.ranking.length - 1;
-                const color =
-                    isBest ? "var(--success-color)" :   // mejor día
-                    isWorst ? "var(--danger-color)" :    // peor día
-                    "inherit";
-
-                return `<div style="color:${color}; font-weight:${isBest || isWorst ? 'bold' : 'normal'};">
-                            ${i + 1}. ${r.weekday} — $${formatMoney(r.total)}
-                        </div>`;
-            })
-            .join("");
-
-        const domingoText = `<div style="color:#9ca3af; font-style: italic; margin-top: 6px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 4px;">
-                                - DOMINGO (Medio Turno) — $${formatMoney(row.domingoTotal)}
-                             </div>`;
-
-        tr.innerHTML = `
-            <td>${formatMonthLiteral(row.month)}</td>
-            <td>${rankingList}${domingoText}</td>
-        `;
-
-        tbody.appendChild(tr);
-    });
-}
-
-// ---------- Render principal del Dashboard ----------
-
-function renderDashboard() {
-    if (!state.dashboard) return;
-    const d = state.dashboard;
-    const cashData = state.cash || [];
-
-    // KPIs
-    const elRevenue = document.getElementById('kpi-revenue');
-    const elExpenses = document.getElementById('kpi-expenses');
-    const elProfit = document.getElementById('kpi-profit');
-    
-    if(elRevenue) elRevenue.innerText = `$${formatMoney(d.kpis.total_revenue)}`;
-    if(elExpenses) elExpenses.innerText = `$${formatMoney(d.kpis.total_expenses)}`;
-    if(elProfit) elProfit.innerText = `$${formatMoney(d.kpis.total_profit)}`;
-
-    // Resumen del mes (desde state.cash)
-    const summary = calculateMonthlySummary(cashData);
-    renderMonthlySummary(summary);
-
-    // Tendencia mensual (simple: comparación último vs anterior)
-    const trendVentasEl = document.getElementById('trend-ventas');
-    const trendGastosEl = document.getElementById('trend-gastos');
-    const trendGananciaEl = document.getElementById('trend-ganancia');
-
-    if (d.monthly && d.monthly.length >= 2) {
-        const sorted = [...d.monthly].sort((a, b) => a.month.localeCompare(b.month));
-        const prev = sorted[sorted.length - 2];
-        const curr = sorted[sorted.length - 1];
-
-        const diffVentas = curr.total - prev.total;
-        const diffGastos = (curr.expenses ?? 0) - (prev.expenses ?? 0);
-        const diffGanancia = curr.total - (prev.total ?? 0);
-
-        const fmtDiff = (v) => `${v >= 0 ? '▲' : '▼'} $${formatMoney(Math.abs(v))}`;
-
-        if(trendVentasEl) trendVentasEl.innerText = fmtDiff(diffVentas);
-        if(trendGastosEl) trendGastosEl.innerText = fmtDiff(diffGastos);
-        if(trendGananciaEl) trendGananciaEl.innerText = fmtDiff(diffGanancia);
-    } else {
-        if(trendVentasEl) trendVentasEl.innerText = '—';
-        if(trendGastosEl) trendGastosEl.innerText = '—';
-        if(trendGananciaEl) trendGananciaEl.innerText = '—';
-    }
-
-    // Limpiar gráficos previos
-    Object.values(charts).forEach(c => c.destroy && c.destroy());
-    charts = {};
-
-    Chart.defaults.color = '#94a3b8';
-    Chart.defaults.font.family = 'Inter';
-
-    // 1. Ventas por día del mes actual
-    renderDailySalesChart(cashData);
-
-    // 2. Efectivo vs Tarjeta
-    const elPayment = document.getElementById('chart-payment');
-    if (elPayment) {
-        const ctxPayment = elPayment.getContext('2d');
-        charts.payment = new Chart(ctxPayment, {
-            type: 'bar',
-            data: {
-                labels: d.monthly.map(m => formatMonthLiteral(m.month)),
-                datasets: [
-                    {
-                        label: 'Efectivo',
-                        data: d.monthly.map(m => m.cash),
-                        backgroundColor: '#10b981',
-                        borderRadius: 4
-                    },
-                    {
-                        label: 'Tarjeta',
-                        data: d.monthly.map(m => m.card),
-                        backgroundColor: '#3b82f6',
-                        borderRadius: 4
-                    }
-                ]
-            },
-            options: { responsive: true }
-        });
-    }
-
-    // 5. Comparativo mensual
-    renderMonthlyComparisonChart(cashData);
-
-    // 6. Distribución por día de la semana
-    renderWeekdayDistribution(cashData);
 }
 
 // --- INICIALIZACIÓN DE LA APP ---
@@ -1530,40 +1372,10 @@ async function init() {
     if (!localStorage.getItem('auth_token')) return;
     await fetchExpenseCategories();
     await fetchGlobalSuppliers();
-    await fetchCash();
+    await fetchCash(); // fetchCash also calls renderDashboard when loading
     await fetchDashboard();
     await fetchProducts();
 }
-
 window.onload = init;
-
 // =====================================================
 //                 MENÚ MÓVIL
-// =====================================================
-document.addEventListener('DOMContentLoaded', () => {
-    const mobileMenuBtn = document.getElementById('mobile-menu-toggle');
-    const sidebar = document.querySelector('.sidebar');
-    const sidebarOverlay = document.getElementById('sidebar-overlay');
-
-    if (mobileMenuBtn && sidebar && sidebarOverlay) {
-        mobileMenuBtn.addEventListener('click', () => {
-            sidebar.classList.add('open');
-            sidebarOverlay.classList.add('active');
-        });
-
-        sidebarOverlay.addEventListener('click', () => {
-            sidebar.classList.remove('open');
-            sidebarOverlay.classList.remove('active');
-        });
-
-        const navButtons = document.querySelectorAll('.nav-btn');
-        navButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                if (window.innerWidth <= 768) {
-                    sidebar.classList.remove('open');
-                    sidebarOverlay.classList.remove('active');
-                }
-            });
-        });
-    }
-});

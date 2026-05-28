@@ -370,59 +370,49 @@
     </header>
 
     <div class="kpi-grid-modern pretty-kpi-grid" style="margin-bottom: 2rem;">
-
         <div class="kpi-card-modern pretty-kpi">
             <div class="kpi-icon">💰</div>
             <div class="kpi-info">
-                <h3>Ingresos Históricos</h3>
+                <h3>Ventas (<span class="kpi-period">Mes</span>)</h3>
                 <div class="kpi-value" id="kpi-revenue">$0.00</div>
             </div>
         </div>
-
         <div class="kpi-card-modern pretty-kpi">
             <div class="kpi-icon">📉</div>
             <div class="kpi-info">
-                <h3>Gastos Históricos</h3>
+                <h3>Gastos (<span class="kpi-period">Mes</span>)</h3>
                 <div class="kpi-value" id="kpi-expenses">$0.00</div>
             </div>
         </div>
-
         <div class="kpi-card-modern pretty-kpi highlight">
             <div class="kpi-icon">📈</div>
             <div class="kpi-info">
-                <h3>Beneficio Neto Total</h3>
+                <h3>Beneficio (<span class="kpi-period">Mes</span>)</h3>
                 <div class="kpi-value" id="kpi-profit">$0.00</div>
             </div>
         </div>
-
     </div>
 
-    <!-- ⭐ RESUMEN DEL MES -->
-    <div class="glass-panel summary-box pretty-box">
-        <h3 class="section-title">📅 Resumen del Mes Actual</h3>
-
+    <!-- ACUMULADO HISTÓRICO -->
+    <div class="glass-panel summary-box pretty-box" style="margin-bottom: 2rem;">
+        <h3 class="section-title">⏱️ Acumulado Histórico (Todos los tiempos)</h3>
         <div class="summary-grid pretty-grid">
             <div class="summary-item pretty-item">
-                <label>Total Vendido</label>
-                <span id="sum-total-vendido">—</span>
+                <label>Total Ingresos Históricos</label>
+                <span id="hist-revenue">$0.00</span>
             </div>
-
             <div class="summary-item pretty-item">
-                <label>Gastos</label>
-                <span id="sum-gastos">—</span>
+                <label>Total Gastos Históricos</label>
+                <span id="hist-expenses">$0.00</span>
             </div>
-
             <div class="summary-item pretty-item">
-                <label>Ganancia Neta</label>
-                <span id="sum-ganancia">—</span>
-            </div>
-
-            <div class="summary-item pretty-item">
-                <label>Días Trabajados</label>
-                <span id="sum-dias">—</span>
+                <label>Beneficio Neto Histórico</label>
+                <span id="hist-profit" style="color:var(--success-color); font-weight:bold;">$0.00</span>
             </div>
         </div>
     </div>
+
+
 
     <!-- ⭐ TENDENCIA MENSUAL -->
     <div class="glass-panel summary-box pretty-box">
@@ -452,18 +442,25 @@
     <!-- ========================= -->
 
     <div class="charts-grid-compact">
-
         <div class="chart-box glass-panel pretty-box small-chart" style="max-height: none;">
-            <h3 class="section-title">📅 Ventas por Día (Mes Actual)</h3>
+            <h3 class="section-title">📅 Ventas por Día (<span class="kpi-period">Mes</span>)</h3>
             <canvas id="chart-daily-sales"></canvas>
             <div id="weekly-totals" style="margin-top: 15px;"></div>
         </div>
 
+        <div class="chart-box glass-panel pretty-box small-chart" style="max-height: none; display: flex; flex-direction: column; align-items: center;">
+            <h3 class="section-title" style="align-self: flex-start;">🛒 Gastos por Categoría (<span class="kpi-period">Mes</span>)</h3>
+            <div style="position: relative; width: 100%; max-width: 300px; margin: auto;">
+                <canvas id="chart-expenses-category"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="charts-grid-compact" style="margin-top: 2rem;">
         <div class="chart-box glass-panel pretty-box small-chart" style="max-height: none;">
-            <h3 class="section-title">💳 Efectivo vs Tarjeta</h3>
+            <h3 class="section-title">💳 Efectivo vs Tarjeta (<span class="kpi-period">Mes</span>)</h3>
             <canvas id="chart-payment"></canvas>
         </div>
-
     </div>
 
     <!-- FILA 3: Comparativo mensual y Distribución -->
