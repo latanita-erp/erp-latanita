@@ -29,6 +29,13 @@ function formatMonthLiteral(monthStr) {
     return index >= 0 && index < 12 ? `${monthNames[index]}-${year}` : monthStr;
 }
 
+function toggleModal(id) {
+    const modal = document.getElementById(id);
+    if (!modal) return;
+    modal.classList.toggle('hidden');
+    modal.classList.toggle('active');
+}
+
 // ======================================================
 //                 AUTH & FETCH OVERRIDE
 // ======================================================
@@ -83,6 +90,64 @@ function logout() {
     showLogin();
 }
 
+document.addEventListener('DOMContentLoaded', async () => {
+    if (!localStorage.getItem('auth_token')) {
+        showLogin();
+    } else {
+        showApp();
+    }
+
+    document.getElementById('login-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const user = document.getElementById('login-user').value;
+        const pass = document.getElementById('login-pass').value;
+        const errorEl = document.getElementById('login-error');
+        
+        const token = btoa(`${user}:${pass}`);
+        
+        try {
+            const res = await originalFetch('/api/products', {
+                headers: { 'Authorization': `Basic ${token}` }
+            });
+            
+            if (res.ok) {
+                localStorage.setItem('auth_token', token);
+                errorEl.style.display = 'none';
+                e.target.reset();
+                showApp();
+                init();
+            } else {
+                errorEl.style.display = 'block';
+            }
+        } catch (err) {
+            errorEl.innerText = "Error de conexión";
+            errorEl.style.display = 'block';
+        }
+    });
+
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            if (e.target.dataset.target) {
+                document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                document.querySelectorAll('.view').forEach(v => {
+                    v.classList.remove('active');
+                    v.classList.add('hidden');
+                });
+                const target = e.target.dataset.target;
+                const view = document.getElementById(target);
+                if (view) {
+                    view.classList.remove('hidden');
+                    view.classList.add('active');
+                    loadData(target);
+                }
+            }
+        });
+    });
+
+    document.getElementById('excel-file')?.addEventListener('change', handleExcelUpload);
+});
+
 // ======================================================
 //                 DASHBOARD - MAIN FUNCTIONS
 // ======================================================
@@ -128,9 +193,12 @@ function renderDashboard() {
     const histExpenses = cashData.reduce((acc, r) => acc + r.expenses, 0);
     const histProfit = cashData.reduce((acc, r) => acc + r.total, 0);
     
-    document.getElementById('hist-revenue').innerText = `$${formatMoney(histRevenue)}`;
-    document.getElementById('hist-expenses').innerText = `$${formatMoney(histExpenses)}`;
-    document.getElementById('hist-profit').innerText = `$${formatMoney(histProfit)}`;
+    const histEl = document.getElementById('hist-revenue');
+    if (histEl) {
+        document.getElementById('hist-revenue').innerText = `$${formatMoney(histRevenue)}`;
+        document.getElementById('hist-expenses').innerText = `$${formatMoney(histExpenses)}`;
+        document.getElementById('hist-profit').innerText = `$${formatMoney(histProfit)}`;
+    }
     
     const monthRows = cashData.filter(r => r.date.startsWith(selectedMonth));
     
@@ -138,9 +206,12 @@ function renderDashboard() {
     const exp = monthRows.reduce((acc, r) => acc + r.expenses, 0);
     const prof = monthRows.reduce((acc, r) => acc + r.total, 0);
     
-    document.getElementById('kpi-revenue').innerText = `$${formatMoney(rev)}`;
-    document.getElementById('kpi-expenses').innerText = `$${formatMoney(exp)}`;
-    document.getElementById('kpi-profit').innerText = `$${formatMoney(prof)}`;
+    const kpiEl = document.getElementById('kpi-revenue');
+    if (kpiEl) {
+        document.getElementById('kpi-revenue').innerText = `$${formatMoney(rev)}`;
+        document.getElementById('kpi-expenses').innerText = `$${formatMoney(exp)}`;
+        document.getElementById('kpi-profit').innerText = `$${formatMoney(prof)}`;
+    }
     
     const periodStr = formatMonthLiteral(selectedMonth);
     document.querySelectorAll('.kpi-period').forEach(el => el.innerText = periodStr);
@@ -389,16 +460,240 @@ function calculateWeekdayDistribution(cashData) {
 }
 
 // ======================================================
-//                 DATA FETCHING FUNCTIONS
+//                 PRODUCTOS
 // ======================================================
 
-async function fetchExpenseCategories() {
+async function fetchProducts() {
     try {
-        const res = await fetch('/api/expense-categories');
+        const res = await fetch('/api/products');
         const data = await res.json();
-        state.expenseCategories = data;
+        state.products = data.map(p => ({
+            ...p,
+            cost: parseFloat(p.cost),
+            margin: parseFloat(p.margin),
+            price_kg: parseFloat(p.price_kg)
+        }));
+        renderProducts();
     } catch (err) {
-        console.error('Error fetching expense categories:', err);
+        console.error('Error fetching products:', err);
+    }
+}
+
+function renderProducts() {
+    const tbody = document.querySelector('#products-table tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    state.products.forEach(p => {
+        const isBebida = p.type === "BEBIDAS";
+        const p100 = isBebida ? "" : `$${formatMoney(p.price_100g)}`;
+        const p150 = isBebida ? "" : `$${formatMoney(p.price_150g)}`;
+        const p250 = isBebida ? "" : `$${formatMoney(p.price_250g)}`;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><strong>${p.name}</strong></td>
+            <td>${p.type}</td>
+            <td>$${formatMoney(p.cost)}</td>
+            <td>${p.margin}%</td>
+            <td><strong>$${formatMoney(p.price_kg)}</strong></td>
+            <td>${p100}</td>
+            <td>${p150}</td>
+            <td>${p250}</td>
+            <td style="display: flex; gap: 0.5rem;">
+                <button class="btn btn-secondary" onclick="openSuppliers(${p.id}, '${p.name.replace(/'/g, "\\'")}')">🚚</button>
+                <button class="btn btn-secondary" onclick="openEditProduct(${p.id})">✏️</button>
+                <button class="btn btn-danger" onclick="deleteProduct(${p.id})">🗑️</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+async function deleteProduct(id) {
+    if (confirm('¿Eliminar producto?')) {
+        await fetch(`/api/products/${id}`, { method: 'DELETE' });
+        fetchProducts();
+    }
+}
+
+async function handleExcelUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const res = await fetch('/api/products/import', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (res.ok) {
+            alert('Productos importados correctamente.');
+            fetchProducts();
+        } else {
+            const err = await res.json();
+            alert('Error al importar: ' + err.detail);
+        }
+    } catch (err) {
+        alert('Error de conexión.');
+    }
+
+    e.target.value = '';
+}
+
+function calculatePrices(cost, margin) {
+    const base = cost * (1 + margin / 100);
+    return Math.ceil(base / 100) * 100;
+}
+
+function openEditProduct(id) {
+    const p = state.products.find(x => x.id === id);
+    if (!p) return;
+
+    document.getElementById("edit-product-id").value = p.id;
+    document.getElementById("edit-product-name").value = p.name;
+    document.getElementById("edit-product-type").value = p.type;
+    document.getElementById("edit-product-cost").value = p.cost;
+    document.getElementById("edit-product-margin").value = p.margin;
+
+    toggleModal("modal-edit-product");
+}
+
+document.getElementById("edit-product-form")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = e.submitter;
+    const originalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = "Guardando...";
+
+    const id = document.getElementById("edit-product-id").value;
+    const payload = {
+        name: document.getElementById("edit-product-name").value,
+        type: document.getElementById("edit-product-type").value,
+        cost: parseFloat(document.getElementById("edit-product-cost").value),
+        margin: parseFloat(document.getElementById("edit-product-margin").value)
+    };
+
+    await fetch(`/api/products/${id}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    });
+
+    btn.disabled = false;
+    btn.innerText = originalText;
+    toggleModal('modal-edit-product');
+    fetchProducts();
+});
+
+document.getElementById("add-product-form")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = e.submitter;
+    const originalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = "Guardando...";
+
+    const payload = {
+        name: document.getElementById('prod-name').value,
+        type: document.getElementById('prod-type').value,
+        cost: parseFloat(document.getElementById('prod-cost').value),
+        margin: parseFloat(document.getElementById('prod-margin').value)
+    };
+
+    await fetch('/api/products', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    });
+
+    btn.disabled = false;
+    btn.innerText = originalText;
+    toggleModal('modal-add-product');
+    e.target.reset();
+    fetchProducts();
+});
+
+// ======================================================
+//                 PROVEEDORES
+// ======================================================
+
+async function openSuppliers(productId, productName) {
+    document.getElementById('sup-prod-name').innerText = productName;
+    document.getElementById('sup-prod-id').value = productId;
+    
+    const sel = document.getElementById('sup-id');
+    sel.innerHTML = '<option value="">Seleccionar Proveedor...</option>';
+    state.suppliers.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        opt.innerText = s.name;
+        sel.appendChild(opt);
+    });
+
+    await fetchSuppliers(productId);
+    toggleModal('modal-suppliers');
+}
+
+async function fetchSuppliers(productId) {
+    const res = await fetch(`/api/products/${productId}/suppliers`);
+    const suppliers = await res.json();
+
+    const tbody = document.querySelector('#suppliers-table tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (suppliers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">Sin proveedores</td></tr>';
+        return;
+    }
+
+    const minCost = Math.min(...suppliers.map(s => s.cost));
+
+    suppliers.forEach(s => {
+        const isMin = s.cost === minCost;
+        const tr = document.createElement('tr');
+        if (isMin) tr.style.background = 'rgba(16, 185, 129, 0.1)';
+
+        tr.innerHTML = `
+            <td>${isMin ? '🟢 ' : ''}${s.supplier_name}</td>
+            <td style="font-weight:${isMin ? 'bold' : 'normal'}; color:${isMin ? 'var(--success-color)' : 'inherit'}">$${formatMoney(s.cost)}</td>
+            <td></td>
+            <td>
+                <button class="btn btn-danger" onclick="deleteSupplier(${document.getElementById('sup-prod-id').value}, ${s.id})" style="padding: 0.3rem 0.6rem;">❌</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+document.getElementById('add-supplier-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const productId = document.getElementById('sup-prod-id').value;
+
+    const payload = {
+        supplier_id: parseInt(document.getElementById('sup-id').value),
+        cost: parseFloat(document.getElementById('sup-cost').value)
+    };
+
+    await fetch(`/api/products/${productId}/suppliers`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    });
+
+    e.target.reset();
+    await fetchSuppliers(productId);
+    fetchProducts();
+});
+
+async function deleteSupplier(productId, supplierId) {
+    if (confirm('¿Eliminar proveedor?')) {
+        await fetch(`/api/products/${productId}/suppliers/${supplierId}`, { method: 'DELETE' });
+        await fetchSuppliers(productId);
+        fetchProducts();
     }
 }
 
@@ -412,6 +707,16 @@ async function fetchGlobalSuppliers() {
     }
 }
 
+// ======================================================
+//                 CAJA DIARIA
+// ======================================================
+
+function getWeekdayFromDate(dateString) {
+    const [year, month, day] = dateString.split("-");
+    const date = new Date(year, month - 1, day);
+    return date.toLocaleDateString("es-AR", { weekday: "long" }).toUpperCase();
+}
+
 async function fetchCash() {
     try {
         const res = await fetch('/api/cash/all');
@@ -421,7 +726,7 @@ async function fetchCash() {
             let date = r.date;
             if (date && date.includes("T")) date = date.split("T")[0];
 
-            const weekday = r.weekday || "";
+            const weekday = r.weekday || getWeekdayFromDate(date);
             const cash = Number(r.cash ?? 0);
             const card = Number(r.card ?? 0);
             const expenses = Number(r.expenses ?? 0);
@@ -440,24 +745,278 @@ async function fetchCash() {
                 expense_list: r.expense_list || []
             };
         });
+        renderCash();
     } catch (err) {
         console.error('Error fetching cash:', err);
     }
 }
 
-async function fetchProducts() {
-    try {
-        const res = await fetch('/api/products');
-        const data = await res.json();
-        state.products = data.map(p => ({
-            ...p,
-            cost: parseFloat(p.cost),
-            margin: parseFloat(p.margin),
-            price_kg: parseFloat(p.price_kg)
-        }));
-    } catch (err) {
-        console.error('Error fetching products:', err);
+function renderCash() {
+    const tbody = document.getElementById('cash-table-body');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    if (!state.cash || state.cash.length === 0) return;
+
+    const byMonth = {};
+    state.cash.forEach(c => {
+        const month = c.date.slice(0, 7);
+        if (!byMonth[month]) {
+            byMonth[month] = { rows: [], cashTotal: 0, cardTotal: 0, netTotal: 0, expensesTotal: 0, profitTotal: 0 };
+        }
+        byMonth[month].rows.push(c);
+        byMonth[month].cashTotal += c.cash;
+        byMonth[month].cardTotal += c.card;
+        byMonth[month].netTotal += c.net_income;
+        byMonth[month].expensesTotal += c.expenses;
+        byMonth[month].profitTotal += c.total;
+    });
+
+    const sortedMonths = Object.keys(byMonth).sort((a, b) => b.localeCompare(a));
+
+    sortedMonths.forEach(month => {
+        const mData = byMonth[month];
+        const headerTr = document.createElement('tr');
+        headerTr.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+        headerTr.style.cursor = 'pointer';
+        headerTr.innerHTML = `
+            <td colspan="2" style="font-weight: bold;"><span>▼</span> ${formatMonthLiteral(month)}</td>
+            <td style="font-weight: bold;">$${formatMoney(mData.cashTotal)}</td>
+            <td style="font-weight: bold;">$${formatMoney(mData.cardTotal)}</td>
+            <td style="font-weight: bold;">$${formatMoney(mData.netTotal)}</td>
+            <td style="font-weight: bold;">$${formatMoney(mData.expensesTotal)}</td>
+            <td style="font-weight: bold; color: ${mData.profitTotal >= 0 ? 'var(--success-color)' : 'var(--danger-color)'};">$${formatMoney(mData.profitTotal)}</td>
+            <td></td>
+        `;
+        
+        tbody.appendChild(headerTr);
+
+        const monthRows = [];
+        mData.rows.sort((a,b) => b.date.localeCompare(a.date));
+
+        mData.rows.forEach(c => {
+            const [y, m, d] = c.date.split('-');
+            const formattedDate = `${d}/${m}/${y}`;
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="padding-left: 2rem;">${formattedDate}</td>
+                <td>${c.weekday}</td>
+                <td>$${formatMoney(c.cash)}</td>
+                <td>$${formatMoney(c.card)}</td>
+                <td>$${formatMoney(c.net_income)}</td>
+                <td>$${formatMoney(c.expenses)}</td>
+                <td style="color: ${c.total >= 0 ? 'var(--success-color)' : 'var(--danger-color)'}; font-weight: bold;">$${formatMoney(c.total)}</td>
+                <td style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-secondary" onclick="openEditCash(${c.id})" style="padding: 0.3rem 0.6rem;">✏️</button>
+                    <button class="btn btn-danger" onclick="deleteCash(${c.id})" style="padding: 0.3rem 0.6rem;">🗑️</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+            monthRows.push(tr);
+        });
+
+        headerTr.addEventListener('click', () => {
+            const span = headerTr.querySelector('span');
+            const isExpanded = span.innerText === '▼';
+            span.innerText = isExpanded ? '▶' : '▼';
+            monthRows.forEach(tr => {
+                tr.style.display = isExpanded ? 'none' : 'table-row';
+            });
+        });
+    });
+}
+
+document.getElementById("cash-date")?.addEventListener("change", (e) => {
+    const date = e.target.value;
+    if (!date) return;
+    document.getElementById("cash-weekday").value = getWeekdayFromDate(date);
+});
+
+document.getElementById('cash-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.submitter;
+    const originalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = "Guardando...";
+
+    const date = document.getElementById('cash-date').value;
+    let weekday = document.getElementById('cash-weekday').value;
+    if (!weekday) weekday = getWeekdayFromDate(date);
+
+    const payload = {
+        date,
+        weekday,
+        cash: parseFloat(document.getElementById('cash-cash').value || 0),
+        card: parseFloat(document.getElementById('cash-card').value || 0),
+        expense_list: currentExpenseList
+    };
+
+    await fetch('/api/cash', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    });
+
+    btn.disabled = false;
+    btn.innerText = originalText;
+    e.target.reset();
+    currentExpenseList = [];
+    renderExpenseItems('cash');
+    fetchCash();
+});
+
+function openEditCash(id) {
+    const c = state.cash.find(x => x.id === id);
+    if(!c) return;
+
+    document.getElementById('edit-cash-id').value = c.id;
+    document.getElementById('edit-cash-date').value = c.date;
+    document.getElementById('edit-cash-weekday').value = c.weekday;
+    document.getElementById('edit-cash-cash').value = c.cash;
+    document.getElementById('edit-cash-card').value = c.card;
+
+    currentExpenseList = JSON.parse(JSON.stringify(c.expense_list || []));
+    renderExpenseItems('edit');
+
+    toggleModal('modal-edit-cash');
+}
+
+document.getElementById("edit-cash-date")?.addEventListener("change", (e) => {
+    const date = e.target.value;
+    if (!date) return;
+    document.getElementById("edit-cash-weekday").value = getWeekdayFromDate(date);
+});
+
+document.getElementById('edit-cash-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.submitter;
+    const originalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = "Guardando...";
+
+    const id = document.getElementById('edit-cash-id').value;
+    const date = document.getElementById('edit-cash-date').value;
+    let weekday = document.getElementById('edit-cash-weekday').value;
+    if (!weekday) weekday = getWeekdayFromDate(date);
+
+    const payload = {
+        date,
+        weekday,
+        cash: parseFloat(document.getElementById('edit-cash-cash').value || 0),
+        card: parseFloat(document.getElementById('edit-cash-card').value || 0),
+        expense_list: currentExpenseList
+    };
+
+    await fetch(`/api/cash/${id}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    });
+
+    btn.disabled = false;
+    btn.innerText = originalText;
+    toggleModal('modal-edit-cash');
+    fetchCash();
+});
+
+async function deleteCash(id) {
+    if (confirm('¿Eliminar este registro de caja?')) {
+        await fetch(`/api/cash/${id}`, { method: 'DELETE' });
+        fetchCash();
     }
+}
+
+async function fetchExpenseCategories() {
+    try {
+        const res = await fetch('/api/expense-categories');
+        const data = await res.json();
+        state.expenseCategories = data;
+        renderExpenseCategories();
+    } catch (err) {
+        console.error('Error fetching expense categories:', err);
+    }
+}
+
+function renderExpenseCategories() {
+    const select = document.getElementById('cash-expense-category');
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">Seleccionar Categoría...</option>';
+    state.expenseCategories.forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat.id;
+        opt.innerText = cat.name;
+        select.appendChild(opt);
+    });
+}
+
+function addExpenseItem(context) {
+    const categorySelect = document.getElementById('cash-expense-category');
+    if (!categorySelect || categorySelect.value === '') {
+        alert('Selecciona una categoría');
+        return;
+    }
+    
+    const categoryId = parseInt(categorySelect.value);
+    const categoryName = categorySelect.options[categorySelect.selectedIndex].text;
+    const amount = parseFloat(prompt('Monto del gasto:'));
+    
+    if (isNaN(amount) || amount <= 0) {
+        alert('Monto inválido');
+        return;
+    }
+    
+    currentExpenseList.push({
+        category_id: categoryId,
+        category_name: categoryName,
+        amount: amount
+    });
+    
+    renderExpenseItems(context);
+}
+
+function removeExpenseItem(index) {
+    currentExpenseList.splice(index, 1);
+    renderExpenseItems('cash');
+}
+
+function renderExpenseItems(context) {
+    const listId = context === 'edit' ? 'edit-cash-expenses-list' : 'cash-expenses-list';
+    const totalId = context === 'edit' ? 'edit-cash-total-expenses' : 'cash-total-expenses';
+    
+    const listDiv = document.getElementById(listId);
+    const totalSpan = document.getElementById(totalId);
+    
+    if (!listDiv) return;
+    
+    listDiv.innerHTML = '';
+    let total = 0;
+    
+    currentExpenseList.forEach((exp, idx) => {
+        const expDiv = document.createElement('div');
+        expDiv.style.cssText = 'display:flex; justify-content:space-between; padding:0.5rem; background:#f0f0f0; border-radius:4px; margin-bottom:5px;';
+        expDiv.innerHTML = `
+            <span>${exp.category_name}: $${formatMoney(exp.amount)}</span>
+            <button type="button" class="btn btn-danger" style="padding:0.2rem 0.5rem; font-size:0.8em;" onclick="removeExpenseItem(${idx})">Quitar</button>
+        `;
+        listDiv.appendChild(expDiv);
+        total += exp.amount;
+    });
+    
+    if (totalSpan) totalSpan.innerText = formatMoney(total);
+}
+
+// ======================================================
+//                 LOAD DATA POR VISTA
+// ======================================================
+
+async function loadData(view) {
+    if (view === 'products') await fetchProducts();
+    if (view === 'cash') await fetchCash();
+    if (view === 'dashboard') await fetchDashboard();
+    if (view === 'suppliers-global') await fetchGlobalSuppliers();
 }
 
 // ======================================================
