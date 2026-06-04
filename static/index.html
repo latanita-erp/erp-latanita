@@ -303,18 +303,9 @@
                 <input type="number" step="0.01" id="edit-cash-card" required>
             </div>
 
-            <div class="input-group" style="grid-column: 1 / -1;">
-                <label>Gastos</label>
-                <div id="edit-cash-expenses-list" style="margin-bottom: 10px;"></div>
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <select id="edit-cash-expense-category" style="flex:1;"></select>
-                    <button type="button" class="btn btn-secondary" onclick="toggleModal('modal-expense-categories')" title="Administrar Categorías">⚙️</button>
-                    <input type="number" step="0.01" id="edit-cash-expense-amount" placeholder="Monto" style="width:100px;">
-                    <button type="button" class="btn btn-secondary" onclick="addExpenseItem('edit')">Agregar Gasto</button>
-                </div>
-                <div style="margin-top: 10px; font-weight: bold; text-align: right;">
-                    Total Gastos: $<span id="edit-cash-total-expenses">0.00</span>
-                </div>
+            <div class="input-group">
+                <label>Gastos ($)</label>
+                <input type="number" step="0.01" id="edit-cash-expenses" required>
             </div>
 
             <div style="display:flex; gap:10px; margin-top: 1rem; grid-column: 1 / -1;">
@@ -556,18 +547,9 @@
                 <input type="number" step="0.01" id="cash-card" required>
             </div>
 
-            <div class="input-group" style="grid-column: 1 / -1;">
-                <label>Gastos</label>
-                <div id="cash-expenses-list" style="margin-bottom: 10px;"></div>
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <select id="cash-expense-category" style="flex:1;"></select>
-                    <button type="button" class="btn btn-secondary" onclick="toggleModal('modal-expense-categories')" title="Administrar Categorías">⚙️</button>
-                    <input type="number" step="0.01" id="cash-expense-amount" placeholder="Monto" style="width:100px;">
-                    <button type="button" class="btn btn-secondary" onclick="addExpenseItem('cash')">Agregar Gasto</button>
-                </div>
-                <div style="margin-top: 10px; font-weight: bold; text-align: right;">
-                    Total Gastos: $<span id="cash-total-expenses">0.00</span>
-                </div>
+            <div class="input-group">
+                <label>Gastos ($)</label>
+                <input type="number" step="0.01" id="cash-expenses" required>
             </div>
 
             <div class="input-group flex-end" style="grid-column: 1 / -1; justify-content: flex-end;">

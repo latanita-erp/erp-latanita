@@ -1013,7 +1013,7 @@ document.getElementById('cash-form').addEventListener('submit', async (e) => {
         weekday,
         cash: parseFloat(document.getElementById('cash-cash').value || 0),
         card: parseFloat(document.getElementById('cash-card').value || 0),
-        expense_list: currentExpenseList
+        expenses: parseFloat(document.getElementById('cash-expenses').value || 0)
     };
 
     await fetch('/api/cash', {
@@ -1075,7 +1075,7 @@ document.getElementById('edit-cash-form').addEventListener('submit', async (e) =
         weekday,
         cash: parseFloat(document.getElementById('edit-cash-cash').value || 0),
         card: parseFloat(document.getElementById('edit-cash-card').value || 0),
-        expense_list: currentExpenseList
+        expenses: parseFloat(document.getElementById('edit-cash-expenses').value || 0)
     };
 
     await fetch(`/api/cash/${id}`, {
