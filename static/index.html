@@ -443,36 +443,32 @@
 
     <div class="charts-grid-compact">
         <div class="chart-box glass-panel pretty-box small-chart" style="max-height: none;">
-            <h3 class="section-title">📅 Ventas por Día (<span class="kpi-period">Mes</span>)</h3>
+            <h3 class="section-title">📅 Ventas por Día (Mes en curso)</h3>
             <canvas id="chart-daily-sales"></canvas>
             <div id="weekly-totals" style="margin-top: 15px;"></div>
         </div>
 
-        <div class="chart-box glass-panel pretty-box small-chart" style="max-height: none; display: flex; flex-direction: column; align-items: center;">
-            <h3 class="section-title" style="align-self: flex-start;">🛒 Gastos por Categoría (<span class="kpi-period">Mes</span>)</h3>
-            <div style="position: relative; width: 100%; max-width: 300px; margin: auto;">
-                <canvas id="chart-expenses-category"></canvas>
-            </div>
-        </div>
-    </div>
-    
-    <div class="charts-grid-compact" style="margin-top: 2rem;">
         <div class="chart-box glass-panel pretty-box small-chart" style="max-height: none;">
             <h3 class="section-title">💳 Efectivo vs Tarjeta (<span class="kpi-period">Mes</span>)</h3>
             <canvas id="chart-payment"></canvas>
         </div>
     </div>
-
-    <!-- FILA 3: Comparativo mensual y Distribución -->
-    <div class="charts-grid-compact">
-        <div class="chart-box glass-panel pretty-box small-chart">
-            <h3 class="section-title">📊 Comparativo Mensual</h3>
+    
+    <div class="charts-grid-compact" style="margin-top: 2rem;">
+        <div class="chart-box glass-panel pretty-box small-chart" style="max-height: none;">
+            <h3 class="section-title">📊 Comparativo Mensual (Beneficio Neto)</h3>
             <canvas id="chart-month-compare"></canvas>
         </div>
 
         <div class="chart-box glass-panel pretty-box small-chart" style="max-height: none;">
             <h3 class="section-title">📆 Distribución y Ranking por Día</h3>
             <canvas id="chart-weekday-distribution"></canvas>
+            <div style="overflow-x:auto; margin-top:1rem;">
+                <table class="table" id="ranking-days-table" style="width:100%; text-align:left; font-size:0.9rem;">
+                    <thead><tr><th>Mes</th><th>Ranking (Beneficio)</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
         </div>
     </div>
 

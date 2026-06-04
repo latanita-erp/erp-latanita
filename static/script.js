@@ -1201,17 +1201,25 @@ function renderDashboard() {
     Chart.defaults.color = '#94a3b8';
     Chart.defaults.font.family = 'Inter';
 
-    // 1. Daily Sales Chart
-    renderDailySalesChart(monthRows);
-    
-    // 2. Expenses Category Pie Chart
-    renderExpensesCategoryChart(monthRows);
+    // 1. Daily Sales Chart (Mes en curso)
+    const currentMonthStr = new Date().toISOString().slice(0, 7);
+    const currentMonthRows = cashData.filter(r => r.date.startsWith(currentMonthStr));
+    renderDailySalesChart(currentMonthRows);
     
     // 3. Efectivo vs Tarjeta (For the selected month)
     renderPaymentChart(monthRows);
     
-    // 4. Comparativo mensual
+    // 4. Comparativo mensual (Todos los meses acumulando beneficio)
     renderMonthlyComparisonChart(cashData);
+
+    // 5. Distribución y Ranking por Día
+    if (typeof renderWeekdayDistribution === 'function') {
+        renderWeekdayDistribution(cashData);
+    }
+    if (typeof calculateMonthlyDayRanking === 'function' && typeof renderMonthlyDayRanking === 'function') {
+        const stats = calculateMonthlyDayRanking(cashData);
+        renderMonthlyDayRanking(stats);
+    }
 }
 
 function renderDailySalesChart(rows) {
@@ -1263,56 +1271,7 @@ function renderDailySalesChart(rows) {
     }
 }
 
-function renderExpensesCategoryChart(rows) {
-    const byCategory = {};
-    
-    rows.forEach(r => {
-        if (r.expense_list && r.expense_list.length > 0) {
-            r.expense_list.forEach(exp => {
-                const catName = exp.category_name || state.expenseCategories.find(c => c.id == exp.category_id)?.name || 'Otros';
-                if (!byCategory[catName]) byCategory[catName] = 0;
-                byCategory[catName] += exp.amount;
-            });
-        }
-    });
-    
-    const labels = Object.keys(byCategory);
-    const data = Object.values(byCategory);
-    
-    const canvas = document.getElementById("chart-expenses-category");
-    if (!canvas) return;
-    
-    if (data.length === 0) {
-        // No expenses
-        charts.expensesCategory = new Chart(canvas.getContext("2d"), {
-            type: "doughnut",
-            data: { labels: ["Sin Gastos"], datasets: [{ data: [1], backgroundColor: ["#333"] }] },
-            options: { responsive: true, plugins: { tooltip: { enabled: false } } }
-        });
-        return;
-    }
 
-    const colors = ["#ef4444", "#f97316", "#f59e0b", "#84cc16", "#10b981", "#06b6d4", "#3b82f6", "#8b5cf6", "#d946ef", "#f43f5e"];
-    
-    charts.expensesCategory = new Chart(canvas.getContext("2d"), {
-        type: "doughnut",
-        data: {
-            labels,
-            datasets: [{
-                data,
-                backgroundColor: colors.slice(0, labels.length),
-                borderWidth: 0
-            }]
-        },
-        options: {
-            responsive: true,
-            cutout: '60%',
-            plugins: {
-                legend: { position: 'right', labels: { color: '#e2e8f0', font: { size: 11 } } }
-            }
-        }
-    });
-}
 
 function renderPaymentChart(rows) {
     const totalCash = rows.reduce((acc, r) => acc + r.cash, 0);
@@ -1379,3 +1338,93 @@ async function init() {
 window.onload = init;
 // =====================================================
 //                 MENÚ MÓVIL
+
+// ---------- Ranking de días del mes ----------
+function calculateMonthlyDayRanking(cashData) {
+    const byMonth = {};
+
+    // Agrupar por mes
+    cashData.forEach(r => {
+        const month = r.date.slice(0, 7);
+        if (!byMonth[month]) byMonth[month] = [];
+        byMonth[month].push(r);
+    });
+
+    const result = [];
+
+    Object.keys(byMonth).sort().reverse().forEach(month => {
+        const rows = byMonth[month];
+
+        // Acumulador por día de la semana
+        const totalsByWeekday = {
+            LUNES: 0,
+            MARTES: 0,
+            MIÉRCOLES: 0,
+            JUEVES: 0,
+            VIERNES: 0,
+            SÁBADO: 0,
+            DOMINGO: 0
+        };
+
+        rows.forEach(r => {
+            const day = r.weekday ? r.weekday.toUpperCase() : "";
+            if(totalsByWeekday[day] !== undefined) {
+                totalsByWeekday[day] += r.net_income;
+            }
+        });
+
+        // Convertir a array y ordenar de mayor a menor (excluyendo domingo)
+        const ranking = Object.entries(totalsByWeekday)
+            .filter(([weekday]) => weekday !== "DOMINGO")
+            .map(([weekday, total]) => ({ weekday, total }))
+            .sort((a, b) => b.total - a.total);
+
+        const domingoTotal = totalsByWeekday["DOMINGO"];
+
+        result.push({
+            month,
+            ranking,
+            domingoTotal
+        });
+    });
+
+    return result;
+}
+
+function renderMonthlyDayRanking(stats) {
+    const tbody = document.querySelector('#ranking-days-table tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    stats.forEach(row => {
+        const tr = document.createElement('tr');
+
+        // Crear lista ordenada de días
+        const rankingList = row.ranking
+            .map((r, i) => {
+                const isBest = i === 0;
+                const isWorst = i === row.ranking.length - 1;
+                const color =
+                    isBest ? "var(--success-color)" :   // mejor día
+                    isWorst ? "var(--danger-color)" :    // peor día
+                    "inherit";
+
+                return `<div style="color:${color}; font-weight:${isBest || isWorst ? 'bold' : 'normal'};">
+                            ${i + 1}. ${r.weekday} — $${formatMoney(r.total)}
+                        </div>`;
+            })
+            .join("");
+
+        const domingoText = `<div style="color:#9ca3af; font-style: italic; margin-top: 6px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 4px;">
+                                - DOMINGO (Medio Turno) — $${formatMoney(row.domingoTotal)}
+                             </div>`;
+
+        tr.innerHTML = `
+            <td style="vertical-align:top;">${formatMonthLiteral(row.month)}</td>
+            <td>${rankingList}${domingoText}</td>
+        `;
+
+        tbody.appendChild(tr);
+    });
+}
