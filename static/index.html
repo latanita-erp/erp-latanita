@@ -63,7 +63,7 @@
             <nav>
                 <button class="nav-btn active" data-target="dashboard">📊 Dashboard</button>
                 <button class="nav-btn" data-target="products">📦 Productos</button>
-                <button class="nav-btn" data-target="suppliers-global">🚚 Proveedores</button>
+                
                 <button class="nav-btn" data-target="cash">💰 Caja Diaria</button>
 
                 <hr class="menu-divider">
@@ -364,22 +364,22 @@
         <div class="kpi-card-modern pretty-kpi">
             <div class="kpi-icon">💰</div>
             <div class="kpi-info">
-                <h3>Ventas (<span class="kpi-period">Mes</span>)</h3>
+                <h3>Ventas <span class="kpi-period">Mes</span></h3>
                 <div class="kpi-value" id="kpi-revenue">$0.00</div>
             </div>
         </div>
         <div class="kpi-card-modern pretty-kpi">
             <div class="kpi-icon">📉</div>
             <div class="kpi-info">
-                <h3>Gastos (<span class="kpi-period">Mes</span>)</h3>
+                <h3>Gastos <span class="kpi-period">Mes</span></h3>
                 <div class="kpi-value" id="kpi-expenses">$0.00</div>
             </div>
         </div>
         <div class="kpi-card-modern pretty-kpi highlight">
             <div class="kpi-icon">📈</div>
             <div class="kpi-info">
-                <h3>Beneficio (<span class="kpi-period">Mes</span>)</h3>
-                <div class="kpi-value" id="kpi-profit">$0.00</div>
+                <h3>Beneficio <span class="kpi-period">Mes</span></h3>
+                <div class="kpi-value" id="kpi-profit" style="color: var(--success-color); font-weight: bold; font-size: 2rem;">$0.00</div>
             </div>
         </div>
     </div>
@@ -439,9 +439,9 @@
             <div id="weekly-totals" style="margin-top: 15px;"></div>
         </div>
 
-        <div class="chart-box glass-panel pretty-box small-chart" style="max-height: none;">
+        <div class="chart-box glass-panel pretty-box small-chart" style="max-height: none; max-width: 400px;">
             <h3 class="section-title">💳 Efectivo vs Tarjeta (<span class="kpi-period">Mes</span>)</h3>
-            <canvas id="chart-payment"></canvas>
+            <canvas id="chart-payment" style="max-height: 200px;"></canvas>
         </div>
     </div>
     
@@ -553,7 +553,7 @@
             </div>
 
             <div class="input-group flex-end" style="grid-column: 1 / -1; justify-content: flex-end;">
-                <button type="submit" class="btn btn-primary">Guardar Cierre</button>
+                <button type="submit" class="btn btn-primary" style="padding: 0.5rem 2rem; width: auto;">Guardar Cierre</button>
             </div>
 
         </form>

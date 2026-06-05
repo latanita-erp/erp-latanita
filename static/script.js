@@ -1025,8 +1025,6 @@ document.getElementById('cash-form').addEventListener('submit', async (e) => {
     btn.disabled = false;
     btn.innerText = originalText;
     e.target.reset();
-    currentExpenseList = [];
-    renderExpenseItems('cash');
     fetchCash();
 });
 
@@ -1035,17 +1033,15 @@ document.getElementById('cash-form').addEventListener('submit', async (e) => {
 // =====================================================
 
 function openEditCash(id) {
-    const c = state.cash.find(x => x.id === id);
+    const c = state.cash.find(x => x.id == id);
     if(!c) return;
 
     document.getElementById('edit-cash-id').value = c.id;
     document.getElementById('edit-cash-date').value = c.date;
-    document.getElementById('edit-cash-weekday').value = c.weekday;
+    document.getElementById('edit-cash-weekday').value = c.weekday || '';
     document.getElementById('edit-cash-cash').value = c.cash;
     document.getElementById('edit-cash-card').value = c.card;
-
-    currentExpenseList = JSON.parse(JSON.stringify(c.expense_list || []));
-    renderExpenseItems('edit');
+    document.getElementById('edit-cash-expenses').value = c.expenses || 0;
 
     toggleModal('modal-edit-cash');
 }
@@ -1290,7 +1286,7 @@ function renderPaymentChart(rows) {
                 borderRadius: 4
             }]
         },
-        options: { responsive: true, plugins: { legend: { display: false } }, indexAxis: 'y' }
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, indexAxis: 'y', barThickness: 20 }
     });
 }
 
