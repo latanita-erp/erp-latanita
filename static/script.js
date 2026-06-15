@@ -232,7 +232,6 @@ function renderProducts() {
             <td class="prod-price150" data-value="${p.price_150g}">${p150}</td>
             <td class="prod-price250" data-value="${p.price_250g}">${p250}</td>
             <td style="display: flex; gap: 0.5rem;">
-                <button class="btn btn-secondary" onclick="openSuppliers(${p.id}, '${p.name.replace("'", "\'")}')">🚚 Prov.</button>
                 <button class="btn btn-secondary" onclick="openEditProduct(${p.id})">✏️</button>
                 <button class="btn btn-danger" onclick="deleteProduct(${p.id})">🗑️</button>
             </td>
@@ -266,14 +265,14 @@ function calculateWeekdayDistribution(cashData) {
     return days;
 }
 
-function renderWeekdayDistribution(cashData) {
-    const data = calculateWeekdayDistribution(cashData);
+function renderWeekdayDistribution(currentMonthRows) {
+    const data = calculateWeekdayDistribution(currentMonthRows);
 
     const counts = {
         "LUNES": 0, "MARTES": 0, "MIÉRCOLES": 0, "JUEVES": 0,
         "VIERNES": 0, "SÁBADO": 0, "DOMINGO": 0
     };
-    cashData.forEach(row => {
+    currentMonthRows.forEach(row => {
         const day = row.weekday ? row.weekday.toUpperCase() : "";
         if (counts[day] !== undefined) counts[day]++;
     });
@@ -1210,7 +1209,7 @@ function renderDashboard() {
 
     // 5. Distribución y Ranking por Día
     if (typeof renderWeekdayDistribution === 'function') {
-        renderWeekdayDistribution(cashData);
+        renderWeekdayDistribution(currentMonthRows);
     }
     if (typeof calculateMonthlyDayRanking === 'function' && typeof renderMonthlyDayRanking === 'function') {
         const stats = calculateMonthlyDayRanking(cashData);
@@ -1424,3 +1423,207 @@ function renderMonthlyDayRanking(stats) {
         tbody.appendChild(tr);
     });
 }
+
+// =====================================================
+//             GASTOS Y CATEGORÍAS (FALTANTES)
+// =====================================================
+
+async function fetchExpenseCategories() {
+    try {
+        const res = await fetch('/api/expense-categories');
+        if (!res.ok) throw new Error("Error cargando categorías de gastos");
+        const data = await res.json();
+        state.expenseCategories = data;
+        renderExpenseCategories();
+    } catch (err) {
+        console.error("Error al cargar categorías de gastos:", err);
+    }
+}
+
+function renderExpenseCategories() {
+    const tbody = document.querySelector('#expense-categories-table tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    
+    state.expenseCategories.forEach(cat => {
+        const tr = document.createElement('tr');
+        const deleteBtn = cat.is_custom 
+            ? `<button class="btn btn-danger" onclick="deleteExpenseCategory(${cat.id})" style="padding: 0.3rem 0.6rem;">🗑️</button>` 
+            : `<span style="color: #666; font-size: 0.85rem;">Predef.</span>`;
+            
+        tr.innerHTML = `
+            <td>${cat.name}</td>
+            <td style="text-align: right;">${deleteBtn}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+async function deleteExpenseCategory(id) {
+    if (!confirm('¿Eliminar esta categoría de gastos?')) return;
+    try {
+        const res = await fetch(`/api/expense-categories/${id}`, {
+            method: 'DELETE'
+        });
+        if (res.ok) {
+            showToast("Categoría eliminada", "success");
+            await fetchExpenseCategories();
+        } else {
+            const err = await res.json();
+            showToast(err.detail || "Error al eliminar la categoría", "error");
+        }
+    } catch (err) {
+        showToast("Error de conexión", "error");
+    }
+}
+
+// Escuchador de formulario de categorías
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('add-expense-category-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const nameInput = document.getElementById('new-exp-cat-name');
+        const name = nameInput.value.trim();
+        if (!name) return;
+        
+        try {
+            const res = await fetch('/api/expense-categories', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name })
+            });
+            if (res.ok) {
+                nameInput.value = '';
+                showToast("Categoría agregada correctamente", "success");
+                await fetchExpenseCategories();
+            } else {
+                const err = await res.json();
+                showToast(err.detail || "Error al agregar categoría", "error");
+            }
+        } catch (err) {
+            showToast("Error de conexión", "error");
+        }
+    });
+});
+
+// =====================================================
+//             PROVEEDORES GLOBALES (FALTANTES)
+// =====================================================
+
+async function fetchGlobalSuppliers() {
+    try {
+        const res = await fetch('/api/suppliers');
+        if (!res.ok) throw new Error("Error cargando proveedores");
+        const data = await res.json();
+        state.suppliers = data;
+        renderGlobalSuppliers();
+    } catch (err) {
+        console.error("Error al cargar proveedores:", err);
+    }
+}
+
+function renderGlobalSuppliers() {
+    const tbody = document.querySelector('#global-suppliers-table tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    
+    if (state.suppliers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Sin proveedores registrados</td></tr>';
+        return;
+    }
+    
+    state.suppliers.forEach(s => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${s.name}</td>
+            <td>${s.phone || '-'}</td>
+            <td>${s.email || '-'}</td>
+            <td>${s.salesperson || '-'}</td>
+            <td style="display: flex; gap: 0.5rem;">
+                <button class="btn btn-secondary" onclick="openEditGlobalSupplier(${s.id})" style="padding: 0.3rem 0.6rem;">✏️</button>
+                <button class="btn btn-danger" onclick="deleteGlobalSupplier(${s.id})" style="padding: 0.3rem 0.6rem;">🗑️</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function openAddGlobalSupplier() {
+    document.getElementById('global-supplier-modal-title').innerText = "Nuevo Proveedor";
+    document.getElementById('gs-id').value = "";
+    document.getElementById('gs-name').value = "";
+    document.getElementById('gs-phone').value = "";
+    document.getElementById('gs-email').value = "";
+    document.getElementById('gs-salesperson').value = "";
+    toggleModal('modal-global-supplier');
+}
+
+function openEditGlobalSupplier(id) {
+    const s = state.suppliers.find(x => x.id === id);
+    if (!s) return;
+    document.getElementById('global-supplier-modal-title').innerText = "Editar Proveedor";
+    document.getElementById('gs-id').value = s.id;
+    document.getElementById('gs-name').value = s.name;
+    document.getElementById('gs-phone').value = s.phone || "";
+    document.getElementById('gs-email').value = s.email || "";
+    document.getElementById('gs-salesperson').value = s.salesperson || "";
+    toggleModal('modal-global-supplier');
+}
+
+async function deleteGlobalSupplier(id) {
+    if (!confirm('¿Eliminar este proveedor de forma global?')) return;
+    try {
+        const res = await fetch(`/api/suppliers/${id}`, {
+            method: 'DELETE'
+        });
+        if (res.ok) {
+            showToast("Proveedor eliminado", "success");
+            await fetchGlobalSuppliers();
+        } else {
+            showToast("Error al eliminar proveedor", "error");
+        }
+    } catch (err) {
+        showToast("Error de conexión", "error");
+    }
+}
+
+// Escuchador de formulario de proveedores
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('global-supplier-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('gs-id').value;
+        const payload = {
+            name: document.getElementById('gs-name').value.trim(),
+            phone: document.getElementById('gs-phone').value.trim() || null,
+            email: document.getElementById('gs-email').value.trim() || null,
+            salesperson: document.getElementById('gs-salesperson').value.trim() || null
+        };
+        
+        try {
+            let res;
+            if (id) {
+                res = await fetch(`/api/suppliers/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            } else {
+                res = await fetch(`/api/suppliers`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            }
+            
+            if (res.ok) {
+                showToast(id ? "Proveedor actualizado" : "Proveedor creado", "success");
+                toggleModal('modal-global-supplier');
+                await fetchGlobalSuppliers();
+            } else {
+                showToast("Error al guardar proveedor", "error");
+            }
+        } catch (err) {
+            showToast("Error de conexión", "error");
+        }
+    });
+});
+

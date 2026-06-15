@@ -355,9 +355,15 @@
             <!-- DASHBOARD -->
 <section id="dashboard" class="view active">
     <!-- ⭐ KPI PRINCIPALES (HISTÓRICO) -->
-    <header class="dash-header">
-        <h1>📈 Dashboard de Rendimiento</h1>
-        <p>Resumen financiero global actualizado</p>
+    <header class="dash-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <h1>📈 Dashboard de Rendimiento</h1>
+            <p>Resumen financiero global actualizado</p>
+        </div>
+        <div class="filter-group" style="display: flex; align-items: center; gap: 0.5rem;">
+            <label for="dashboard-month-filter" style="font-weight: 600; font-size: 0.95rem; color: var(--text-color);">Filtrar Mes:</label>
+            <select id="dashboard-month-filter" class="select-modern" style="padding: 0.4rem 0.8rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: var(--text-color); font-weight: 500; outline: none; cursor: pointer;"></select>
+        </div>
     </header>
 
     <div class="kpi-grid-modern pretty-kpi-grid" style="margin-bottom: 2rem;">
@@ -446,13 +452,13 @@
     </div>
     
     <div class="charts-grid-compact" style="margin-top: 2rem;">
-        <div class="chart-box glass-panel pretty-box small-chart" style="max-height: none;">
+        <div class="chart-box glass-panel pretty-box small-chart" style="max-height: none; max-width: 400px;">
             <h3 class="section-title">📊 Comparativo Mensual (Beneficio Neto)</h3>
-            <canvas id="chart-month-compare"></canvas>
+            <canvas id="chart-month-compare" style="max-height: 200px;"></canvas>
         </div>
 
         <div class="chart-box glass-panel pretty-box small-chart" style="max-height: none;">
-            <h3 class="section-title">📆 Distribución y Ranking por Día</h3>
+            <h3 class="section-title">Caja Diaria por Día de la Semana</h3>
             <canvas id="chart-weekday-distribution"></canvas>
             <div style="overflow-x:auto; margin-top:1rem;">
                 <table class="table" id="ranking-days-table" style="width:100%; text-align:left; font-size:0.9rem;">
@@ -553,7 +559,7 @@
             </div>
 
             <div class="input-group flex-end" style="grid-column: 1 / -1; justify-content: flex-end;">
-                <button type="submit" class="btn btn-primary" style="padding: 0.5rem 2rem; width: auto;">Guardar Cierre</button>
+                <button type="submit" class="btn btn-primary" style="padding: 0.4rem 1.2rem; font-size: 0.85rem; width: auto;">Guardar Cierre</button>
             </div>
 
         </form>
