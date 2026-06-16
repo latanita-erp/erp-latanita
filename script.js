@@ -13,9 +13,9 @@ let currentExpenseList = []; // For cash forms
 
 
 function formatMoney(val) {
-    return val.toLocaleString('es-AR', { 
-        minimumFractionDigits: 2, 
-        maximumFractionDigits: 2 
+    return val.toLocaleString('es-AR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
     });
 }
 
@@ -37,16 +37,16 @@ function formatMonthLiteral(monthStr) {
 // ======================================================
 
 const originalFetch = window.fetch;
-window.fetch = async function() {
+window.fetch = async function () {
     let [resource, config] = arguments;
     if (!config) config = {};
     if (!config.headers) config.headers = {};
-    
+
     const token = localStorage.getItem('auth_token');
     if (token) {
         config.headers['Authorization'] = `Basic ${token}`;
     }
-    
+
     const response = await originalFetch(resource, config);
     if (response.status === 401) {
         localStorage.removeItem('auth_token');
@@ -104,14 +104,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         const user = document.getElementById('login-user').value;
         const pass = document.getElementById('login-pass').value;
         const errorEl = document.getElementById('login-error');
-        
+
         const token = btoa(`${user}:${pass}`);
-        
+
         try {
             const res = await originalFetch('/api/products', {
                 headers: { 'Authorization': `Basic ${token}` }
             });
-            
+
             if (res.ok) {
                 localStorage.setItem('auth_token', token);
                 errorEl.style.display = 'none';
@@ -127,9 +127,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-// ======================================================
-//                 INICIALIZACIÓN GENERAL
-// ======================================================
+    // ======================================================
+    //                 INICIALIZACIÓN GENERAL
+    // ======================================================
 
     // Navegación entre vistas
     document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -232,7 +232,6 @@ function renderProducts() {
             <td class="prod-price150" data-value="${p.price_150g}">${p150}</td>
             <td class="prod-price250" data-value="${p.price_250g}">${p250}</td>
             <td style="display: flex; gap: 0.5rem;">
-                <button class="btn btn-secondary" onclick="openSuppliers(${p.id}, '${p.name.replace("'", "\'")}')">🚚 Prov.</button>
                 <button class="btn btn-secondary" onclick="openEditProduct(${p.id})">✏️</button>
                 <button class="btn btn-danger" onclick="deleteProduct(${p.id})">🗑️</button>
             </td>
@@ -266,14 +265,14 @@ function calculateWeekdayDistribution(cashData) {
     return days;
 }
 
-function renderWeekdayDistribution(cashData) {
-    const data = calculateWeekdayDistribution(cashData);
+function renderWeekdayDistribution(currentMonthRows) {
+    const data = calculateWeekdayDistribution(currentMonthRows);
 
     const counts = {
         "LUNES": 0, "MARTES": 0, "MIÉRCOLES": 0, "JUEVES": 0,
         "VIERNES": 0, "SÁBADO": 0, "DOMINGO": 0
     };
-    cashData.forEach(row => {
+    currentMonthRows.forEach(row => {
         const day = row.weekday ? row.weekday.toUpperCase() : "";
         if (counts[day] !== undefined) counts[day]++;
     });
@@ -368,7 +367,7 @@ document.getElementById('add-product-form').addEventListener('submit', async (e)
 
     await fetch('/api/products', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     });
 
@@ -480,13 +479,13 @@ document.getElementById("edit-product-form").addEventListener("submit", async (e
     const type = document.getElementById("edit-product-type").value;
     const cost = parseFloat(document.getElementById("edit-product-cost").value);
     const margin = parseFloat(document.getElementById("edit-product-margin").value);
-    
+
 
     const payload = { name, type, cost, margin };
 
     await fetch(`/api/products/${id}`, {
         method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     });
 
@@ -731,7 +730,7 @@ function generateTechnicalList() {
 async function openSuppliers(productId, productName) {
     document.getElementById('sup-prod-name').innerText = productName;
     document.getElementById('sup-prod-id').value = productId;
-    
+
     const sel = document.getElementById('sup-id');
     sel.innerHTML = '<option value="">Seleccionar Proveedor...</option>';
     state.suppliers.forEach(s => {
@@ -793,7 +792,7 @@ document.getElementById('add-supplier-form').addEventListener('submit', async (e
 
     await fetch(`/api/products/${productId}/suppliers`, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     });
 
@@ -925,7 +924,7 @@ function renderCash() {
     sortedMonths.forEach(month => {
         const mData = byMonth[month];
         const isCurrent = month === currentMonth;
-        
+
         // Crear fila cabecera del mes
         const headerTr = document.createElement('tr');
         headerTr.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
@@ -944,13 +943,13 @@ function renderCash() {
             </td>
             <td></td>
         `;
-        
+
         tbody.appendChild(headerTr);
 
         const monthRows = [];
-        
+
         // Ordenar los días dentro del mes de forma descendente
-        mData.rows.sort((a,b) => b.date.localeCompare(a.date));
+        mData.rows.sort((a, b) => b.date.localeCompare(a.date));
 
         mData.rows.forEach(c => {
             const [y, m, d] = c.date.split('-');
@@ -1013,19 +1012,21 @@ document.getElementById('cash-form').addEventListener('submit', async (e) => {
         weekday,
         cash: parseFloat(document.getElementById('cash-cash').value || 0),
         card: parseFloat(document.getElementById('cash-card').value || 0),
-        expenses: parseFloat(document.getElementById('cash-expenses').value || 0)
+        expenses: parseFloat(document.getElementById('cash-expenses').value || 0),
+        expense_list: currentExpenseList
     };
 
     await fetch('/api/cash', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     });
 
     btn.disabled = false;
     btn.innerText = originalText;
     e.target.reset();
-    fetchCash();
+    await fetchCash();
+    await fetchDashboard();
 });
 
 // =====================================================
@@ -1034,7 +1035,7 @@ document.getElementById('cash-form').addEventListener('submit', async (e) => {
 
 function openEditCash(id) {
     const c = state.cash.find(x => x.id == id);
-    if(!c) return;
+    if (!c) return;
 
     document.getElementById('edit-cash-id').value = c.id;
     document.getElementById('edit-cash-date').value = c.date;
@@ -1076,14 +1077,15 @@ document.getElementById('edit-cash-form').addEventListener('submit', async (e) =
 
     await fetch(`/api/cash/${id}`, {
         method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     });
 
     btn.disabled = false;
     btn.innerText = originalText;
     toggleModal('modal-edit-cash');
-    fetchCash();
+    await fetchCash();
+    await fetchDashboard();
 });
 
 // =====================================================
@@ -1093,7 +1095,8 @@ document.getElementById('edit-cash-form').addEventListener('submit', async (e) =
 async function deleteCash(id) {
     if (confirm('¿Eliminar este registro de caja?')) {
         await fetch(`/api/cash/${id}`, { method: 'DELETE' });
-        fetchCash();
+        await fetchCash();
+        await fetchDashboard();
     }
 }
 
@@ -1115,10 +1118,10 @@ async function fetchDashboard() {
 function populateMonthFilter() {
     const cashData = state.cash || [];
     const filter = document.getElementById('dashboard-month-filter');
-    if(!filter) return;
-    
+    if (!filter) return;
+
     const months = [...new Set(cashData.map(r => r.date.slice(0, 7)))].sort().reverse();
-    
+
     filter.innerHTML = '';
     months.forEach(m => {
         const opt = document.createElement('option');
@@ -1126,13 +1129,13 @@ function populateMonthFilter() {
         opt.innerText = formatMonthLiteral(m);
         filter.appendChild(opt);
     });
-    
+
     // Default to most recent month
-    if(months.length > 0) {
+    if (months.length > 0) {
         selectedMonth = months[0];
         filter.value = selectedMonth;
     }
-    
+
     filter.addEventListener('change', (e) => {
         selectedMonth = e.target.value;
         renderDashboard();
@@ -1141,32 +1144,32 @@ function populateMonthFilter() {
 
 function renderDashboard() {
     const cashData = state.cash || [];
-    
+
     // Historic Calculations
     const histRevenue = cashData.reduce((acc, r) => acc + r.net_income, 0);
     const histExpenses = cashData.reduce((acc, r) => acc + r.expenses, 0);
     const histProfit = cashData.reduce((acc, r) => acc + r.total, 0);
-    
+
     document.getElementById('hist-revenue').innerText = `$${formatMoney(histRevenue)}`;
     document.getElementById('hist-expenses').innerText = `$${formatMoney(histExpenses)}`;
     document.getElementById('hist-profit').innerText = `$${formatMoney(histProfit)}`;
-    
+
     // Filter by selected month
     const monthRows = cashData.filter(r => r.date.startsWith(selectedMonth));
-    
+
     // Current Month KPIs
     const rev = monthRows.reduce((acc, r) => acc + r.net_income, 0);
     const exp = monthRows.reduce((acc, r) => acc + r.expenses, 0);
     const prof = monthRows.reduce((acc, r) => acc + r.total, 0);
-    
+
     document.getElementById('kpi-revenue').innerText = `$${formatMoney(rev)}`;
     document.getElementById('kpi-expenses').innerText = `$${formatMoney(exp)}`;
     document.getElementById('kpi-profit').innerText = `$${formatMoney(prof)}`;
-    
+
     // Update period labels
     const periodStr = formatMonthLiteral(selectedMonth);
     document.querySelectorAll('.kpi-period').forEach(el => el.innerText = periodStr);
-    
+
     // Trend logic (compare selected month vs previous)
     const months = [...new Set(cashData.map(r => r.date.slice(0, 7)))].sort();
     const idx = months.indexOf(selectedMonth);
@@ -1176,11 +1179,11 @@ function renderDashboard() {
         const pRev = prevRows.reduce((acc, r) => acc + r.net_income, 0);
         const pExp = prevRows.reduce((acc, r) => acc + r.expenses, 0);
         const pProf = prevRows.reduce((acc, r) => acc + r.total, 0);
-        
+
         const diffVentas = rev - pRev;
         const diffGastos = exp - pExp;
         const diffGanancia = prof - pProf;
-        
+
         const fmtDiff = (v) => `${v >= 0 ? '▲' : '▼'} $${formatMoney(Math.abs(v))}`;
         document.getElementById('trend-ventas').innerText = fmtDiff(diffVentas);
         document.getElementById('trend-gastos').innerText = fmtDiff(diffGastos);
@@ -1201,16 +1204,16 @@ function renderDashboard() {
     const currentMonthStr = new Date().toISOString().slice(0, 7);
     const currentMonthRows = cashData.filter(r => r.date.startsWith(currentMonthStr));
     renderDailySalesChart(currentMonthRows);
-    
+
     // 3. Efectivo vs Tarjeta (For the selected month)
     renderPaymentChart(monthRows);
-    
+
     // 4. Comparativo mensual (Todos los meses acumulando beneficio)
     renderMonthlyComparisonChart(cashData);
 
     // 5. Distribución y Ranking por Día
     if (typeof renderWeekdayDistribution === 'function') {
-        renderWeekdayDistribution(cashData);
+        renderWeekdayDistribution(currentMonthRows);
     }
     if (typeof calculateMonthlyDayRanking === 'function' && typeof renderMonthlyDayRanking === 'function') {
         const stats = calculateMonthlyDayRanking(cashData);
@@ -1219,7 +1222,7 @@ function renderDashboard() {
 }
 
 function renderDailySalesChart(rows) {
-    const sorted = [...rows].sort((a,b) => a.date.localeCompare(b.date));
+    const sorted = [...rows].sort((a, b) => a.date.localeCompare(b.date));
     const labels = sorted.map(r => {
         const day = r.date.split("-")[2];
         const initial = r.weekday ? r.weekday.charAt(0) : "";
@@ -1239,7 +1242,7 @@ function renderDailySalesChart(rows) {
         const weekday = date.getDay() === 0 ? 6 : date.getDay() - 1;
         if (lastWeekday !== -1 && weekday < lastWeekday) currentWeekIndex++;
         lastWeekday = weekday;
-        
+
         bgColors.push(weekColors[currentWeekIndex % weekColors.length]);
         if (!weeklyTotals[currentWeekIndex]) weeklyTotals[currentWeekIndex] = 0;
         weeklyTotals[currentWeekIndex] += r.net_income;
@@ -1259,7 +1262,7 @@ function renderDailySalesChart(rows) {
         let html = "<div style='display:flex; justify-content:center; gap: 10px; flex-wrap:wrap;'>";
         weeklyTotals.forEach((tot, i) => {
             if (tot > 0) {
-                html += `<div style="padding:0.4rem 0.8rem; background:${weekColors[i%weekColors.length]}22; border-left:4px solid ${weekColors[i%weekColors.length]}; border-radius:6px; font-size:0.9rem;">Semana ${i+1}: <strong style="color:white">$${formatMoney(tot)}</strong></div>`;
+                html += `<div style="padding:0.4rem 0.8rem; background:${weekColors[i % weekColors.length]}22; border-left:4px solid ${weekColors[i % weekColors.length]}; border-radius:6px; font-size:0.9rem;">Semana ${i + 1}: <strong style="color:white">$${formatMoney(tot)}</strong></div>`;
             }
         });
         html += "</div>";
@@ -1272,10 +1275,10 @@ function renderDailySalesChart(rows) {
 function renderPaymentChart(rows) {
     const totalCash = rows.reduce((acc, r) => acc + r.cash, 0);
     const totalCard = rows.reduce((acc, r) => acc + r.card, 0);
-    
+
     const canvas = document.getElementById('chart-payment');
-    if(!canvas) return;
-    
+    if (!canvas) return;
+
     charts.payment = new Chart(canvas.getContext('2d'), {
         type: 'bar',
         data: {
@@ -1304,7 +1307,7 @@ function renderMonthlyComparisonChart(cashData) {
 
     const canvas = document.getElementById('chart-month-compare');
     if (!canvas) return;
-    
+
     charts.monthCompare = new Chart(canvas.getContext('2d'), {
         type: 'line',
         data: {
@@ -1364,7 +1367,7 @@ function calculateMonthlyDayRanking(cashData) {
 
         rows.forEach(r => {
             const day = r.weekday ? r.weekday.toUpperCase() : "";
-            if(totalsByWeekday[day] !== undefined) {
+            if (totalsByWeekday[day] !== undefined) {
                 totalsByWeekday[day] += r.net_income;
             }
         });
@@ -1403,8 +1406,8 @@ function renderMonthlyDayRanking(stats) {
                 const isWorst = i === row.ranking.length - 1;
                 const color =
                     isBest ? "var(--success-color)" :   // mejor día
-                    isWorst ? "var(--danger-color)" :    // peor día
-                    "inherit";
+                        isWorst ? "var(--danger-color)" :    // peor día
+                            "inherit";
 
                 return `<div style="color:${color}; font-weight:${isBest || isWorst ? 'bold' : 'normal'};">
                             ${i + 1}. ${r.weekday} — $${formatMoney(r.total)}
@@ -1424,3 +1427,207 @@ function renderMonthlyDayRanking(stats) {
         tbody.appendChild(tr);
     });
 }
+
+// =====================================================
+//             GASTOS Y CATEGORÍAS (FALTANTES)
+// =====================================================
+
+async function fetchExpenseCategories() {
+    try {
+        const res = await fetch('/api/expense-categories');
+        if (!res.ok) throw new Error("Error cargando categorías de gastos");
+        const data = await res.json();
+        state.expenseCategories = data;
+        renderExpenseCategories();
+    } catch (err) {
+        console.error("Error al cargar categorías de gastos:", err);
+    }
+}
+
+function renderExpenseCategories() {
+    const tbody = document.querySelector('#expense-categories-table tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    state.expenseCategories.forEach(cat => {
+        const tr = document.createElement('tr');
+        const deleteBtn = cat.is_custom
+            ? `<button class="btn btn-danger" onclick="deleteExpenseCategory(${cat.id})" style="padding: 0.3rem 0.6rem;">🗑️</button>`
+            : `<span style="color: #666; font-size: 0.85rem;">Predef.</span>`;
+
+        tr.innerHTML = `
+            <td>${cat.name}</td>
+            <td style="text-align: right;">${deleteBtn}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+async function deleteExpenseCategory(id) {
+    if (!confirm('¿Eliminar esta categoría de gastos?')) return;
+    try {
+        const res = await fetch(`/api/expense-categories/${id}`, {
+            method: 'DELETE'
+        });
+        if (res.ok) {
+            showToast("Categoría eliminada", "success");
+            await fetchExpenseCategories();
+        } else {
+            const err = await res.json();
+            showToast(err.detail || "Error al eliminar la categoría", "error");
+        }
+    } catch (err) {
+        showToast("Error de conexión", "error");
+    }
+}
+
+// Escuchador de formulario de categorías
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('add-expense-category-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const nameInput = document.getElementById('new-exp-cat-name');
+        const name = nameInput.value.trim();
+        if (!name) return;
+
+        try {
+            const res = await fetch('/api/expense-categories', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name })
+            });
+            if (res.ok) {
+                nameInput.value = '';
+                showToast("Categoría agregada correctamente", "success");
+                await fetchExpenseCategories();
+            } else {
+                const err = await res.json();
+                showToast(err.detail || "Error al agregar categoría", "error");
+            }
+        } catch (err) {
+            showToast("Error de conexión", "error");
+        }
+    });
+});
+
+// =====================================================
+//             PROVEEDORES GLOBALES (FALTANTES)
+// =====================================================
+
+async function fetchGlobalSuppliers() {
+    try {
+        const res = await fetch('/api/suppliers');
+        if (!res.ok) throw new Error("Error cargando proveedores");
+        const data = await res.json();
+        state.suppliers = data;
+        renderGlobalSuppliers();
+    } catch (err) {
+        console.error("Error al cargar proveedores:", err);
+    }
+}
+
+function renderGlobalSuppliers() {
+    const tbody = document.querySelector('#global-suppliers-table tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (state.suppliers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Sin proveedores registrados</td></tr>';
+        return;
+    }
+
+    state.suppliers.forEach(s => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${s.name}</td>
+            <td>${s.phone || '-'}</td>
+            <td>${s.email || '-'}</td>
+            <td>${s.salesperson || '-'}</td>
+            <td style="display: flex; gap: 0.5rem;">
+                <button class="btn btn-secondary" onclick="openEditGlobalSupplier(${s.id})" style="padding: 0.3rem 0.6rem;">✏️</button>
+                <button class="btn btn-danger" onclick="deleteGlobalSupplier(${s.id})" style="padding: 0.3rem 0.6rem;">🗑️</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function openAddGlobalSupplier() {
+    document.getElementById('global-supplier-modal-title').innerText = "Nuevo Proveedor";
+    document.getElementById('gs-id').value = "";
+    document.getElementById('gs-name').value = "";
+    document.getElementById('gs-phone').value = "";
+    document.getElementById('gs-email').value = "";
+    document.getElementById('gs-salesperson').value = "";
+    toggleModal('modal-global-supplier');
+}
+
+function openEditGlobalSupplier(id) {
+    const s = state.suppliers.find(x => x.id === id);
+    if (!s) return;
+    document.getElementById('global-supplier-modal-title').innerText = "Editar Proveedor";
+    document.getElementById('gs-id').value = s.id;
+    document.getElementById('gs-name').value = s.name;
+    document.getElementById('gs-phone').value = s.phone || "";
+    document.getElementById('gs-email').value = s.email || "";
+    document.getElementById('gs-salesperson').value = s.salesperson || "";
+    toggleModal('modal-global-supplier');
+}
+
+async function deleteGlobalSupplier(id) {
+    if (!confirm('¿Eliminar este proveedor de forma global?')) return;
+    try {
+        const res = await fetch(`/api/suppliers/${id}`, {
+            method: 'DELETE'
+        });
+        if (res.ok) {
+            showToast("Proveedor eliminado", "success");
+            await fetchGlobalSuppliers();
+        } else {
+            showToast("Error al eliminar proveedor", "error");
+        }
+    } catch (err) {
+        showToast("Error de conexión", "error");
+    }
+}
+
+// Escuchador de formulario de proveedores
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('global-supplier-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('gs-id').value;
+        const payload = {
+            name: document.getElementById('gs-name').value.trim(),
+            phone: document.getElementById('gs-phone').value.trim() || null,
+            email: document.getElementById('gs-email').value.trim() || null,
+            salesperson: document.getElementById('gs-salesperson').value.trim() || null
+        };
+
+        try {
+            let res;
+            if (id) {
+                res = await fetch(`/api/suppliers/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            } else {
+                res = await fetch(`/api/suppliers`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            }
+
+            if (res.ok) {
+                showToast(id ? "Proveedor actualizado" : "Proveedor creado", "success");
+                toggleModal('modal-global-supplier');
+                await fetchGlobalSuppliers();
+            } else {
+                showToast("Error al guardar proveedor", "error");
+            }
+        } catch (err) {
+            showToast("Error de conexión", "error");
+        }
+    });
+});
+
