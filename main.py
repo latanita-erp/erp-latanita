@@ -123,6 +123,7 @@ class CashPayload(BaseModel):
     weekday: str
     cash: float
     card: float
+    expenses: Optional[float] = 0.0
     expense_list: List[ExpenseItemPayload] = []
 
 class ProductPayload(BaseModel):
@@ -264,7 +265,11 @@ def create_cash(payload: CashPayload, db: Session = Depends(get_db)):
     weekday = payload.weekday
     cash = payload.cash
     card = payload.card
-    total_expenses = sum([e.amount for e in payload.expense_list])
+
+    if payload.expenses is not None and not payload.expense_list:
+        total_expenses = payload.expenses
+    else:
+        total_expenses = sum([e.amount for e in payload.expense_list])
 
     net = cash + card
     total = net - total_expenses
@@ -298,9 +303,15 @@ def create_cash(payload: CashPayload, db: Session = Depends(get_db)):
 @app.put("/api/cash/{cash_id}")
 def update_cash(cash_id: int, payload: CashPayload, db: Session = Depends(get_db)):
 
+    date = payload.date
+    weekday = payload.weekday
     cash = payload.cash
     card = payload.card
-    total_expenses = sum([e.amount for e in payload.expense_list])
+
+    if payload.expenses is not None and not payload.expense_list:
+        total_expenses = payload.expenses
+    else:
+        total_expenses = sum([e.amount for e in payload.expense_list])
 
     net = cash + card
     total = net - total_expenses
@@ -308,11 +319,14 @@ def update_cash(cash_id: int, payload: CashPayload, db: Session = Depends(get_db
     db.execute(text("""
         UPDATE cash
         SET 
+            date = :date, weekday = :weekday,
             cash = :cash, card = :card, expenses = :expenses,
             net_income = :net, total = :total
         WHERE id = :id
     """), {
         "id": cash_id,
+        "date": date,
+        "weekday": weekday,
         "cash": cash,
         "card": card,
         "expenses": total_expenses,
