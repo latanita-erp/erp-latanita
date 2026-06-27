@@ -277,28 +277,22 @@ function renderWeekdayDistribution(currentMonthRows) {
         if (counts[day] !== undefined) counts[day]++;
     });
 
-    const labels = Object.keys(data).map(day => {
-        const text = `${day} (${counts[day]})`;
-        return day === "DOMINGO" ? `${text} (Medio Turno)` : text;
-    });
+    const labels = Object.keys(data).map(day => `${day} (${counts[day]})`);
     const values = Object.values(data);
     const keys = Object.keys(data);
 
     let maxVal = -Infinity;
     let minVal = Infinity;
     keys.forEach(day => {
-        if (day !== "DOMINGO") {
-            const v = data[day];
-            if (v > maxVal) maxVal = v;
-            if (v < minVal && v > 0) minVal = v; // only consider days with some value as min
-        }
+        const v = data[day];
+        if (v > maxVal) maxVal = v;
+        if (v < minVal && v > 0) minVal = v;
     });
 
     const bgColors = keys.map(day => {
         const v = data[day];
-        if (day === "DOMINGO") return "rgba(156, 163, 175, 0.4)"; // muted color for medio turno
-        if (v === maxVal && v > 0) return "rgba(16, 185, 129, 0.8)"; // success-color
-        if (v === minVal && v > 0) return "rgba(239, 68, 68, 0.8)"; // danger-color
+        if (v === maxVal && v > 0) return "rgba(16, 185, 129, 0.8)";
+        if (v === minVal && v > 0) return "rgba(239, 68, 68, 0.8)";
         return "rgba(99, 102, 241, 0.6)";
     });
 
@@ -1308,20 +1302,50 @@ function renderMonthlyComparisonChart(cashData) {
     const canvas = document.getElementById('chart-month-compare');
     if (!canvas) return;
 
+    // Altura más grande
+    canvas.style.minHeight = '320px';
+    canvas.style.height = '320px';
+    if (canvas.parentElement) canvas.parentElement.style.minHeight = '380px';
+
+    const bgColors = totals.map(v => v >= 0 ? 'rgba(139, 92, 246, 0.7)' : 'rgba(239, 68, 68, 0.7)');
+    const borderColors = totals.map(v => v >= 0 ? '#8b5cf6' : '#ef4444');
+
     charts.monthCompare = new Chart(canvas.getContext('2d'), {
-        type: 'line',
+        type: 'bar',
         data: {
             labels,
             datasets: [{
                 label: 'Beneficio Neto',
                 data: totals,
-                borderColor: '#8b5cf6',
-                backgroundColor: 'rgba(139, 92, 246, 0.2)',
-                fill: true,
-                tension: 0.4
+                backgroundColor: bgColors,
+                borderColor: borderColors,
+                borderWidth: 2,
+                borderRadius: 6
             }]
         },
-        options: { responsive: true, plugins: { legend: { display: false } } }
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ` $${formatMoney(ctx.parsed.y)}`
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: v => `$${formatMoney(v)}`
+                    }
+                },
+                x: {
+                    ticks: { maxRotation: 45, minRotation: 30 }
+                }
+            }
+        }
     });
 }
 
@@ -1372,18 +1396,14 @@ function calculateMonthlyDayRanking(cashData) {
             }
         });
 
-        // Convertir a array y ordenar de mayor a menor (excluyendo domingo)
+        // Convertir a array y ordenar de mayor a menor (domingo incluido, doble turno)
         const ranking = Object.entries(totalsByWeekday)
-            .filter(([weekday]) => weekday !== "DOMINGO")
             .map(([weekday, total]) => ({ weekday, total }))
             .sort((a, b) => b.total - a.total);
 
-        const domingoTotal = totalsByWeekday["DOMINGO"];
-
         result.push({
             month,
-            ranking,
-            domingoTotal
+            ranking
         });
     });
 
@@ -1402,26 +1422,20 @@ function renderMonthlyDayRanking(stats) {
         // Crear lista ordenada de días
         const rankingList = row.ranking
             .map((r, i) => {
-                const isBest = i === 0;
+                const isBest  = i === 0;
                 const isWorst = i === row.ranking.length - 1;
-                const color =
-                    isBest ? "var(--success-color)" :   // mejor día
-                        isWorst ? "var(--danger-color)" :    // peor día
-                            "inherit";
-
+                const color   = isBest  ? "var(--success-color)" :
+                                isWorst ? "var(--danger-color)"  : "inherit";
+                const label   = r.weekday === "DOMINGO" ? `${r.weekday} (Doble Turno)` : r.weekday;
                 return `<div style="color:${color}; font-weight:${isBest || isWorst ? 'bold' : 'normal'};">
-                            ${i + 1}. ${r.weekday} — $${formatMoney(r.total)}
+                            ${i + 1}. ${label} — $${formatMoney(r.total)}
                         </div>`;
             })
             .join("");
 
-        const domingoText = `<div style="color:#9ca3af; font-style: italic; margin-top: 6px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 4px;">
-                                - DOMINGO (Medio Turno) — $${formatMoney(row.domingoTotal)}
-                             </div>`;
-
         tr.innerHTML = `
             <td style="vertical-align:top;">${formatMonthLiteral(row.month)}</td>
-            <td>${rankingList}${domingoText}</td>
+            <td>${rankingList}</td>
         `;
 
         tbody.appendChild(tr);
