@@ -157,6 +157,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Importación Excel
     document.getElementById('excel-file')
         ?.addEventListener('change', handleExcelUpload);
+
+    // Búsqueda de Productos
+    document.getElementById('product-search')
+        ?.addEventListener('input', (e) => {
+            productSearchTerm = e.target.value.toLowerCase().trim();
+            renderProducts();
+        });
 });
 
 // ======================================================
@@ -186,6 +193,7 @@ async function loadData(view) {
     if (view === 'cash') await fetchCash();
     if (view === 'dashboard') await fetchDashboard();
     if (view === 'suppliers-global') await fetchGlobalSuppliers();
+    if (view === 'price-history') await fetchGlobalPriceHistory(currentGlobalHistoryPeriod);
 }
 
 // ======================================================
@@ -198,7 +206,14 @@ async function fetchProducts() {
 
     state.products = data.map(p => ({
         ...p,
-        cost: parseFloat(p.cost),
+        cost: parseFloat(p.cost || 0),
+        cost1: parseFloat(p.cost1 !== undefined ? p.cost1 : (p.cost_matiz || 0)),
+        cost2: parseFloat(p.cost2 !== undefined ? p.cost2 : (p.cost_raices || 0)),
+        supplier1_id: p.supplier1_id,
+        supplier2_id: p.supplier2_id,
+        supplier1_name: p.supplier1_name || '',
+        supplier2_name: p.supplier2_name || '',
+        old_price_kg: parseFloat(p.old_price_kg || 0),
         margin: parseFloat(p.margin),
         price_kg: parseFloat(p.price_kg)
     }));
@@ -206,32 +221,87 @@ async function fetchProducts() {
     renderProducts();
 }
 
+function populateSupplierSelects() {
+    const list = state.suppliers || [];
+    ['prod-supplier1', 'prod-supplier2', 'edit-prod-supplier1', 'edit-prod-supplier2'].forEach(id => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        const currentVal = sel.value;
+        sel.innerHTML = '<option value="">Sin Proveedor</option>';
+        list.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.id;
+            opt.innerText = s.name;
+            sel.appendChild(opt);
+        });
+        sel.value = currentVal;
+    });
+}
+
+let productSearchTerm = '';
+
 function renderProducts() {
     const tbody = document.querySelector('#products-table tbody');
+    if (!tbody) return;
     tbody.innerHTML = '';
 
-    state.products.forEach(p => {
+    const filtered = state.products.filter(p => {
+        if (!productSearchTerm) return true;
+        const name = (p.name || '').toLowerCase();
+        const type = (p.type || '').toLowerCase();
+        return name.includes(productSearchTerm) || type.includes(productSearchTerm);
+    });
+
+    filtered.forEach(p => {
 
         const isBebida = p.type === "BEBIDAS";
         const p100 = isBebida ? "" : `$${formatMoney(p.price_100g)}`;
         const p150 = isBebida ? "" : `$${formatMoney(p.price_150g)}`;
         const p250 = isBebida ? "" : `$${formatMoney(p.price_250g)}`;
+        const oldPrice = p.old_price_kg > 0 ? `$${formatMoney(p.old_price_kg)}` : '-';
 
         // Convert type to lowercase and replace spaces to create a safe CSS class
         const typeClass = `row-${p.type.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+
+        // Determinar el costo más barato para destacar
+        let s1Class = '';
+        let s2Class = '';
+        let s1Badge = '';
+        let s2Badge = '';
+        if (p.cost1 > 0 && p.cost2 > 0) {
+            if (p.cost1 < p.cost2) {
+                s1Class = 'cheaper-cost';
+                s1Badge = '<span class="cheaper-cost-badge">Más barato</span>';
+            } else if (p.cost2 < p.cost1) {
+                s2Class = 'cheaper-cost';
+                s2Badge = '<span class="cheaper-cost-badge">Más barato</span>';
+            }
+        } else if (p.cost1 > 0 && p.cost2 === 0) {
+            s1Class = 'cheaper-cost';
+            s1Badge = '<span class="cheaper-cost-badge">Único</span>';
+        } else if (p.cost2 > 0 && p.cost1 === 0) {
+            s2Class = 'cheaper-cost';
+            s2Badge = '<span class="cheaper-cost-badge">Único</span>';
+        }
+
+        const s1Label = p.supplier1_name ? `<span style="font-size:0.8em; opacity:0.8; display:block;">${p.supplier1_name}</span>` : '';
+        const s2Label = p.supplier2_name ? `<span style="font-size:0.8em; opacity:0.8; display:block;">${p.supplier2_name}</span>` : '';
 
         const tr = document.createElement('tr');
         tr.className = typeClass;
         tr.innerHTML = `
             <td class="prod-name"><strong>${p.name}</strong></td>
             <td class="prod-type">${p.type}</td>
-            <td class="prod-cost" data-value="${p.cost}">$${formatMoney(p.cost)}</td>
+            <td class="prod-cost1 ${s1Class}" data-value="${p.cost1}">${s1Label}$${formatMoney(p.cost1)}${s1Badge}</td>
+            <td class="prod-cost2 ${s2Class}" data-value="${p.cost2}">${s2Label}$${formatMoney(p.cost2)}${s2Badge}</td>
             <td class="prod-margin" data-value="${p.margin}">${p.margin}%</td>
             <td class="prod-pricekg" data-value="${p.price_kg}"><strong>$${formatMoney(p.price_kg)}</strong></td>
+            <td class="prod-oldprice" data-value="${p.old_price_kg}">${oldPrice}</td>
             <td class="prod-price100" data-value="${p.price_100g}">${p100}</td>
             <td class="prod-price150" data-value="${p.price_150g}">${p150}</td>
             <td class="prod-price250" data-value="${p.price_250g}">${p250}</td>
             <td style="display: flex; gap: 0.5rem;">
+                <button class="btn btn-secondary" title="Historial de precios" onclick="openProductPriceHistory(${p.id}, '${p.name.replace(/'/g, "\\'")}')">📜</button>
                 <button class="btn btn-secondary" onclick="openEditProduct(${p.id})">✏️</button>
                 <button class="btn btn-danger" onclick="deleteProduct(${p.id})">🗑️</button>
             </td>
@@ -324,39 +394,50 @@ function renderWeekdayDistribution(currentMonthRows) {
 // ======================================================
 
 function updateAddProductPrice() {
-    const cost = parseFloat(document.getElementById("prod-cost").value) || 0;
+    const cost1 = parseFloat(document.getElementById("prod-cost1")?.value) || 0;
+    const cost2 = parseFloat(document.getElementById("prod-cost2")?.value) || 0;
+    const max_cost = Math.max(cost1, cost2);
     const margin = parseFloat(document.getElementById("prod-margin").value) || 0;
-    const newPrice = calculatePrices(cost, margin);
+    const newPrice = calculatePrices(max_cost, margin);
     document.getElementById("prod-new-price").value = newPrice;
 }
 
 function updateAddProductMargin() {
-    const cost = parseFloat(document.getElementById("prod-cost").value) || 0;
+    const cost1 = parseFloat(document.getElementById("prod-cost1")?.value) || 0;
+    const cost2 = parseFloat(document.getElementById("prod-cost2")?.value) || 0;
+    const max_cost = Math.max(cost1, cost2);
     const newPrice = parseFloat(document.getElementById("prod-new-price").value) || 0;
-    if (cost > 0) {
-        const exactMargin = ((newPrice / cost) - 1) * 100;
+    if (max_cost > 0) {
+        const exactMargin = ((newPrice / max_cost) - 1) * 100;
         document.getElementById("prod-margin").value = exactMargin.toFixed(2);
     } else {
         document.getElementById("prod-margin").value = 0;
     }
 }
 
-document.getElementById("prod-cost").addEventListener("input", updateAddProductPrice);
-document.getElementById("prod-margin").addEventListener("input", updateAddProductPrice);
-document.getElementById("prod-new-price").addEventListener("input", updateAddProductMargin);
+document.getElementById("prod-cost1")?.addEventListener("input", updateAddProductPrice);
+document.getElementById("prod-cost2")?.addEventListener("input", updateAddProductPrice);
+document.getElementById("prod-margin")?.addEventListener("input", updateAddProductPrice);
+document.getElementById("prod-new-price")?.addEventListener("input", updateAddProductMargin);
 
-document.getElementById('add-product-form').addEventListener('submit', async (e) => {
+document.getElementById('add-product-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = e.submitter;
     const originalText = btn.innerText;
     btn.disabled = true;
     btn.innerText = "Guardando...";
 
+    const s1Val = document.getElementById('prod-supplier1').value;
+    const s2Val = document.getElementById('prod-supplier2').value;
+
     const payload = {
         name: document.getElementById('prod-name').value,
         type: document.getElementById('prod-type').value,
-        cost: parseFloat(document.getElementById('prod-cost').value),
-        margin: parseFloat(document.getElementById('prod-margin').value)
+        supplier1_id: s1Val ? parseInt(s1Val) : null,
+        supplier2_id: s2Val ? parseInt(s2Val) : null,
+        cost1: parseFloat(document.getElementById('prod-cost1').value || 0),
+        cost2: parseFloat(document.getElementById('prod-cost2').value || 0),
+        margin: parseFloat(document.getElementById('prod-margin').value || 0)
     };
 
     await fetch('/api/products', {
@@ -424,17 +505,21 @@ function calculatePrices(cost, margin) {
 }
 
 function updateNewPrice() {
-    const cost = parseFloat(document.getElementById("edit-product-cost").value) || 0;
+    const cost1 = parseFloat(document.getElementById("edit-prod-cost1")?.value) || 0;
+    const cost2 = parseFloat(document.getElementById("edit-prod-cost2")?.value) || 0;
+    const max_cost = Math.max(cost1, cost2);
     const margin = parseFloat(document.getElementById("edit-product-margin").value) || 0;
-    const newPrice = calculatePrices(cost, margin);
+    const newPrice = calculatePrices(max_cost, margin);
     document.getElementById("edit-product-new-price").value = newPrice;
 }
 
 function updateNewMargin() {
-    const cost = parseFloat(document.getElementById("edit-product-cost").value) || 0;
+    const cost1 = parseFloat(document.getElementById("edit-prod-cost1")?.value) || 0;
+    const cost2 = parseFloat(document.getElementById("edit-prod-cost2")?.value) || 0;
+    const max_cost = Math.max(cost1, cost2);
     const newPrice = parseFloat(document.getElementById("edit-product-new-price").value) || 0;
-    if (cost > 0) {
-        const exactMargin = ((newPrice / cost) - 1) * 100;
+    if (max_cost > 0) {
+        const exactMargin = ((newPrice / max_cost) - 1) * 100;
         document.getElementById("edit-product-margin").value = exactMargin.toFixed(2);
     } else {
         document.getElementById("edit-product-margin").value = 0;
@@ -444,24 +529,33 @@ function updateNewMargin() {
 
 function openEditProduct(id) {
     const p = state.products.find(x => x.id === id);
+    if (!p) return;
+
+    populateSupplierSelects();
 
     document.getElementById("edit-product-id").value = p.id;
     document.getElementById("edit-product-name").value = p.name;
     document.getElementById("edit-product-type").value = p.type;
-    document.getElementById("edit-product-cost").value = p.cost;
+    
+    if (document.getElementById("edit-prod-supplier1")) document.getElementById("edit-prod-supplier1").value = p.supplier1_id || '';
+    if (document.getElementById("edit-prod-supplier2")) document.getElementById("edit-prod-supplier2").value = p.supplier2_id || '';
+    if (document.getElementById("edit-prod-cost1")) document.getElementById("edit-prod-cost1").value = p.cost1 || 0;
+    if (document.getElementById("edit-prod-cost2")) document.getElementById("edit-prod-cost2").value = p.cost2 || 0;
+
     document.getElementById("edit-product-margin").value = p.margin;
     document.getElementById("edit-product-old-cost").value = p.cost;
-    document.getElementById("edit-product-old-price").value = p.price_kg;
+    document.getElementById("edit-product-old-price").value = p.old_price_kg;
 
     updateNewPrice();
     toggleModal("modal-edit-product");
 }
 
-document.getElementById("edit-product-cost").addEventListener("input", updateNewPrice);
-document.getElementById("edit-product-margin").addEventListener("input", updateNewPrice);
-document.getElementById("edit-product-new-price").addEventListener("input", updateNewMargin);
+document.getElementById("edit-prod-cost1")?.addEventListener("input", updateNewPrice);
+document.getElementById("edit-prod-cost2")?.addEventListener("input", updateNewPrice);
+document.getElementById("edit-product-margin")?.addEventListener("input", updateNewPrice);
+document.getElementById("edit-product-new-price")?.addEventListener("input", updateNewMargin);
 
-document.getElementById("edit-product-form").addEventListener("submit", async (e) => {
+document.getElementById("edit-product-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const btn = e.submitter;
     const originalText = btn.innerText;
@@ -471,11 +565,23 @@ document.getElementById("edit-product-form").addEventListener("submit", async (e
     const id = document.getElementById("edit-product-id").value;
     const name = document.getElementById("edit-product-name").value;
     const type = document.getElementById("edit-product-type").value;
-    const cost = parseFloat(document.getElementById("edit-product-cost").value);
-    const margin = parseFloat(document.getElementById("edit-product-margin").value);
+    
+    const s1Val = document.getElementById('edit-prod-supplier1').value;
+    const s2Val = document.getElementById('edit-prod-supplier2').value;
 
+    const cost1 = parseFloat(document.getElementById("edit-prod-cost1").value || 0);
+    const cost2 = parseFloat(document.getElementById("edit-prod-cost2").value || 0);
+    const margin = parseFloat(document.getElementById("edit-product-margin").value || 0);
 
-    const payload = { name, type, cost, margin };
+    const payload = {
+        name,
+        type,
+        supplier1_id: s1Val ? parseInt(s1Val) : null,
+        supplier2_id: s2Val ? parseInt(s2Val) : null,
+        cost1,
+        cost2,
+        margin
+    };
 
     await fetch(`/api/products/${id}`, {
         method: 'PUT',
@@ -812,6 +918,9 @@ function toggleModal(id) {
     if (!modal) return;
 
     if (modal.classList.contains("hidden")) {
+        if (id === 'modal-add-product' || id === 'modal-edit-product') {
+            populateSupplierSelects();
+        }
         modal.classList.remove("hidden");
         modal.classList.add("active");
     } else {
@@ -858,6 +967,7 @@ async function fetchCash() {
         const cash = Number(r.cash ?? 0);
         const card = Number(r.card ?? 0);
         const expenses = Number(r.expenses ?? 0);
+        const notes = r.notes || '';
 
         const net_income = cash + card;
         const total = net_income - expenses;
@@ -870,6 +980,7 @@ async function fetchCash() {
             card,
             net_income,
             expenses,
+            notes,
             total
         };
     });
@@ -936,6 +1047,7 @@ function renderCash() {
                 $${formatMoney(mData.profitTotal)}
             </td>
             <td></td>
+            <td></td>
         `;
 
         tbody.appendChild(headerTr);
@@ -951,7 +1063,6 @@ function renderCash() {
 
             const tr = document.createElement('tr');
             tr.style.display = isCurrent ? 'table-row' : 'none';
-            // Añadir un poco de opacidad/estilo para diferenciar que son filas hijas
             tr.style.backgroundColor = 'transparent';
             tr.innerHTML = `
                 <td style="padding-left: 2rem;">${formattedDate}</td>
@@ -963,6 +1074,7 @@ function renderCash() {
                 <td style="color: ${c.total >= 0 ? 'var(--success-color)' : 'var(--danger-color)'}; font-weight: bold;">
                     $${formatMoney(c.total)}
                 </td>
+                <td style="font-size:0.85rem; color:var(--text-secondary); max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${c.notes || ''}">${c.notes || '-'}</td>
                 <td style="display: flex; gap: 0.5rem;">
                     <button class="btn btn-secondary" style="padding: 0.3rem 0.6rem;"
                         onclick="openEditCash(${c.id})">✏️</button>
@@ -1007,6 +1119,7 @@ document.getElementById('cash-form').addEventListener('submit', async (e) => {
         cash: parseFloat(document.getElementById('cash-cash').value || 0),
         card: parseFloat(document.getElementById('cash-card').value || 0),
         expenses: parseFloat(document.getElementById('cash-expenses').value || 0),
+        notes: document.getElementById('cash-notes')?.value || '',
         expense_list: currentExpenseList
     };
 
@@ -1037,6 +1150,9 @@ function openEditCash(id) {
     document.getElementById('edit-cash-cash').value = c.cash;
     document.getElementById('edit-cash-card').value = c.card;
     document.getElementById('edit-cash-expenses').value = c.expenses || 0;
+    if (document.getElementById('edit-cash-notes')) {
+        document.getElementById('edit-cash-notes').value = c.notes || '';
+    }
 
     toggleModal('modal-edit-cash');
 }
@@ -1066,7 +1182,8 @@ document.getElementById('edit-cash-form').addEventListener('submit', async (e) =
         weekday,
         cash: parseFloat(document.getElementById('edit-cash-cash').value || 0),
         card: parseFloat(document.getElementById('edit-cash-card').value || 0),
-        expenses: parseFloat(document.getElementById('edit-cash-expenses').value || 0)
+        expenses: parseFloat(document.getElementById('edit-cash-expenses').value || 0),
+        notes: document.getElementById('edit-cash-notes')?.value || ''
     };
 
     await fetch(`/api/cash/${id}`, {
@@ -1302,50 +1419,20 @@ function renderMonthlyComparisonChart(cashData) {
     const canvas = document.getElementById('chart-month-compare');
     if (!canvas) return;
 
-    // Altura más grande
-    canvas.style.minHeight = '320px';
-    canvas.style.height = '320px';
-    if (canvas.parentElement) canvas.parentElement.style.minHeight = '380px';
-
-    const bgColors = totals.map(v => v >= 0 ? 'rgba(139, 92, 246, 0.7)' : 'rgba(239, 68, 68, 0.7)');
-    const borderColors = totals.map(v => v >= 0 ? '#8b5cf6' : '#ef4444');
-
     charts.monthCompare = new Chart(canvas.getContext('2d'), {
-        type: 'bar',
+        type: 'line',
         data: {
             labels,
             datasets: [{
                 label: 'Beneficio Neto',
                 data: totals,
-                backgroundColor: bgColors,
-                borderColor: borderColors,
-                borderWidth: 2,
-                borderRadius: 6
+                borderColor: '#8b5cf6',
+                backgroundColor: 'rgba(139, 92, 246, 0.2)',
+                fill: true,
+                tension: 0.4
             }]
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: ctx => ` $${formatMoney(ctx.parsed.y)}`
-                    }
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        callback: v => `$${formatMoney(v)}`
-                    }
-                },
-                x: {
-                    ticks: { maxRotation: 45, minRotation: 30 }
-                }
-            }
-        }
+        options: { responsive: true, plugins: { legend: { display: false } } }
     });
 }
 
@@ -1396,7 +1483,7 @@ function calculateMonthlyDayRanking(cashData) {
             }
         });
 
-        // Convertir a array y ordenar de mayor a menor (domingo incluido, doble turno)
+        // Convertir a array y ordenar de mayor a menor (incluyendo domingo)
         const ranking = Object.entries(totalsByWeekday)
             .map(([weekday, total]) => ({ weekday, total }))
             .sort((a, b) => b.total - a.total);
@@ -1422,13 +1509,15 @@ function renderMonthlyDayRanking(stats) {
         // Crear lista ordenada de días
         const rankingList = row.ranking
             .map((r, i) => {
-                const isBest  = i === 0;
+                const isBest = i === 0;
                 const isWorst = i === row.ranking.length - 1;
-                const color   = isBest  ? "var(--success-color)" :
-                                isWorst ? "var(--danger-color)"  : "inherit";
-                const label   = r.weekday === "DOMINGO" ? `${r.weekday} (Doble Turno)` : r.weekday;
+                const color =
+                    isBest ? "var(--success-color)" :   // mejor día
+                        isWorst ? "var(--danger-color)" :    // peor día
+                            "inherit";
+
                 return `<div style="color:${color}; font-weight:${isBest || isWorst ? 'bold' : 'normal'};">
-                            ${i + 1}. ${label} — $${formatMoney(r.total)}
+                            ${i + 1}. ${r.weekday} — $${formatMoney(r.total)}
                         </div>`;
             })
             .join("");
@@ -1643,5 +1732,145 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast("Error de conexión", "error");
         }
     });
+
+    document.getElementById('global-history-search')?.addEventListener('input', (e) => {
+        globalHistorySearchTerm = e.target.value.toLowerCase().trim();
+        renderGlobalPriceHistory();
+    });
 });
+
+// =====================================================
+//             HISTORIAL DE PRECIOS Y COMPRAS
+// =====================================================
+
+let currentGlobalHistoryPeriod = 'all';
+let rawGlobalHistoryData = [];
+let globalHistorySearchTerm = '';
+
+async function fetchGlobalPriceHistory(period = 'all') {
+    currentGlobalHistoryPeriod = period;
+    try {
+        const res = await fetch(`/api/products/price-history/all?period=${period}`);
+        if (!res.ok) throw new Error("Error al obtener historial de precios");
+        rawGlobalHistoryData = await res.json();
+        renderGlobalPriceHistory();
+    } catch (err) {
+        console.error(err);
+        showToast("Error al cargar el historial de precios", "error");
+    }
+}
+
+function filterGlobalHistory(period) {
+    document.querySelectorAll('.history-period-btn').forEach(btn => {
+        if (btn.dataset.period === period) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+    fetchGlobalPriceHistory(period);
+}
+
+function renderGlobalPriceHistory() {
+    const tbody = document.querySelector('#global-history-table tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    const filtered = rawGlobalHistoryData.filter(r => {
+        if (!globalHistorySearchTerm) return true;
+        return (r.product_name || '').toLowerCase().includes(globalHistorySearchTerm);
+    });
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Sin registros de cambios en este período</td></tr>';
+        return;
+    }
+
+    filtered.forEach(r => {
+        const dateStr = r.created_at ? new Date(r.created_at).toLocaleString('es-AR') : '-';
+        
+        const cheapest = parseFloat(r.cheapest_cost || 0);
+        const highest = parseFloat(r.highest_cost || 0);
+        const oldP = parseFloat(r.old_price_kg || 0);
+        const newP = parseFloat(r.new_price_kg || 0);
+        
+        const diffP = newP - oldP;
+        let diffBadge = '—';
+        if (oldP > 0) {
+            if (diffP > 0) {
+                diffBadge = `<span style="color:var(--danger-color); font-weight:bold;">▲ +$${formatMoney(diffP)}</span>`;
+            } else if (diffP < 0) {
+                diffBadge = `<span style="color:var(--success-color); font-weight:bold;">▼ -$${formatMoney(Math.abs(diffP))}</span>`;
+            } else {
+                diffBadge = `<span style="color:var(--text-secondary);">Sin cambio</span>`;
+            }
+        } else {
+            diffBadge = `<span style="color:var(--success-color); font-weight:bold;">⭐ Inicial</span>`;
+        }
+
+        const cheapestStr = cheapest > 0 ? `<span class="cheaper-cost">$${formatMoney(cheapest)} <span class="cheaper-cost-badge">Más barato</span></span>` : '-';
+        const highestStr = highest > 0 ? `$${formatMoney(highest)}` : '-';
+        const oldPStr = oldP > 0 ? `$${formatMoney(oldP)}` : '-';
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="font-size:0.85em; color:var(--text-secondary);">${dateStr}</td>
+            <td><strong>${r.product_name}</strong></td>
+            <td>${cheapestStr}</td>
+            <td>${highestStr}</td>
+            <td>${oldPStr}</td>
+            <td><strong style="color:var(--primary-color);">$${formatMoney(newP)}</strong></td>
+            <td>${diffBadge}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+async function openProductPriceHistory(productId, productName) {
+    document.getElementById('hist-prod-name').innerText = productName;
+    const tbody = document.querySelector('#product-history-table tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Cargando...</td></tr>';
+
+    toggleModal('modal-price-history');
+
+    try {
+        const res = await fetch(`/api/products/${productId}/price-history`);
+        if (!res.ok) throw new Error("Error al obtener historial del producto");
+        const history = await res.json();
+
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        if (history.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Sin historial de modificaciones registrado</td></tr>';
+            return;
+        }
+
+        history.forEach(r => {
+            const dateStr = r.created_at ? new Date(r.created_at).toLocaleString('es-AR') : '-';
+            const cheapest = parseFloat(r.cheapest_cost || 0);
+            const highest = parseFloat(r.highest_cost || 0);
+            const oldP = parseFloat(r.old_price_kg || 0);
+            const newP = parseFloat(r.new_price_kg || 0);
+
+            const cheapestStr = cheapest > 0 ? `<span class="cheaper-cost">$${formatMoney(cheapest)} <span class="cheaper-cost-badge">Más barato</span></span>` : '-';
+            const highestStr = highest > 0 ? `$${formatMoney(highest)}` : '-';
+            const oldPStr = oldP > 0 ? `$${formatMoney(oldP)}` : '-';
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="font-size:0.85em; color:var(--text-secondary);">${dateStr}</td>
+                <td>${oldPStr}</td>
+                <td><strong style="color:var(--primary-color);">$${formatMoney(newP)}</strong></td>
+                <td>${cheapestStr}</td>
+                <td>${highestStr}</td>
+                <td>${r.margin}%</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (err) {
+        console.error(err);
+        if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--danger-color);">Error al cargar historial</td></tr>';
+    }
+}
 

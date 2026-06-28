@@ -83,6 +83,33 @@ def get_db():
     finally:
         db.close()
 
+@app.on_event("startup")
+def startup_migrations():
+    with engine.begin() as conn:
+        try:
+            conn.execute(text("ALTER TABLE cash ADD COLUMN IF NOT EXISTS notes TEXT;"))
+            conn.execute(text("ALTER TABLE products ADD COLUMN IF NOT EXISTS supplier1_id INT NULL;"))
+            conn.execute(text("ALTER TABLE products ADD COLUMN IF NOT EXISTS supplier2_id INT NULL;"))
+            conn.execute(text("ALTER TABLE products ADD COLUMN IF NOT EXISTS cost1 NUMERIC DEFAULT 0;"))
+            conn.execute(text("ALTER TABLE products ADD COLUMN IF NOT EXISTS cost2 NUMERIC DEFAULT 0;"))
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS product_price_history (
+                    id SERIAL PRIMARY KEY,
+                    product_id INT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+                    old_price_kg NUMERIC NOT NULL,
+                    new_price_kg NUMERIC NOT NULL,
+                    cost1 NUMERIC DEFAULT 0,
+                    cost2 NUMERIC DEFAULT 0,
+                    cheapest_cost NUMERIC DEFAULT 0,
+                    highest_cost NUMERIC DEFAULT 0,
+                    margin NUMERIC NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """))
+        except Exception as e:
+            print("Migration info:", e)
+
+
 # ============================================
 #           ARCHIVOS ESTÁTICOS
 # ============================================
@@ -110,6 +137,28 @@ def calculate_prices(cost, margin):
         "price_250g": price_250g,
     }
 
+def log_price_change(db: Session, product_id: int, old_price: float, new_price: float, cost1: float, cost2: float, margin: float):
+    c1 = float(cost1 or 0.0)
+    c2 = float(cost2 or 0.0)
+    active_costs = [c for c in [c1, c2] if c > 0]
+    cheapest = min(active_costs) if active_costs else 0.0
+    highest = max(c1, c2)
+    
+    db.execute(text("""
+        INSERT INTO product_price_history 
+        (product_id, old_price_kg, new_price_kg, cost1, cost2, cheapest_cost, highest_cost, margin)
+        VALUES (:pid, :old_p, :new_p, :c1, :c2, :cheapest, :highest, :margin)
+    """), {
+        "pid": product_id,
+        "old_p": old_price,
+        "new_p": new_price,
+        "c1": c1,
+        "c2": c2,
+        "cheapest": cheapest,
+        "highest": highest,
+        "margin": margin
+    })
+
 # ============================================
 #             MODELOS PYDANTIC
 # ============================================
@@ -124,18 +173,31 @@ class CashPayload(BaseModel):
     cash: float
     card: float
     expenses: Optional[float] = 0.0
+    notes: Optional[str] = None
     expense_list: List[ExpenseItemPayload] = []
 
 class ProductPayload(BaseModel):
     name: str
     type: str
-    cost: float
+    cost: Optional[float] = None
+    cost_matiz: Optional[float] = None
+    cost_raices: Optional[float] = None
+    supplier1_id: Optional[int] = None
+    supplier2_id: Optional[int] = None
+    cost1: Optional[float] = 0.0
+    cost2: Optional[float] = 0.0
     margin: float
 
 class ProductUpdatePayload(BaseModel):
     name: Optional[str] = None
     type: Optional[str] = None
     cost: Optional[float] = None
+    cost_matiz: Optional[float] = None
+    cost_raices: Optional[float] = None
+    supplier1_id: Optional[int] = None
+    supplier2_id: Optional[int] = None
+    cost1: Optional[float] = None
+    cost2: Optional[float] = None
     margin: Optional[float] = None
 
 class SupplierPayload(BaseModel):
@@ -233,7 +295,7 @@ def delete_expense_category(cat_id: int, db: Session = Depends(get_db)):
 def get_cash_all(db: Session = Depends(get_db)):
     cash_result = db.execute(text("""
         SELECT 
-            id, date, weekday, cash, card, expenses,
+            id, date, weekday, cash, card, expenses, notes,
             (cash + card) AS net_income,
             (cash + card - expenses) AS total
         FROM cash
@@ -265,6 +327,7 @@ def create_cash(payload: CashPayload, db: Session = Depends(get_db)):
     weekday = payload.weekday
     cash = payload.cash
     card = payload.card
+    notes = payload.notes or ""
 
     if payload.expenses is not None and not payload.expense_list:
         total_expenses = payload.expenses
@@ -275,8 +338,8 @@ def create_cash(payload: CashPayload, db: Session = Depends(get_db)):
     total = net - total_expenses
 
     result = db.execute(text("""
-        INSERT INTO cash (date, weekday, cash, card, expenses, net_income, total)
-        VALUES (:date, :weekday, :cash, :card, :expenses, :net, :total)
+        INSERT INTO cash (date, weekday, cash, card, expenses, notes, net_income, total)
+        VALUES (:date, :weekday, :cash, :card, :expenses, :notes, :net, :total)
         RETURNING id
     """), {
         "date": date,
@@ -284,6 +347,7 @@ def create_cash(payload: CashPayload, db: Session = Depends(get_db)):
         "cash": cash,
         "card": card,
         "expenses": total_expenses,
+        "notes": notes,
         "net": net,
         "total": total
     })
@@ -307,6 +371,7 @@ def update_cash(cash_id: int, payload: CashPayload, db: Session = Depends(get_db
     weekday = payload.weekday
     cash = payload.cash
     card = payload.card
+    notes = payload.notes or ""
 
     if payload.expenses is not None and not payload.expense_list:
         total_expenses = payload.expenses
@@ -320,7 +385,7 @@ def update_cash(cash_id: int, payload: CashPayload, db: Session = Depends(get_db
         UPDATE cash
         SET 
             date = :date, weekday = :weekday,
-            cash = :cash, card = :card, expenses = :expenses,
+            cash = :cash, card = :card, expenses = :expenses, notes = :notes,
             net_income = :net, total = :total
         WHERE id = :id
     """), {
@@ -330,6 +395,7 @@ def update_cash(cash_id: int, payload: CashPayload, db: Session = Depends(get_db
         "cash": cash,
         "card": card,
         "expenses": total_expenses,
+        "notes": notes,
         "net": net,
         "total": total
     })
@@ -359,31 +425,52 @@ def delete_cash(cash_id: int, db: Session = Depends(get_db)):
 @app.get("/api/products")
 def get_products(db: Session = Depends(get_db)):
     result = db.execute(text("""
-        SELECT id, name, type, cost, margin,
-               price_kg, price_100g, price_150g, price_250g
-        FROM products
-        ORDER BY type ASC, name ASC
+        SELECT p.id, p.name, p.type, p.cost, p.margin, p.cost_matiz, p.cost_raices,
+               p.supplier1_id, p.supplier2_id, p.cost1, p.cost2,
+               s1.name as supplier1_name, s2.name as supplier2_name,
+               p.old_price_kg, p.price_kg, p.price_100g, p.price_150g, p.price_250g
+        FROM products p
+        LEFT JOIN suppliers s1 ON p.supplier1_id = s1.id
+        LEFT JOIN suppliers s2 ON p.supplier2_id = s2.id
+        ORDER BY p.type ASC, p.name ASC
     """)).mappings().all()
     return [dict(r) for r in result]
 
 
 @app.post("/api/products")
 def create_product(payload: ProductPayload, db: Session = Depends(get_db)):
-    prices = calculate_prices(payload.cost, payload.margin)
+    cost1 = payload.cost1 if payload.cost1 is not None else 0.0
+    cost2 = payload.cost2 if payload.cost2 is not None else 0.0
+    cost_matiz = payload.cost_matiz if payload.cost_matiz is not None else cost1
+    cost_raices = payload.cost_raices if payload.cost_raices is not None else cost2
+    
+    cost = max(cost1, cost2, cost_matiz, cost_raices)
+    prices = calculate_prices(cost, payload.margin)
 
-    db.execute(text("""
-        INSERT INTO products (name, type, cost, margin, price_kg, price_100g, price_150g, price_250g)
-        VALUES (:name, :type, :cost, :margin, :price_kg, :price_100g, :price_150g, :price_250g)
+    result = db.execute(text("""
+        INSERT INTO products (name, type, cost, margin, cost_matiz, cost_raices, supplier1_id, supplier2_id, cost1, cost2, old_price_kg, price_kg, price_100g, price_150g, price_250g)
+        VALUES (:name, :type, :cost, :margin, :cost_matiz, :cost_raices, :s1_id, :s2_id, :cost1, :cost2, :old_price_kg, :price_kg, :price_100g, :price_150g, :price_250g)
+        RETURNING id
     """), {
         "name": payload.name,
         "type": payload.type,
-        "cost": payload.cost,
+        "cost": cost,
         "margin": payload.margin,
+        "cost_matiz": cost_matiz,
+        "cost_raices": cost_raices,
+        "s1_id": payload.supplier1_id,
+        "s2_id": payload.supplier2_id,
+        "cost1": cost1,
+        "cost2": cost2,
+        "old_price_kg": prices["price_kg"],
         "price_kg": prices["price_kg"],
         "price_100g": prices["price_100g"],
         "price_150g": prices["price_150g"],
         "price_250g": prices["price_250g"]
     })
+    
+    new_prod_id = result.scalar()
+    log_price_change(db, new_prod_id, 0.0, prices["price_kg"], cost1, cost2, payload.margin)
 
     db.commit()
     return {"status": "created"}
@@ -392,16 +479,30 @@ def create_product(payload: ProductPayload, db: Session = Depends(get_db)):
 @app.put("/api/products/{product_id}")
 def update_product(product_id: int, payload: ProductUpdatePayload, db: Session = Depends(get_db)):
 
-    product = db.execute(text("SELECT name, type, cost, margin FROM products WHERE id = :id"), {"id": product_id}).mappings().first()
+    product = db.execute(text("SELECT name, type, cost, margin, cost_matiz, cost_raices, supplier1_id, supplier2_id, cost1, cost2, old_price_kg, price_kg FROM products WHERE id = :id"), {"id": product_id}).mappings().first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
     name = payload.name if payload.name is not None else product["name"]
     type_ = payload.type if payload.type is not None else product["type"]
-    cost = payload.cost if payload.cost is not None else product["cost"]
     margin = payload.margin if payload.margin is not None else product["margin"]
+    
+    s1_id = payload.supplier1_id if payload.supplier1_id is not None else product["supplier1_id"]
+    s2_id = payload.supplier2_id if payload.supplier2_id is not None else product["supplier2_id"]
 
+    cost1 = payload.cost1 if payload.cost1 is not None else (product["cost1"] if product["cost1"] is not None else 0.0)
+    cost2 = payload.cost2 if payload.cost2 is not None else (product["cost2"] if product["cost2"] is not None else 0.0)
+    
+    cost_matiz = payload.cost_matiz if payload.cost_matiz is not None else (product["cost_matiz"] if product["cost_matiz"] is not None else cost1)
+    cost_raices = payload.cost_raices if payload.cost_raices is not None else (product["cost_raices"] if product["cost_raices"] is not None else cost2)
+
+    cost = max(cost1, cost2, cost_matiz, cost_raices)
     prices = calculate_prices(cost, margin)
+
+    old_price_kg = product["old_price_kg"] if product["old_price_kg"] is not None else 0.0
+    if prices["price_kg"] != product["price_kg"]:
+        old_price_kg = product["price_kg"] if product["price_kg"] is not None else 0.0
+        log_price_change(db, product_id, old_price_kg, prices["price_kg"], cost1, cost2, margin)
 
     db.execute(text("""
         UPDATE products
@@ -409,6 +510,13 @@ def update_product(product_id: int, payload: ProductUpdatePayload, db: Session =
             type = :type,
             cost = :cost,
             margin = :margin,
+            cost_matiz = :cost_matiz,
+            cost_raices = :cost_raices,
+            supplier1_id = :s1_id,
+            supplier2_id = :s2_id,
+            cost1 = :cost1,
+            cost2 = :cost2,
+            old_price_kg = :old_price_kg,
             price_kg = :price_kg,
             price_100g = :price_100g,
             price_150g = :price_150g,
@@ -420,6 +528,13 @@ def update_product(product_id: int, payload: ProductUpdatePayload, db: Session =
         "type": type_,
         "cost": cost,
         "margin": margin,
+        "cost_matiz": cost_matiz,
+        "cost_raices": cost_raices,
+        "s1_id": s1_id,
+        "s2_id": s2_id,
+        "cost1": cost1,
+        "cost2": cost2,
+        "old_price_kg": old_price_kg,
         "price_kg": prices["price_kg"],
         "price_100g": prices["price_100g"],
         "price_150g": prices["price_150g"],
@@ -428,6 +543,65 @@ def update_product(product_id: int, payload: ProductUpdatePayload, db: Session =
 
     db.commit()
     return {"status": "updated"}
+
+
+# ============================================
+#        HISTORIAL DE PRECIOS API
+# ============================================
+
+@app.get("/api/products/price-history/all")
+def get_all_price_history(period: str = "all", db: Session = Depends(get_db)):
+    query = """
+        SELECT h.id, h.product_id, p.name as product_name, p.type as product_type,
+               h.old_price_kg, h.new_price_kg, h.cost1, h.cost2, h.cheapest_cost, h.highest_cost,
+               h.margin, h.created_at,
+               s1.name as supplier1_name, s2.name as supplier2_name
+        FROM product_price_history h
+        JOIN products p ON h.product_id = p.id
+        LEFT JOIN suppliers s1 ON p.supplier1_id = s1.id
+        LEFT JOIN suppliers s2 ON p.supplier2_id = s2.id
+    """
+    if period == "1m":
+        query += " WHERE h.created_at >= NOW() - INTERVAL '30 days'"
+    elif period == "6m":
+        query += " WHERE h.created_at >= NOW() - INTERVAL '180 days'"
+    elif period == "1y":
+        query += " WHERE h.created_at >= NOW() - INTERVAL '365 days'"
+    
+    query += " ORDER BY h.created_at DESC"
+    
+    result = db.execute(text(query)).mappings().all()
+    res = []
+    for r in result:
+        d = dict(r)
+        if d.get("created_at"):
+            d["created_at"] = d["created_at"].isoformat()
+        res.append(d)
+    return res
+
+
+@app.get("/api/products/{product_id}/price-history")
+def get_product_price_history(product_id: int, db: Session = Depends(get_db)):
+    result = db.execute(text("""
+        SELECT h.id, h.product_id, p.name as product_name,
+               h.old_price_kg, h.new_price_kg, h.cost1, h.cost2, h.cheapest_cost, h.highest_cost,
+               h.margin, h.created_at,
+               s1.name as supplier1_name, s2.name as supplier2_name
+        FROM product_price_history h
+        JOIN products p ON h.product_id = p.id
+        LEFT JOIN suppliers s1 ON p.supplier1_id = s1.id
+        LEFT JOIN suppliers s2 ON p.supplier2_id = s2.id
+        WHERE h.product_id = :pid
+        ORDER BY h.created_at DESC
+    """), {"pid": product_id}).mappings().all()
+    
+    res = []
+    for r in result:
+        d = dict(r)
+        if d.get("created_at"):
+            d["created_at"] = d["created_at"].isoformat()
+        res.append(d)
+    return res
 
 
 @app.delete("/api/products/{product_id}")
@@ -480,15 +654,21 @@ def add_supplier(product_id: int, payload: SupplierPayload, db: Session = Depend
     max_cost = max([s["cost"] for s in suppliers]) if suppliers else 0.0
 
     product = db.execute(text("""
-        SELECT margin FROM products WHERE id = :pid
+        SELECT margin, price_kg, old_price_kg FROM products WHERE id = :pid
     """), {"pid": product_id}).mappings().first()
 
     if product:
         prices = calculate_prices(max_cost, product["margin"])
+        old_price_kg = product["old_price_kg"] if product["old_price_kg"] is not None else 0.0
+        if prices["price_kg"] != product["price_kg"]:
+            old_price_kg = product["price_kg"] if product["price_kg"] is not None else 0.0
 
         db.execute(text("""
             UPDATE products
             SET cost = :cost,
+                cost_matiz = :cost,
+                cost_raices = :cost,
+                old_price_kg = :old_price_kg,
                 price_kg = :pkg,
                 price_100g = :p100,
                 price_150g = :p150,
@@ -497,6 +677,7 @@ def add_supplier(product_id: int, payload: SupplierPayload, db: Session = Depend
         """), {
             "id": product_id,
             "cost": max_cost,
+            "old_price_kg": old_price_kg,
             "pkg": prices["price_kg"],
             "p100": prices["price_100g"],
             "p150": prices["price_150g"],
@@ -521,15 +702,21 @@ def delete_supplier(product_id: int, supplier_id: int, db: Session = Depends(get
     max_cost = max([s["cost"] for s in suppliers]) if suppliers else 0.0
 
     product = db.execute(text("""
-        SELECT margin FROM products WHERE id = :pid
+        SELECT margin, price_kg, old_price_kg FROM products WHERE id = :pid
     """), {"pid": product_id}).mappings().first()
 
     if product:
         prices = calculate_prices(max_cost, product["margin"])
+        old_price_kg = product["old_price_kg"] if product["old_price_kg"] is not None else 0.0
+        if prices["price_kg"] != product["price_kg"]:
+            old_price_kg = product["price_kg"] if product["price_kg"] is not None else 0.0
 
         db.execute(text("""
             UPDATE products
             SET cost = :cost,
+                cost_matiz = :cost,
+                cost_raices = :cost,
+                old_price_kg = :old_price_kg,
                 price_kg = :pkg,
                 price_100g = :p100,
                 price_150g = :p150,
@@ -538,6 +725,7 @@ def delete_supplier(product_id: int, supplier_id: int, db: Session = Depends(get
         """), {
             "id": product_id,
             "cost": max_cost,
+            "old_price_kg": old_price_kg,
             "pkg": prices["price_kg"],
             "p100": prices["price_100g"],
             "p150": prices["price_150g"],
@@ -571,17 +759,24 @@ def import_products(file: UploadFile = File(...), db: Session = Depends(get_db))
             cost = float(row["cost"]) if pd.notna(row["cost"]) else 0.0
             margin = float(row["margin"]) if pd.notna(row["margin"]) else 0.0
 
-            prices = calculate_prices(cost, margin)
+            cost_matiz = float(row["cost_matiz"]) if "cost_matiz" in df.columns and pd.notna(row["cost_matiz"]) else cost
+            cost_raices = float(row["cost_raices"]) if "cost_raices" in df.columns and pd.notna(row["cost_raices"]) else cost
+            
+            base_cost = max(cost_matiz, cost_raices)
+            prices = calculate_prices(base_cost, margin)
 
             db.execute(text("""
                 INSERT INTO products
-                (name, type, cost, margin, price_kg, price_100g, price_150g, price_250g)
-                VALUES (:name, :type, :cost, :margin, :pkg, :p100, :p150, :p250)
+                (name, type, cost, margin, cost_matiz, cost_raices, old_price_kg, price_kg, price_100g, price_150g, price_250g)
+                VALUES (:name, :type, :cost, :margin, :cost_matiz, :cost_raices, :old_price_kg, :pkg, :p100, :p150, :p250)
             """), {
                 "name": str(row["name"]),
                 "type": str(row["type"]),
-                "cost": cost,
+                "cost": base_cost,
                 "margin": margin,
+                "cost_matiz": cost_matiz,
+                "cost_raices": cost_raices,
+                "old_price_kg": prices["price_kg"],
                 "pkg": prices["price_kg"],
                 "p100": prices["price_100g"],
                 "p150": prices["price_150g"],
