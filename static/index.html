@@ -63,8 +63,9 @@
             <nav>
                 <button class="nav-btn active" data-target="dashboard">📊 Dashboard</button>
                 <button class="nav-btn" data-target="products">📦 Productos</button>
-                
+                <button class="nav-btn" data-target="price-history">📜 Historial Precios</button>
                 <button class="nav-btn" data-target="cash">💰 Caja Diaria</button>
+                <button class="nav-btn" onclick="toggleModal('modal-manage-suppliers'); loadManageSuppliers();">🏢 Proveedores</button>
 
                 <hr class="menu-divider">
 
@@ -110,6 +111,23 @@
                     </div>
                     <button type="submit" class="btn btn-primary btn-block mt-2">Guardar</button>
                 </form>
+            </div>
+        </div>
+
+        <!-- MODAL MANAGE SUPPLIERS -->
+        <div id="modal-manage-suppliers" class="modal-overlay hidden">
+            <div class="modal-content glass-panel" style="max-width:600px;">
+                <div class="modal-header">
+                    <h2>Administrar Proveedores</h2>
+                    <button class="close-btn" onclick="toggleModal('modal-manage-suppliers')">×</button>
+                </div>
+                <button class="btn btn-primary" onclick="openGlobalSupplierModal()" style="margin-bottom: 1rem;">➕ Nuevo Proveedor</button>
+                <table class="table" id="manage-suppliers-table">
+                    <thead>
+                        <tr><th>Nombre</th><th>Teléfono</th><th>Email</th><th>Contacto</th><th>Acción</th></tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
             </div>
         </div>
 
@@ -159,9 +177,30 @@
                         </select>
                     </div>
 
-                    <div class="input-group">
-                        <label>Costo Unitario ($)</label>
-                        <input type="number" step="0.01" id="prod-cost" required>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div class="input-group">
+                            <label>Proveedor 1</label>
+                            <select id="prod-supplier1">
+                                <option value="">Seleccionar...</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Costo Proveedor 1 ($)</label>
+                            <input type="number" step="0.01" id="prod-cost1" value="0">
+                        </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div class="input-group">
+                            <label>Proveedor 2</label>
+                            <select id="prod-supplier2">
+                                <option value="">Seleccionar...</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Costo Proveedor 2 ($)</label>
+                            <input type="number" step="0.01" id="prod-cost2" value="0">
+                        </div>
                     </div>
 
                     <div class="input-group">
@@ -219,7 +258,7 @@
                     <input type="hidden" id="edit-product-id">
 
                     <div class="input-group">
-                        <label>Nombre</label>
+                        <label>Descripción</label>
                         <input type="text" id="edit-product-name" required>
                     </div>
 
@@ -235,9 +274,30 @@
                         </select>
                     </div>
 
-                    <div class="input-group">
-                        <label>Costo Actual ($)</label>
-                        <input type="number" step="0.01" id="edit-product-cost" required>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div class="input-group">
+                            <label>Proveedor 1</label>
+                            <select id="edit-prod-supplier1">
+                                <option value="">Seleccionar...</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Costo Proveedor 1 ($)</label>
+                            <input type="number" step="0.01" id="edit-prod-cost1" value="0">
+                        </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div class="input-group">
+                            <label>Proveedor 2</label>
+                            <select id="edit-prod-supplier2">
+                                <option value="">Seleccionar...</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Costo Proveedor 2 ($)</label>
+                            <input type="number" step="0.01" id="edit-prod-cost2" value="0">
+                        </div>
                     </div>
 
                     <div class="input-group">
@@ -246,7 +306,7 @@
                     </div>
 
                     <div class="input-group">
-                        <label>Precio de Costo Anterior ($)</label>
+                        <label>Costo Base Anterior ($)</label>
                         <input type="text" id="edit-product-old-cost" readonly>
                     </div>
 
@@ -308,6 +368,11 @@
                 <input type="number" step="0.01" id="edit-cash-expenses" required>
             </div>
 
+            <div class="input-group" style="grid-column: 1 / -1;">
+                <label>Notas / Observaciones</label>
+                <input type="text" id="edit-cash-notes" placeholder="Observaciones del día...">
+            </div>
+
             <div style="display:flex; gap:10px; margin-top: 1rem; grid-column: 1 / -1;">
                 <button type="button" class="btn btn-secondary" onclick="toggleModal('modal-edit-cash')">
                     Cancelar
@@ -344,6 +409,31 @@
                         <button type="submit" class="btn btn-primary" style="flex:1;">Aplicar Aumento</button>
                     </div>
                 </form>
+            </div>
+        </div>
+
+        <!-- MODAL HISTORIAL DE PRECIOS POR PRODUCTO -->
+        <div id="modal-price-history" class="modal-overlay hidden">
+            <div class="modal-content glass-panel" style="max-width: 700px;">
+                <div class="modal-header">
+                    <h2>Historial de Precios: <span id="hist-prod-name"></span></h2>
+                    <button class="close-btn" onclick="toggleModal('modal-price-history')">×</button>
+                </div>
+                <div style="overflow-x:auto;">
+                    <table class="table" id="product-history-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha / Hora</th>
+                                <th>Precio Anterior</th>
+                                <th>Nuevo Precio</th>
+                                <th>Compra Más Barata</th>
+                                <th>Costo Aplicado</th>
+                                <th>Margen</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -451,13 +541,15 @@
         </div>
     </div>
     
-    <div class="charts-grid-compact" style="margin-top: 2rem;">
-        <div class="chart-box glass-panel pretty-box small-chart" style="max-height: none; max-width: 330px; padding: 0.8rem 1rem 0.6rem 1rem;">
-            <h3 class="section-title" style="font-size: 1.1rem; margin-bottom: 0.5rem;">📊 Comparativo Mensual</h3>
-            <canvas id="chart-month-compare" style="max-height: 220px;"></canvas>
+    <div style="margin-top: 2rem; margin-bottom: 2rem;">
+        <div class="chart-box glass-panel pretty-box" style="max-height: none; width: 100%;">
+            <h3 class="section-title">📊 Comparativo Mensual</h3>
+            <canvas id="chart-month-compare"></canvas>
         </div>
+    </div>
 
-        <div class="chart-box glass-panel pretty-box small-chart" style="max-height: none;">
+    <div class="charts-grid-compact">
+        <div class="chart-box glass-panel pretty-box small-chart" style="max-height: none; width: 100%;">
             <h3 class="section-title">Caja Diaria por Día de la Semana</h3>
             <canvas id="chart-weekday-distribution"></canvas>
             <div style="overflow-x:auto; margin-top:1rem;">
@@ -487,13 +579,55 @@
                 </header>
 
                 <div class="glass-panel">
-                    <h3>Productos</h3>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:1rem;">
+                        <h3 style="margin:0;">Productos</h3>
+                        <input type="text" id="product-search" placeholder="🔍 Buscar por descripción o tipo..." style="width:100%; max-width:350px;">
+                    </div>
                     <table class="table" id="products-table">
                         <thead>
-                            <tr><th>Nombre</th><th>Tipo</th><th>Costo</th><th>Margen</th><th>Precio KG/UN</th><th>Precio por 100 gr.</th><th>Precio por 150 gr.</th><th>Precio por 250 gr.</th><th>Acción</th></tr>
+                            <tr><th>Descripción</th><th>Tipo</th><th>Proveedor 1 / Costo</th><th>Proveedor 2 / Costo</th><th>Margen</th><th>Precio KG/UN</th><th>Precio Anterior</th><th>Precio por 100 gr.</th><th>Precio por 150 gr.</th><th>Precio por 250 gr.</th><th>Acción</th></tr>
                         </thead>
                         <tbody></tbody>
                     </table>
+                </div>
+            </section>
+
+            <!-- HISTORIAL DE PRECIOS GLOBAL -->
+            <section id="price-history" class="view hidden">
+                <header class="flex-between">
+                    <div>
+                        <h1>📜 Histórico de Cambios de Precio y Compras</h1>
+                        <p>Auditoría de variaciones de costos y precios de venta</p>
+                    </div>
+                    <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+                        <button class="btn btn-secondary history-period-btn active" data-period="all" onclick="filterGlobalHistory('all')">Todo</button>
+                        <button class="btn btn-secondary history-period-btn" data-period="1m" onclick="filterGlobalHistory('1m')">1 Mes</button>
+                        <button class="btn btn-secondary history-period-btn" data-period="6m" onclick="filterGlobalHistory('6m')">6 Meses</button>
+                        <button class="btn btn-secondary history-period-btn" data-period="1y" onclick="filterGlobalHistory('1y')">1 Año</button>
+                    </div>
+                </header>
+
+                <div class="glass-panel">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:1rem;">
+                        <h3 style="margin:0;">Registro Unificado de Variaciones</h3>
+                        <input type="text" id="global-history-search" placeholder="🔍 Buscar por producto..." style="width:100%; max-width:350px;">
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table class="table" id="global-history-table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha / Hora</th>
+                                    <th>Producto</th>
+                                    <th>Compra Más Barata</th>
+                                    <th>Costo Aplicado</th>
+                                    <th>Precio Anterior</th>
+                                    <th>Nuevo Precio Venta</th>
+                                    <th>Variación</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
 
@@ -558,8 +692,13 @@
                 <input type="number" step="0.01" id="cash-expenses" required>
             </div>
 
+            <div class="input-group" style="grid-column: 1 / -1;">
+                <label>Notas / Observaciones</label>
+                <input type="text" id="cash-notes" placeholder="Observaciones o notas del día...">
+            </div>
+
             <div class="input-group flex-end" style="grid-column: 1 / -1; justify-content: flex-end;">
-                <button type="submit" class="btn btn-primary" style="padding: 0.4rem 1.2rem; font-size: 0.85rem; width: auto;">Guardar Cierre</button>
+                <button type="submit" class="btn btn-primary" style="padding: 0.3rem 0.8rem; font-size: 0.8rem; width: auto;">Guardar Cierre</button>
             </div>
 
         </form>
@@ -579,6 +718,7 @@
                     <th>Ingresos Netos</th>
                     <th>Gastos</th>
                     <th>Total Neto</th>
+                    <th>Notas</th>
                     <th>Acción</th>
                 </tr>
             </thead>

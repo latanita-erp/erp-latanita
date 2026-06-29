@@ -13,9 +13,9 @@ let currentExpenseList = []; // For cash forms
 
 
 function formatMoney(val) {
-    return val.toLocaleString('es-AR', { 
-        minimumFractionDigits: 2, 
-        maximumFractionDigits: 2 
+    return val.toLocaleString('es-AR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
     });
 }
 
@@ -37,16 +37,16 @@ function formatMonthLiteral(monthStr) {
 // ======================================================
 
 const originalFetch = window.fetch;
-window.fetch = async function() {
+window.fetch = async function () {
     let [resource, config] = arguments;
     if (!config) config = {};
     if (!config.headers) config.headers = {};
-    
+
     const token = localStorage.getItem('auth_token');
     if (token) {
         config.headers['Authorization'] = `Basic ${token}`;
     }
-    
+
     const response = await originalFetch(resource, config);
     if (response.status === 401) {
         localStorage.removeItem('auth_token');
@@ -104,14 +104,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         const user = document.getElementById('login-user').value;
         const pass = document.getElementById('login-pass').value;
         const errorEl = document.getElementById('login-error');
-        
+
         const token = btoa(`${user}:${pass}`);
-        
+
         try {
             const res = await originalFetch('/api/products', {
                 headers: { 'Authorization': `Basic ${token}` }
             });
-            
+
             if (res.ok) {
                 localStorage.setItem('auth_token', token);
                 errorEl.style.display = 'none';
@@ -127,9 +127,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-// ======================================================
-//                 INICIALIZACIÓN GENERAL
-// ======================================================
+    // ======================================================
+    //                 INICIALIZACIÓN GENERAL
+    // ======================================================
 
     // Navegación entre vistas
     document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -157,6 +157,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Importación Excel
     document.getElementById('excel-file')
         ?.addEventListener('change', handleExcelUpload);
+
+    // Búsqueda de Productos
+    document.getElementById('product-search')
+        ?.addEventListener('input', (e) => {
+            productSearchTerm = e.target.value.toLowerCase().trim();
+            renderProducts();
+        });
 });
 
 // ======================================================
@@ -186,6 +193,7 @@ async function loadData(view) {
     if (view === 'cash') await fetchCash();
     if (view === 'dashboard') await fetchDashboard();
     if (view === 'suppliers-global') await fetchGlobalSuppliers();
+    if (view === 'price-history') await fetchGlobalPriceHistory(currentGlobalHistoryPeriod);
 }
 
 // ======================================================
@@ -198,7 +206,14 @@ async function fetchProducts() {
 
     state.products = data.map(p => ({
         ...p,
-        cost: parseFloat(p.cost),
+        cost: parseFloat(p.cost || 0),
+        cost1: parseFloat(p.cost1 !== undefined ? p.cost1 : (p.cost_matiz || 0)),
+        cost2: parseFloat(p.cost2 !== undefined ? p.cost2 : (p.cost_raices || 0)),
+        supplier1_id: p.supplier1_id,
+        supplier2_id: p.supplier2_id,
+        supplier1_name: p.supplier1_name || '',
+        supplier2_name: p.supplier2_name || '',
+        old_price_kg: parseFloat(p.old_price_kg || 0),
         margin: parseFloat(p.margin),
         price_kg: parseFloat(p.price_kg)
     }));
@@ -206,32 +221,87 @@ async function fetchProducts() {
     renderProducts();
 }
 
+function populateSupplierSelects() {
+    const list = state.suppliers || [];
+    ['prod-supplier1', 'prod-supplier2', 'edit-prod-supplier1', 'edit-prod-supplier2'].forEach(id => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        const currentVal = sel.value;
+        sel.innerHTML = '<option value="">Sin Proveedor</option>';
+        list.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.id;
+            opt.innerText = s.name;
+            sel.appendChild(opt);
+        });
+        sel.value = currentVal;
+    });
+}
+
+let productSearchTerm = '';
+
 function renderProducts() {
     const tbody = document.querySelector('#products-table tbody');
+    if (!tbody) return;
     tbody.innerHTML = '';
 
-    state.products.forEach(p => {
+    const filtered = state.products.filter(p => {
+        if (!productSearchTerm) return true;
+        const name = (p.name || '').toLowerCase();
+        const type = (p.type || '').toLowerCase();
+        return name.includes(productSearchTerm) || type.includes(productSearchTerm);
+    });
+
+    filtered.forEach(p => {
 
         const isBebida = p.type === "BEBIDAS";
         const p100 = isBebida ? "" : `$${formatMoney(p.price_100g)}`;
         const p150 = isBebida ? "" : `$${formatMoney(p.price_150g)}`;
         const p250 = isBebida ? "" : `$${formatMoney(p.price_250g)}`;
+        const oldPrice = p.old_price_kg > 0 ? `$${formatMoney(p.old_price_kg)}` : '-';
 
         // Convert type to lowercase and replace spaces to create a safe CSS class
         const typeClass = `row-${p.type.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+
+        // Determinar el costo más barato para destacar
+        let s1Class = '';
+        let s2Class = '';
+        let s1Badge = '';
+        let s2Badge = '';
+        if (p.cost1 > 0 && p.cost2 > 0) {
+            if (p.cost1 < p.cost2) {
+                s1Class = 'cheaper-cost';
+                s1Badge = '<span class="cheaper-cost-badge">Más barato</span>';
+            } else if (p.cost2 < p.cost1) {
+                s2Class = 'cheaper-cost';
+                s2Badge = '<span class="cheaper-cost-badge">Más barato</span>';
+            }
+        } else if (p.cost1 > 0 && p.cost2 === 0) {
+            s1Class = 'cheaper-cost';
+            s1Badge = '<span class="cheaper-cost-badge">Único</span>';
+        } else if (p.cost2 > 0 && p.cost1 === 0) {
+            s2Class = 'cheaper-cost';
+            s2Badge = '<span class="cheaper-cost-badge">Único</span>';
+        }
+
+        const s1Label = p.supplier1_name ? `<span style="font-size:0.8em; opacity:0.8; display:block;">${p.supplier1_name}</span>` : '';
+        const s2Label = p.supplier2_name ? `<span style="font-size:0.8em; opacity:0.8; display:block;">${p.supplier2_name}</span>` : '';
 
         const tr = document.createElement('tr');
         tr.className = typeClass;
         tr.innerHTML = `
             <td class="prod-name"><strong>${p.name}</strong></td>
             <td class="prod-type">${p.type}</td>
-            <td class="prod-cost" data-value="${p.cost}">$${formatMoney(p.cost)}</td>
+            <td class="prod-cost1 ${s1Class}" data-value="${p.cost1}">${s1Label}$${formatMoney(p.cost1)}${s1Badge}</td>
+            <td class="prod-cost2 ${s2Class}" data-value="${p.cost2}">${s2Label}$${formatMoney(p.cost2)}${s2Badge}</td>
             <td class="prod-margin" data-value="${p.margin}">${p.margin}%</td>
             <td class="prod-pricekg" data-value="${p.price_kg}"><strong>$${formatMoney(p.price_kg)}</strong></td>
+            <td class="prod-oldprice" data-value="${p.old_price_kg}">${oldPrice}</td>
             <td class="prod-price100" data-value="${p.price_100g}">${p100}</td>
             <td class="prod-price150" data-value="${p.price_150g}">${p150}</td>
             <td class="prod-price250" data-value="${p.price_250g}">${p250}</td>
             <td style="display: flex; gap: 0.5rem;">
+                <button class="btn btn-secondary" title="Historial de precios" onclick="openProductPriceHistory(${p.id}, '${p.name.replace(/'/g, "\\'")}')">📜</button>
                 <button class="btn btn-secondary" onclick="openEditProduct(${p.id})">✏️</button>
                 <button class="btn btn-danger" onclick="deleteProduct(${p.id})">🗑️</button>
             </td>
@@ -277,28 +347,22 @@ function renderWeekdayDistribution(currentMonthRows) {
         if (counts[day] !== undefined) counts[day]++;
     });
 
-    const labels = Object.keys(data).map(day => {
-        const text = `${day} (${counts[day]})`;
-        return day === "DOMINGO" ? `${text} (Medio Turno)` : text;
-    });
+    const labels = Object.keys(data).map(day => `${day} (${counts[day]})`);
     const values = Object.values(data);
     const keys = Object.keys(data);
 
     let maxVal = -Infinity;
     let minVal = Infinity;
     keys.forEach(day => {
-        if (day !== "DOMINGO") {
-            const v = data[day];
-            if (v > maxVal) maxVal = v;
-            if (v < minVal && v > 0) minVal = v; // only consider days with some value as min
-        }
+        const v = data[day];
+        if (v > maxVal) maxVal = v;
+        if (v < minVal && v > 0) minVal = v;
     });
 
     const bgColors = keys.map(day => {
         const v = data[day];
-        if (day === "DOMINGO") return "rgba(156, 163, 175, 0.4)"; // muted color for medio turno
-        if (v === maxVal && v > 0) return "rgba(16, 185, 129, 0.8)"; // success-color
-        if (v === minVal && v > 0) return "rgba(239, 68, 68, 0.8)"; // danger-color
+        if (v === maxVal && v > 0) return "rgba(16, 185, 129, 0.8)";
+        if (v === minVal && v > 0) return "rgba(239, 68, 68, 0.8)";
         return "rgba(99, 102, 241, 0.6)";
     });
 
@@ -330,44 +394,55 @@ function renderWeekdayDistribution(currentMonthRows) {
 // ======================================================
 
 function updateAddProductPrice() {
-    const cost = parseFloat(document.getElementById("prod-cost").value) || 0;
+    const cost1 = parseFloat(document.getElementById("prod-cost1")?.value) || 0;
+    const cost2 = parseFloat(document.getElementById("prod-cost2")?.value) || 0;
+    const max_cost = Math.max(cost1, cost2);
     const margin = parseFloat(document.getElementById("prod-margin").value) || 0;
-    const newPrice = calculatePrices(cost, margin);
+    const newPrice = calculatePrices(max_cost, margin);
     document.getElementById("prod-new-price").value = newPrice;
 }
 
 function updateAddProductMargin() {
-    const cost = parseFloat(document.getElementById("prod-cost").value) || 0;
+    const cost1 = parseFloat(document.getElementById("prod-cost1")?.value) || 0;
+    const cost2 = parseFloat(document.getElementById("prod-cost2")?.value) || 0;
+    const max_cost = Math.max(cost1, cost2);
     const newPrice = parseFloat(document.getElementById("prod-new-price").value) || 0;
-    if (cost > 0) {
-        const exactMargin = ((newPrice / cost) - 1) * 100;
+    if (max_cost > 0) {
+        const exactMargin = ((newPrice / max_cost) - 1) * 100;
         document.getElementById("prod-margin").value = exactMargin.toFixed(2);
     } else {
         document.getElementById("prod-margin").value = 0;
     }
 }
 
-document.getElementById("prod-cost").addEventListener("input", updateAddProductPrice);
-document.getElementById("prod-margin").addEventListener("input", updateAddProductPrice);
-document.getElementById("prod-new-price").addEventListener("input", updateAddProductMargin);
+document.getElementById("prod-cost1")?.addEventListener("input", updateAddProductPrice);
+document.getElementById("prod-cost2")?.addEventListener("input", updateAddProductPrice);
+document.getElementById("prod-margin")?.addEventListener("input", updateAddProductPrice);
+document.getElementById("prod-new-price")?.addEventListener("input", updateAddProductMargin);
 
-document.getElementById('add-product-form').addEventListener('submit', async (e) => {
+document.getElementById('add-product-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = e.submitter;
     const originalText = btn.innerText;
     btn.disabled = true;
     btn.innerText = "Guardando...";
 
+    const s1Val = document.getElementById('prod-supplier1').value;
+    const s2Val = document.getElementById('prod-supplier2').value;
+
     const payload = {
         name: document.getElementById('prod-name').value,
         type: document.getElementById('prod-type').value,
-        cost: parseFloat(document.getElementById('prod-cost').value),
-        margin: parseFloat(document.getElementById('prod-margin').value)
+        supplier1_id: s1Val ? parseInt(s1Val) : null,
+        supplier2_id: s2Val ? parseInt(s2Val) : null,
+        cost1: parseFloat(document.getElementById('prod-cost1').value || 0),
+        cost2: parseFloat(document.getElementById('prod-cost2').value || 0),
+        margin: parseFloat(document.getElementById('prod-margin').value || 0)
     };
 
     await fetch('/api/products', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     });
 
@@ -430,17 +505,21 @@ function calculatePrices(cost, margin) {
 }
 
 function updateNewPrice() {
-    const cost = parseFloat(document.getElementById("edit-product-cost").value) || 0;
+    const cost1 = parseFloat(document.getElementById("edit-prod-cost1")?.value) || 0;
+    const cost2 = parseFloat(document.getElementById("edit-prod-cost2")?.value) || 0;
+    const max_cost = Math.max(cost1, cost2);
     const margin = parseFloat(document.getElementById("edit-product-margin").value) || 0;
-    const newPrice = calculatePrices(cost, margin);
+    const newPrice = calculatePrices(max_cost, margin);
     document.getElementById("edit-product-new-price").value = newPrice;
 }
 
 function updateNewMargin() {
-    const cost = parseFloat(document.getElementById("edit-product-cost").value) || 0;
+    const cost1 = parseFloat(document.getElementById("edit-prod-cost1")?.value) || 0;
+    const cost2 = parseFloat(document.getElementById("edit-prod-cost2")?.value) || 0;
+    const max_cost = Math.max(cost1, cost2);
     const newPrice = parseFloat(document.getElementById("edit-product-new-price").value) || 0;
-    if (cost > 0) {
-        const exactMargin = ((newPrice / cost) - 1) * 100;
+    if (max_cost > 0) {
+        const exactMargin = ((newPrice / max_cost) - 1) * 100;
         document.getElementById("edit-product-margin").value = exactMargin.toFixed(2);
     } else {
         document.getElementById("edit-product-margin").value = 0;
@@ -450,24 +529,33 @@ function updateNewMargin() {
 
 function openEditProduct(id) {
     const p = state.products.find(x => x.id === id);
+    if (!p) return;
+
+    populateSupplierSelects();
 
     document.getElementById("edit-product-id").value = p.id;
     document.getElementById("edit-product-name").value = p.name;
     document.getElementById("edit-product-type").value = p.type;
-    document.getElementById("edit-product-cost").value = p.cost;
+    
+    if (document.getElementById("edit-prod-supplier1")) document.getElementById("edit-prod-supplier1").value = p.supplier1_id || '';
+    if (document.getElementById("edit-prod-supplier2")) document.getElementById("edit-prod-supplier2").value = p.supplier2_id || '';
+    if (document.getElementById("edit-prod-cost1")) document.getElementById("edit-prod-cost1").value = p.cost1 || 0;
+    if (document.getElementById("edit-prod-cost2")) document.getElementById("edit-prod-cost2").value = p.cost2 || 0;
+
     document.getElementById("edit-product-margin").value = p.margin;
     document.getElementById("edit-product-old-cost").value = p.cost;
-    document.getElementById("edit-product-old-price").value = p.price_kg;
+    document.getElementById("edit-product-old-price").value = p.old_price_kg;
 
     updateNewPrice();
     toggleModal("modal-edit-product");
 }
 
-document.getElementById("edit-product-cost").addEventListener("input", updateNewPrice);
-document.getElementById("edit-product-margin").addEventListener("input", updateNewPrice);
-document.getElementById("edit-product-new-price").addEventListener("input", updateNewMargin);
+document.getElementById("edit-prod-cost1")?.addEventListener("input", updateNewPrice);
+document.getElementById("edit-prod-cost2")?.addEventListener("input", updateNewPrice);
+document.getElementById("edit-product-margin")?.addEventListener("input", updateNewPrice);
+document.getElementById("edit-product-new-price")?.addEventListener("input", updateNewMargin);
 
-document.getElementById("edit-product-form").addEventListener("submit", async (e) => {
+document.getElementById("edit-product-form")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     const btn = e.submitter;
     const originalText = btn.innerText;
@@ -477,15 +565,27 @@ document.getElementById("edit-product-form").addEventListener("submit", async (e
     const id = document.getElementById("edit-product-id").value;
     const name = document.getElementById("edit-product-name").value;
     const type = document.getElementById("edit-product-type").value;
-    const cost = parseFloat(document.getElementById("edit-product-cost").value);
-    const margin = parseFloat(document.getElementById("edit-product-margin").value);
     
+    const s1Val = document.getElementById('edit-prod-supplier1').value;
+    const s2Val = document.getElementById('edit-prod-supplier2').value;
 
-    const payload = { name, type, cost, margin };
+    const cost1 = parseFloat(document.getElementById("edit-prod-cost1").value || 0);
+    const cost2 = parseFloat(document.getElementById("edit-prod-cost2").value || 0);
+    const margin = parseFloat(document.getElementById("edit-product-margin").value || 0);
+
+    const payload = {
+        name,
+        type,
+        supplier1_id: s1Val ? parseInt(s1Val) : null,
+        supplier2_id: s2Val ? parseInt(s2Val) : null,
+        cost1,
+        cost2,
+        margin
+    };
 
     await fetch(`/api/products/${id}`, {
         method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     });
 
@@ -730,7 +830,7 @@ function generateTechnicalList() {
 async function openSuppliers(productId, productName) {
     document.getElementById('sup-prod-name').innerText = productName;
     document.getElementById('sup-prod-id').value = productId;
-    
+
     const sel = document.getElementById('sup-id');
     sel.innerHTML = '<option value="">Seleccionar Proveedor...</option>';
     state.suppliers.forEach(s => {
@@ -792,7 +892,7 @@ document.getElementById('add-supplier-form').addEventListener('submit', async (e
 
     await fetch(`/api/products/${productId}/suppliers`, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     });
 
@@ -818,6 +918,9 @@ function toggleModal(id) {
     if (!modal) return;
 
     if (modal.classList.contains("hidden")) {
+        if (id === 'modal-add-product' || id === 'modal-edit-product') {
+            populateSupplierSelects();
+        }
         modal.classList.remove("hidden");
         modal.classList.add("active");
     } else {
@@ -864,6 +967,7 @@ async function fetchCash() {
         const cash = Number(r.cash ?? 0);
         const card = Number(r.card ?? 0);
         const expenses = Number(r.expenses ?? 0);
+        const notes = r.notes || '';
 
         const net_income = cash + card;
         const total = net_income - expenses;
@@ -876,6 +980,7 @@ async function fetchCash() {
             card,
             net_income,
             expenses,
+            notes,
             total
         };
     });
@@ -924,7 +1029,7 @@ function renderCash() {
     sortedMonths.forEach(month => {
         const mData = byMonth[month];
         const isCurrent = month === currentMonth;
-        
+
         // Crear fila cabecera del mes
         const headerTr = document.createElement('tr');
         headerTr.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
@@ -942,14 +1047,15 @@ function renderCash() {
                 $${formatMoney(mData.profitTotal)}
             </td>
             <td></td>
+            <td></td>
         `;
-        
+
         tbody.appendChild(headerTr);
 
         const monthRows = [];
-        
+
         // Ordenar los días dentro del mes de forma descendente
-        mData.rows.sort((a,b) => b.date.localeCompare(a.date));
+        mData.rows.sort((a, b) => b.date.localeCompare(a.date));
 
         mData.rows.forEach(c => {
             const [y, m, d] = c.date.split('-');
@@ -957,7 +1063,6 @@ function renderCash() {
 
             const tr = document.createElement('tr');
             tr.style.display = isCurrent ? 'table-row' : 'none';
-            // Añadir un poco de opacidad/estilo para diferenciar que son filas hijas
             tr.style.backgroundColor = 'transparent';
             tr.innerHTML = `
                 <td style="padding-left: 2rem;">${formattedDate}</td>
@@ -969,6 +1074,7 @@ function renderCash() {
                 <td style="color: ${c.total >= 0 ? 'var(--success-color)' : 'var(--danger-color)'}; font-weight: bold;">
                     $${formatMoney(c.total)}
                 </td>
+                <td style="font-size:0.85rem; color:var(--text-secondary); max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${c.notes || ''}">${c.notes || '-'}</td>
                 <td style="display: flex; gap: 0.5rem;">
                     <button class="btn btn-secondary" style="padding: 0.3rem 0.6rem;"
                         onclick="openEditCash(${c.id})">✏️</button>
@@ -1012,19 +1118,22 @@ document.getElementById('cash-form').addEventListener('submit', async (e) => {
         weekday,
         cash: parseFloat(document.getElementById('cash-cash').value || 0),
         card: parseFloat(document.getElementById('cash-card').value || 0),
-        expenses: parseFloat(document.getElementById('cash-expenses').value || 0)
+        expenses: parseFloat(document.getElementById('cash-expenses').value || 0),
+        notes: document.getElementById('cash-notes')?.value || '',
+        expense_list: currentExpenseList
     };
 
     await fetch('/api/cash', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     });
 
     btn.disabled = false;
     btn.innerText = originalText;
     e.target.reset();
-    fetchCash();
+    await fetchCash();
+    await fetchDashboard();
 });
 
 // =====================================================
@@ -1033,7 +1142,7 @@ document.getElementById('cash-form').addEventListener('submit', async (e) => {
 
 function openEditCash(id) {
     const c = state.cash.find(x => x.id == id);
-    if(!c) return;
+    if (!c) return;
 
     document.getElementById('edit-cash-id').value = c.id;
     document.getElementById('edit-cash-date').value = c.date;
@@ -1041,6 +1150,9 @@ function openEditCash(id) {
     document.getElementById('edit-cash-cash').value = c.cash;
     document.getElementById('edit-cash-card').value = c.card;
     document.getElementById('edit-cash-expenses').value = c.expenses || 0;
+    if (document.getElementById('edit-cash-notes')) {
+        document.getElementById('edit-cash-notes').value = c.notes || '';
+    }
 
     toggleModal('modal-edit-cash');
 }
@@ -1070,19 +1182,21 @@ document.getElementById('edit-cash-form').addEventListener('submit', async (e) =
         weekday,
         cash: parseFloat(document.getElementById('edit-cash-cash').value || 0),
         card: parseFloat(document.getElementById('edit-cash-card').value || 0),
-        expenses: parseFloat(document.getElementById('edit-cash-expenses').value || 0)
+        expenses: parseFloat(document.getElementById('edit-cash-expenses').value || 0),
+        notes: document.getElementById('edit-cash-notes')?.value || ''
     };
 
     await fetch(`/api/cash/${id}`, {
         method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     });
 
     btn.disabled = false;
     btn.innerText = originalText;
     toggleModal('modal-edit-cash');
-    fetchCash();
+    await fetchCash();
+    await fetchDashboard();
 });
 
 // =====================================================
@@ -1092,7 +1206,8 @@ document.getElementById('edit-cash-form').addEventListener('submit', async (e) =
 async function deleteCash(id) {
     if (confirm('¿Eliminar este registro de caja?')) {
         await fetch(`/api/cash/${id}`, { method: 'DELETE' });
-        fetchCash();
+        await fetchCash();
+        await fetchDashboard();
     }
 }
 
@@ -1114,10 +1229,10 @@ async function fetchDashboard() {
 function populateMonthFilter() {
     const cashData = state.cash || [];
     const filter = document.getElementById('dashboard-month-filter');
-    if(!filter) return;
-    
+    if (!filter) return;
+
     const months = [...new Set(cashData.map(r => r.date.slice(0, 7)))].sort().reverse();
-    
+
     filter.innerHTML = '';
     months.forEach(m => {
         const opt = document.createElement('option');
@@ -1125,13 +1240,13 @@ function populateMonthFilter() {
         opt.innerText = formatMonthLiteral(m);
         filter.appendChild(opt);
     });
-    
+
     // Default to most recent month
-    if(months.length > 0) {
+    if (months.length > 0) {
         selectedMonth = months[0];
         filter.value = selectedMonth;
     }
-    
+
     filter.addEventListener('change', (e) => {
         selectedMonth = e.target.value;
         renderDashboard();
@@ -1140,32 +1255,32 @@ function populateMonthFilter() {
 
 function renderDashboard() {
     const cashData = state.cash || [];
-    
+
     // Historic Calculations
     const histRevenue = cashData.reduce((acc, r) => acc + r.net_income, 0);
     const histExpenses = cashData.reduce((acc, r) => acc + r.expenses, 0);
     const histProfit = cashData.reduce((acc, r) => acc + r.total, 0);
-    
+
     document.getElementById('hist-revenue').innerText = `$${formatMoney(histRevenue)}`;
     document.getElementById('hist-expenses').innerText = `$${formatMoney(histExpenses)}`;
     document.getElementById('hist-profit').innerText = `$${formatMoney(histProfit)}`;
-    
+
     // Filter by selected month
     const monthRows = cashData.filter(r => r.date.startsWith(selectedMonth));
-    
+
     // Current Month KPIs
     const rev = monthRows.reduce((acc, r) => acc + r.net_income, 0);
     const exp = monthRows.reduce((acc, r) => acc + r.expenses, 0);
     const prof = monthRows.reduce((acc, r) => acc + r.total, 0);
-    
+
     document.getElementById('kpi-revenue').innerText = `$${formatMoney(rev)}`;
     document.getElementById('kpi-expenses').innerText = `$${formatMoney(exp)}`;
     document.getElementById('kpi-profit').innerText = `$${formatMoney(prof)}`;
-    
+
     // Update period labels
     const periodStr = formatMonthLiteral(selectedMonth);
     document.querySelectorAll('.kpi-period').forEach(el => el.innerText = periodStr);
-    
+
     // Trend logic (compare selected month vs previous)
     const months = [...new Set(cashData.map(r => r.date.slice(0, 7)))].sort();
     const idx = months.indexOf(selectedMonth);
@@ -1175,11 +1290,11 @@ function renderDashboard() {
         const pRev = prevRows.reduce((acc, r) => acc + r.net_income, 0);
         const pExp = prevRows.reduce((acc, r) => acc + r.expenses, 0);
         const pProf = prevRows.reduce((acc, r) => acc + r.total, 0);
-        
+
         const diffVentas = rev - pRev;
         const diffGastos = exp - pExp;
         const diffGanancia = prof - pProf;
-        
+
         const fmtDiff = (v) => `${v >= 0 ? '▲' : '▼'} $${formatMoney(Math.abs(v))}`;
         document.getElementById('trend-ventas').innerText = fmtDiff(diffVentas);
         document.getElementById('trend-gastos').innerText = fmtDiff(diffGastos);
@@ -1200,10 +1315,10 @@ function renderDashboard() {
     const currentMonthStr = new Date().toISOString().slice(0, 7);
     const currentMonthRows = cashData.filter(r => r.date.startsWith(currentMonthStr));
     renderDailySalesChart(currentMonthRows);
-    
+
     // 3. Efectivo vs Tarjeta (For the selected month)
     renderPaymentChart(monthRows);
-    
+
     // 4. Comparativo mensual (Todos los meses acumulando beneficio)
     renderMonthlyComparisonChart(cashData);
 
@@ -1218,7 +1333,7 @@ function renderDashboard() {
 }
 
 function renderDailySalesChart(rows) {
-    const sorted = [...rows].sort((a,b) => a.date.localeCompare(b.date));
+    const sorted = [...rows].sort((a, b) => a.date.localeCompare(b.date));
     const labels = sorted.map(r => {
         const day = r.date.split("-")[2];
         const initial = r.weekday ? r.weekday.charAt(0) : "";
@@ -1238,7 +1353,7 @@ function renderDailySalesChart(rows) {
         const weekday = date.getDay() === 0 ? 6 : date.getDay() - 1;
         if (lastWeekday !== -1 && weekday < lastWeekday) currentWeekIndex++;
         lastWeekday = weekday;
-        
+
         bgColors.push(weekColors[currentWeekIndex % weekColors.length]);
         if (!weeklyTotals[currentWeekIndex]) weeklyTotals[currentWeekIndex] = 0;
         weeklyTotals[currentWeekIndex] += r.net_income;
@@ -1258,7 +1373,7 @@ function renderDailySalesChart(rows) {
         let html = "<div style='display:flex; justify-content:center; gap: 10px; flex-wrap:wrap;'>";
         weeklyTotals.forEach((tot, i) => {
             if (tot > 0) {
-                html += `<div style="padding:0.4rem 0.8rem; background:${weekColors[i%weekColors.length]}22; border-left:4px solid ${weekColors[i%weekColors.length]}; border-radius:6px; font-size:0.9rem;">Semana ${i+1}: <strong style="color:white">$${formatMoney(tot)}</strong></div>`;
+                html += `<div style="padding:0.4rem 0.8rem; background:${weekColors[i % weekColors.length]}22; border-left:4px solid ${weekColors[i % weekColors.length]}; border-radius:6px; font-size:0.9rem;">Semana ${i + 1}: <strong style="color:white">$${formatMoney(tot)}</strong></div>`;
             }
         });
         html += "</div>";
@@ -1271,10 +1386,10 @@ function renderDailySalesChart(rows) {
 function renderPaymentChart(rows) {
     const totalCash = rows.reduce((acc, r) => acc + r.cash, 0);
     const totalCard = rows.reduce((acc, r) => acc + r.card, 0);
-    
+
     const canvas = document.getElementById('chart-payment');
-    if(!canvas) return;
-    
+    if (!canvas) return;
+
     charts.payment = new Chart(canvas.getContext('2d'), {
         type: 'bar',
         data: {
@@ -1303,7 +1418,7 @@ function renderMonthlyComparisonChart(cashData) {
 
     const canvas = document.getElementById('chart-month-compare');
     if (!canvas) return;
-    
+
     charts.monthCompare = new Chart(canvas.getContext('2d'), {
         type: 'line',
         data: {
@@ -1363,23 +1478,19 @@ function calculateMonthlyDayRanking(cashData) {
 
         rows.forEach(r => {
             const day = r.weekday ? r.weekday.toUpperCase() : "";
-            if(totalsByWeekday[day] !== undefined) {
+            if (totalsByWeekday[day] !== undefined) {
                 totalsByWeekday[day] += r.net_income;
             }
         });
 
-        // Convertir a array y ordenar de mayor a menor (excluyendo domingo)
+        // Convertir a array y ordenar de mayor a menor (incluyendo domingo)
         const ranking = Object.entries(totalsByWeekday)
-            .filter(([weekday]) => weekday !== "DOMINGO")
             .map(([weekday, total]) => ({ weekday, total }))
             .sort((a, b) => b.total - a.total);
 
-        const domingoTotal = totalsByWeekday["DOMINGO"];
-
         result.push({
             month,
-            ranking,
-            domingoTotal
+            ranking
         });
     });
 
@@ -1402,8 +1513,8 @@ function renderMonthlyDayRanking(stats) {
                 const isWorst = i === row.ranking.length - 1;
                 const color =
                     isBest ? "var(--success-color)" :   // mejor día
-                    isWorst ? "var(--danger-color)" :    // peor día
-                    "inherit";
+                        isWorst ? "var(--danger-color)" :    // peor día
+                            "inherit";
 
                 return `<div style="color:${color}; font-weight:${isBest || isWorst ? 'bold' : 'normal'};">
                             ${i + 1}. ${r.weekday} — $${formatMoney(r.total)}
@@ -1411,13 +1522,9 @@ function renderMonthlyDayRanking(stats) {
             })
             .join("");
 
-        const domingoText = `<div style="color:#9ca3af; font-style: italic; margin-top: 6px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 4px;">
-                                - DOMINGO (Medio Turno) — $${formatMoney(row.domingoTotal)}
-                             </div>`;
-
         tr.innerHTML = `
             <td style="vertical-align:top;">${formatMonthLiteral(row.month)}</td>
-            <td>${rankingList}${domingoText}</td>
+            <td>${rankingList}</td>
         `;
 
         tbody.appendChild(tr);
@@ -1444,13 +1551,13 @@ function renderExpenseCategories() {
     const tbody = document.querySelector('#expense-categories-table tbody');
     if (!tbody) return;
     tbody.innerHTML = '';
-    
+
     state.expenseCategories.forEach(cat => {
         const tr = document.createElement('tr');
-        const deleteBtn = cat.is_custom 
-            ? `<button class="btn btn-danger" onclick="deleteExpenseCategory(${cat.id})" style="padding: 0.3rem 0.6rem;">🗑️</button>` 
+        const deleteBtn = cat.is_custom
+            ? `<button class="btn btn-danger" onclick="deleteExpenseCategory(${cat.id})" style="padding: 0.3rem 0.6rem;">🗑️</button>`
             : `<span style="color: #666; font-size: 0.85rem;">Predef.</span>`;
-            
+
         tr.innerHTML = `
             <td>${cat.name}</td>
             <td style="text-align: right;">${deleteBtn}</td>
@@ -1484,7 +1591,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const nameInput = document.getElementById('new-exp-cat-name');
         const name = nameInput.value.trim();
         if (!name) return;
-        
+
         try {
             const res = await fetch('/api/expense-categories', {
                 method: 'POST',
@@ -1525,12 +1632,12 @@ function renderGlobalSuppliers() {
     const tbody = document.querySelector('#global-suppliers-table tbody');
     if (!tbody) return;
     tbody.innerHTML = '';
-    
+
     if (state.suppliers.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Sin proveedores registrados</td></tr>';
         return;
     }
-    
+
     state.suppliers.forEach(s => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -1597,7 +1704,7 @@ document.addEventListener('DOMContentLoaded', () => {
             email: document.getElementById('gs-email').value.trim() || null,
             salesperson: document.getElementById('gs-salesperson').value.trim() || null
         };
-        
+
         try {
             let res;
             if (id) {
@@ -1613,7 +1720,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify(payload)
                 });
             }
-            
+
             if (res.ok) {
                 showToast(id ? "Proveedor actualizado" : "Proveedor creado", "success");
                 toggleModal('modal-global-supplier');
@@ -1625,5 +1732,238 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast("Error de conexión", "error");
         }
     });
+
+    document.getElementById('global-history-search')?.addEventListener('input', (e) => {
+        globalHistorySearchTerm = e.target.value.toLowerCase().trim();
+        renderGlobalPriceHistory();
+    });
 });
+
+// =====================================================
+//             HISTORIAL DE PRECIOS Y COMPRAS
+// =====================================================
+
+let currentGlobalHistoryPeriod = 'all';
+let rawGlobalHistoryData = [];
+let globalHistorySearchTerm = '';
+
+async function fetchGlobalPriceHistory(period = 'all') {
+    currentGlobalHistoryPeriod = period;
+    try {
+        const res = await fetch(`/api/products/price-history/all?period=${period}`);
+        if (!res.ok) throw new Error("Error al obtener historial de precios");
+        rawGlobalHistoryData = await res.json();
+        renderGlobalPriceHistory();
+    } catch (err) {
+        console.error(err);
+        showToast("Error al cargar el historial de precios", "error");
+    }
+}
+
+function filterGlobalHistory(period) {
+    document.querySelectorAll('.history-period-btn').forEach(btn => {
+        if (btn.dataset.period === period) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+    fetchGlobalPriceHistory(period);
+}
+
+function renderGlobalPriceHistory() {
+    const tbody = document.querySelector('#global-history-table tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    const filtered = rawGlobalHistoryData.filter(r => {
+        if (!globalHistorySearchTerm) return true;
+        return (r.product_name || '').toLowerCase().includes(globalHistorySearchTerm);
+    });
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Sin registros de cambios en este período</td></tr>';
+        return;
+    }
+
+    filtered.forEach(r => {
+        const dateStr = r.created_at ? new Date(r.created_at).toLocaleString('es-AR') : '-';
+        
+        const cheapest = parseFloat(r.cheapest_cost || 0);
+        const highest = parseFloat(r.highest_cost || 0);
+        const oldP = parseFloat(r.old_price_kg || 0);
+        const newP = parseFloat(r.new_price_kg || 0);
+        
+        const diffP = newP - oldP;
+        let diffBadge = '—';
+        if (oldP > 0) {
+            if (diffP > 0) {
+                diffBadge = `<span style="color:var(--danger-color); font-weight:bold;">▲ +$${formatMoney(diffP)}</span>`;
+            } else if (diffP < 0) {
+                diffBadge = `<span style="color:var(--success-color); font-weight:bold;">▼ -$${formatMoney(Math.abs(diffP))}</span>`;
+            } else {
+                diffBadge = `<span style="color:var(--text-secondary);">Sin cambio</span>`;
+            }
+        } else {
+            diffBadge = `<span style="color:var(--success-color); font-weight:bold;">⭐ Inicial</span>`;
+        }
+
+        const cheapestStr = cheapest > 0 ? `<span class="cheaper-cost">$${formatMoney(cheapest)} <span class="cheaper-cost-badge">Más barato</span></span>` : '-';
+        const highestStr = highest > 0 ? `$${formatMoney(highest)}` : '-';
+        const oldPStr = oldP > 0 ? `$${formatMoney(oldP)}` : '-';
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="font-size:0.85em; color:var(--text-secondary);">${dateStr}</td>
+            <td><strong>${r.product_name}</strong></td>
+            <td>${cheapestStr}</td>
+            <td>${highestStr}</td>
+            <td>${oldPStr}</td>
+            <td><strong style="color:var(--primary-color);">$${formatMoney(newP)}</strong></td>
+            <td>${diffBadge}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+async function openProductPriceHistory(productId, productName) {
+    document.getElementById('hist-prod-name').innerText = productName;
+    const tbody = document.querySelector('#product-history-table tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Cargando...</td></tr>';
+
+    toggleModal('modal-price-history');
+
+    try {
+        const res = await fetch(`/api/products/${productId}/price-history`);
+        if (!res.ok) throw new Error("Error al obtener historial del producto");
+        const history = await res.json();
+
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        if (history.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">Sin historial de modificaciones registrado</td></tr>';
+            return;
+        }
+
+        history.forEach(r => {
+            const dateStr = r.created_at ? new Date(r.created_at).toLocaleString('es-AR') : '-';
+            const cheapest = parseFloat(r.cheapest_cost || 0);
+            const highest = parseFloat(r.highest_cost || 0);
+            const oldP = parseFloat(r.old_price_kg || 0);
+            const newP = parseFloat(r.new_price_kg || 0);
+
+            const cheapestStr = cheapest > 0 ? `<span class="cheaper-cost">$${formatMoney(cheapest)} <span class="cheaper-cost-badge">Más barato</span></span>` : '-';
+            const highestStr = highest > 0 ? `$${formatMoney(highest)}` : '-';
+            const oldPStr = oldP > 0 ? `$${formatMoney(oldP)}` : '-';
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="font-size:0.85em; color:var(--text-secondary);">${dateStr}</td>
+                <td>${oldPStr}</td>
+                <td><strong style="color:var(--primary-color);">$${formatMoney(newP)}</strong></td>
+                <td>${cheapestStr}</td>
+                <td>${highestStr}</td>
+                <td>${r.margin}%</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (err) {
+        console.error(err);
+        if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--danger-color);">Error al cargar historial</td></tr>';
+    }
+}
+
+// ======================================================
+//                 GESTIÓN DE PROVEEDORES
+// ======================================================
+
+async function loadManageSuppliers() {
+    try {
+        const res = await fetch('/api/suppliers');
+        const data = await res.json();
+        state.suppliers = data;
+        renderManageSuppliers();
+    } catch (e) {
+        console.error("Error cargando proveedores", e);
+    }
+}
+
+function renderManageSuppliers() {
+    const tbody = document.querySelector('#manage-suppliers-table tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    state.suppliers.forEach(s => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${s.name}</td>
+            <td>${s.phone || '-'}</td>
+            <td>${s.email || '-'}</td>
+            <td>${s.salesperson || '-'}</td>
+            <td style="display: flex; gap: 0.5rem;">
+                <button class="btn btn-secondary" onclick="editGlobalSupplier(${s.id})">✏️</button>
+                <button class="btn btn-danger" onclick="deleteGlobalSupplier(${s.id})">🗑️</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function openGlobalSupplierModal() {
+    document.getElementById('global-supplier-modal-title').innerText = "Nuevo Proveedor";
+    document.getElementById('gs-id').value = '';
+    document.getElementById('global-supplier-form').reset();
+    toggleModal('modal-global-supplier');
+}
+
+function editGlobalSupplier(id) {
+    const s = state.suppliers.find(x => x.id === id);
+    if (!s) return;
+    document.getElementById('global-supplier-modal-title').innerText = "Editar Proveedor";
+    document.getElementById('gs-id').value = s.id;
+    document.getElementById('gs-name').value = s.name || '';
+    document.getElementById('gs-phone').value = s.phone || '';
+    document.getElementById('gs-email').value = s.email || '';
+    document.getElementById('gs-salesperson').value = s.salesperson || '';
+    toggleModal('modal-global-supplier');
+}
+
+async function deleteGlobalSupplier(id) {
+    if (confirm('¿Eliminar proveedor?')) {
+        await fetch('/api/suppliers/' + id, { method: 'DELETE' });
+        loadManageSuppliers();
+    }
+}
+
+document.getElementById('global-supplier-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.submitter;
+    const originalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = "Guardando...";
+
+    const id = document.getElementById('gs-id').value;
+    const payload = {
+        name: document.getElementById('gs-name').value,
+        phone: document.getElementById('gs-phone').value,
+        email: document.getElementById('gs-email').value,
+        salesperson: document.getElementById('gs-salesperson').value
+    };
+    
+    try {
+        if (id) {
+            await fetch('/api/suppliers/' + id, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+        } else {
+            await fetch('/api/suppliers', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+        }
+        toggleModal('modal-global-supplier');
+        loadManageSuppliers();
+    } catch (e) {
+        alert("Error al guardar el proveedor");
+    } finally {
+        btn.disabled = false;
+        btn.innerText = originalText;
+    }
+});
+
 
