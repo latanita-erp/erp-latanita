@@ -1874,3 +1874,96 @@ async function openProductPriceHistory(productId, productName) {
     }
 }
 
+// ======================================================
+//                 GESTIÓN DE PROVEEDORES
+// ======================================================
+
+async function loadManageSuppliers() {
+    try {
+        const res = await fetch('/api/suppliers');
+        const data = await res.json();
+        state.suppliers = data;
+        renderManageSuppliers();
+    } catch (e) {
+        console.error("Error cargando proveedores", e);
+    }
+}
+
+function renderManageSuppliers() {
+    const tbody = document.querySelector('#manage-suppliers-table tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    state.suppliers.forEach(s => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${s.name}</td>
+            <td>${s.phone || '-'}</td>
+            <td>${s.email || '-'}</td>
+            <td>${s.salesperson || '-'}</td>
+            <td style="display: flex; gap: 0.5rem;">
+                <button class="btn btn-secondary" onclick="editGlobalSupplier(${s.id})">✏️</button>
+                <button class="btn btn-danger" onclick="deleteGlobalSupplier(${s.id})">🗑️</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function openGlobalSupplierModal() {
+    document.getElementById('global-supplier-modal-title').innerText = "Nuevo Proveedor";
+    document.getElementById('gs-id').value = '';
+    document.getElementById('global-supplier-form').reset();
+    toggleModal('modal-global-supplier');
+}
+
+function editGlobalSupplier(id) {
+    const s = state.suppliers.find(x => x.id === id);
+    if (!s) return;
+    document.getElementById('global-supplier-modal-title').innerText = "Editar Proveedor";
+    document.getElementById('gs-id').value = s.id;
+    document.getElementById('gs-name').value = s.name || '';
+    document.getElementById('gs-phone').value = s.phone || '';
+    document.getElementById('gs-email').value = s.email || '';
+    document.getElementById('gs-salesperson').value = s.salesperson || '';
+    toggleModal('modal-global-supplier');
+}
+
+async function deleteGlobalSupplier(id) {
+    if (confirm('¿Eliminar proveedor?')) {
+        await fetch('/api/suppliers/' + id, { method: 'DELETE' });
+        loadManageSuppliers();
+    }
+}
+
+document.getElementById('global-supplier-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.submitter;
+    const originalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = "Guardando...";
+
+    const id = document.getElementById('gs-id').value;
+    const payload = {
+        name: document.getElementById('gs-name').value,
+        phone: document.getElementById('gs-phone').value,
+        email: document.getElementById('gs-email').value,
+        salesperson: document.getElementById('gs-salesperson').value
+    };
+    
+    try {
+        if (id) {
+            await fetch('/api/suppliers/' + id, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+        } else {
+            await fetch('/api/suppliers', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+        }
+        toggleModal('modal-global-supplier');
+        loadManageSuppliers();
+    } catch (e) {
+        alert("Error al guardar el proveedor");
+    } finally {
+        btn.disabled = false;
+        btn.innerText = originalText;
+    }
+});
+
+
