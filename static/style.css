@@ -694,3 +694,19 @@ input:focus, select:focus { border-color: var(--primary-color); }
     }
 }
 
+/* DESTACADO DE COSTO MAS BARATO */
+.cheaper-cost {
+    color: var(--success-color) !important;
+    font-weight: bold;
+}
+.cheaper-cost-badge {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--success-color);
+    padding: 0.1rem 0.3rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    margin-left: 0.25rem;
+    font-weight: 600;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
