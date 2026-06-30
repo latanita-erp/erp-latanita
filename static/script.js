@@ -437,6 +437,8 @@ document.getElementById('add-product-form')?.addEventListener('submit', async (e
         supplier2_id: s2Val ? parseInt(s2Val) : null,
         cost1: parseFloat(document.getElementById('prod-cost1').value || 0),
         cost2: parseFloat(document.getElementById('prod-cost2').value || 0),
+        cost_matiz: parseFloat(document.getElementById('prod-cost1').value || 0),
+        cost_raices: parseFloat(document.getElementById('prod-cost2').value || 0),
         margin: parseFloat(document.getElementById('prod-margin').value || 0)
     };
 
@@ -580,6 +582,8 @@ document.getElementById("edit-product-form")?.addEventListener("submit", async (
         supplier2_id: s2Val ? parseInt(s2Val) : null,
         cost1,
         cost2,
+        cost_matiz: cost1,
+        cost_raices: cost2,
         margin
     };
 
