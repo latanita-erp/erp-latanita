@@ -2257,6 +2257,10 @@ function renderPromoProductsTable() {
     
     const totalBaseEl = document.getElementById('promo-total-base');
     const totalDiscEl = document.getElementById('promo-total-discounted');
+    
+    // Redondear totalDiscounted a la centena/milésima superior (ej: 10290 -> 11000)
+    totalDiscounted = Math.ceil(totalDiscounted / 1000) * 1000;
+
     if(totalBaseEl) totalBaseEl.innerText = `$${formatMoney(totalBase)}`;
     if(totalDiscEl) totalDiscEl.innerText = `$${formatMoney(totalDiscounted)}`;
 }
