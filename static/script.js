@@ -1201,6 +1201,14 @@ function renderCash() {
 //                 NUEVO REGISTRO
 // =====================================================
 
+function calculateTotalCash(mode) {
+    const prefix = mode === 'new' ? 'cash' : 'edit-cash';
+    const m = parseFloat(document.getElementById(`${prefix}-morning`).value || 0);
+    const a = parseFloat(document.getElementById(`${prefix}-afternoon`).value || 0);
+    document.getElementById(`${prefix}-cash`).value = (m + a).toFixed(2);
+}
+
+
 document.getElementById('cash-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = e.submitter;
@@ -1216,6 +1224,8 @@ document.getElementById('cash-form').addEventListener('submit', async (e) => {
     const payload = {
         date,
         weekday,
+        morning_sales: parseFloat(document.getElementById('cash-morning').value || 0),
+        afternoon_sales: parseFloat(document.getElementById('cash-afternoon').value || 0),
         cash: parseFloat(document.getElementById('cash-cash').value || 0),
         card: 0,
         expenses: parseFloat(document.getElementById('cash-expenses').value || 0),
@@ -1249,6 +1259,8 @@ function openEditCash(id) {
     document.getElementById('edit-cash-id').value = c.id;
     document.getElementById('edit-cash-date').value = c.date;
     document.getElementById('edit-cash-weekday').value = c.weekday || '';
+    document.getElementById('edit-cash-morning').value = c.morning_sales || 0;
+    document.getElementById('edit-cash-afternoon').value = c.afternoon_sales || 0;
     document.getElementById('edit-cash-cash').value = c.cash;
     document.getElementById('edit-cash-expenses').value = c.expenses || 0;
     if (document.getElementById('edit-cash-notes')) {
@@ -1284,6 +1296,8 @@ document.getElementById('edit-cash-form').addEventListener('submit', async (e) =
     const payload = {
         date,
         weekday,
+        morning_sales: parseFloat(document.getElementById('edit-cash-morning').value || 0),
+        afternoon_sales: parseFloat(document.getElementById('edit-cash-afternoon').value || 0),
         cash: parseFloat(document.getElementById('edit-cash-cash').value || 0),
         card: 0,
         expenses: parseFloat(document.getElementById('edit-cash-expenses').value || 0),

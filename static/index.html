@@ -355,8 +355,18 @@
             </div>
 
             <div class="input-group">
-                <label>Ventas ($)</label>
-                <input type="number" step="0.01" id="edit-cash-cash" required>
+                <label>Ventas Mañana ($)</label>
+                <input type="number" step="0.01" id="edit-cash-morning" required value="0" oninput="calculateTotalCash('edit')">
+            </div>
+
+            <div class="input-group">
+                <label>Ventas Tarde ($)</label>
+                <input type="number" step="0.01" id="edit-cash-afternoon" required value="0" oninput="calculateTotalCash('edit')">
+            </div>
+
+            <div class="input-group">
+                <label>Ventas Totales ($)</label>
+                <input type="number" step="0.01" id="edit-cash-cash" required readonly value="0">
             </div>
 
             <div class="input-group">
@@ -751,8 +761,18 @@
             </div>
 
             <div class="input-group">
-                <label>Ventas ($)</label>
-                <input type="number" step="0.01" id="cash-cash" required>
+                <label>Ventas Mañana ($)</label>
+                <input type="number" step="0.01" id="cash-morning" required value="0" oninput="calculateTotalCash('new')">
+            </div>
+
+            <div class="input-group">
+                <label>Ventas Tarde ($)</label>
+                <input type="number" step="0.01" id="cash-afternoon" required value="0" oninput="calculateTotalCash('new')">
+            </div>
+
+            <div class="input-group">
+                <label>Ventas Totales ($)</label>
+                <input type="number" step="0.01" id="cash-cash" required readonly value="0">
             </div>
 
             <div class="input-group">
