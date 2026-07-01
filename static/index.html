@@ -355,18 +355,30 @@
             </div>
 
             <div class="input-group">
-                <label>Efectivo ($)</label>
+                <label>Ventas ($)</label>
                 <input type="number" step="0.01" id="edit-cash-cash" required>
             </div>
 
             <div class="input-group">
-                <label>Tarjeta ($)</label>
-                <input type="number" step="0.01" id="edit-cash-card" required>
+                <label>Gastos ($)</label>
+                <input type="number" step="0.01" id="edit-cash-expenses" readonly value="0">
             </div>
 
-            <div class="input-group">
-                <label>Gastos ($)</label>
-                <input type="number" step="0.01" id="edit-cash-expenses" required>
+            <div class="input-group" style="grid-column: 1 / -1; margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem;">
+                <h4 style="margin-bottom: 0.5rem;">Detalle de Gastos por Proveedor</h4>
+                <div style="display:flex; gap:10px; margin-bottom:10px;">
+                    <select id="edit-cash-supplier-select" style="flex:1; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:var(--glass-bg); color:var(--text-color); padding:0.5rem;">
+                        <option value="">Seleccionar proveedor...</option>
+                    </select>
+                    <input type="number" step="0.01" id="edit-cash-supplier-amount" placeholder="Monto ($)" style="width:120px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:var(--glass-bg); color:var(--text-color); padding:0.5rem;">
+                    <button type="button" class="btn btn-primary" onclick="addCashExpense('edit')">+ Agregar</button>
+                </div>
+                <table class="table" style="font-size:0.9rem;">
+                    <thead>
+                        <tr><th>Proveedor</th><th>Monto</th><th>Acción</th></tr>
+                    </thead>
+                    <tbody id="edit-cash-expenses-list"></tbody>
+                </table>
             </div>
 
             <div class="input-group" style="grid-column: 1 / -1;">
@@ -599,10 +611,7 @@
             <div id="weekly-totals" style="margin-top: 15px;"></div>
         </div>
 
-        <div class="chart-box glass-panel pretty-box small-chart" style="max-height: none; max-width: 400px;">
-            <h3 class="section-title">💳 Efectivo vs Tarjeta (<span class="kpi-period">Mes</span>)</h3>
-            <canvas id="chart-payment" style="max-height: 200px;"></canvas>
-        </div>
+
     </div>
     
     <div style="margin-top: 2rem; margin-bottom: 2rem;">
@@ -742,18 +751,30 @@
             </div>
 
             <div class="input-group">
-                <label>Efectivo ($)</label>
+                <label>Ventas ($)</label>
                 <input type="number" step="0.01" id="cash-cash" required>
             </div>
 
             <div class="input-group">
-                <label>Tarjeta ($)</label>
-                <input type="number" step="0.01" id="cash-card" required>
+                <label>Gastos ($)</label>
+                <input type="number" step="0.01" id="cash-expenses" readonly value="0">
             </div>
 
-            <div class="input-group">
-                <label>Gastos ($)</label>
-                <input type="number" step="0.01" id="cash-expenses" required>
+            <div class="input-group" style="grid-column: 1 / -1; margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem;">
+                <h4 style="margin-bottom: 0.5rem;">Cargar Gastos del Día</h4>
+                <div style="display:flex; gap:10px; margin-bottom:10px;">
+                    <select id="new-cash-supplier-select" style="flex:1; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:var(--glass-bg); color:var(--text-color); padding:0.5rem;">
+                        <option value="">Seleccionar proveedor...</option>
+                    </select>
+                    <input type="number" step="0.01" id="new-cash-supplier-amount" placeholder="Monto ($)" style="width:120px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:var(--glass-bg); color:var(--text-color); padding:0.5rem;">
+                    <button type="button" class="btn btn-primary" onclick="addCashExpense('new')">+ Agregar</button>
+                </div>
+                <table class="table" style="font-size:0.9rem;">
+                    <thead>
+                        <tr><th>Proveedor</th><th>Monto</th><th>Acción</th></tr>
+                    </thead>
+                    <tbody id="new-cash-expenses-list"></tbody>
+                </table>
             </div>
 
             <div class="input-group" style="grid-column: 1 / -1;">
@@ -777,11 +798,9 @@
                 <tr>
                     <th>Fecha</th>
                     <th>Día</th>
-                    <th>Efectivo</th>
-                    <th>Tarjeta</th>
-                    <th>Ingresos Netos</th>
+                    <th>Ventas</th>
                     <th>Gastos</th>
-                    <th>Total Neto</th>
+                    <th>Ingresos Netos</th>
                     <th>Notas</th>
                     <th>Acción</th>
                 </tr>
