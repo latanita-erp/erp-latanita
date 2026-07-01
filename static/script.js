@@ -1995,6 +1995,7 @@ document.getElementById('global-supplier-form')?.addEventListener('submit', asyn
     } finally {
         btn.disabled = false;
         btn.innerText = originalText;
+    }
 });
 
 // ======================================================
