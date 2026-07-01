@@ -82,6 +82,11 @@ input, select {
 }
 input:focus, select:focus { border-color: var(--primary-color); }
 
+option {
+    background-color: var(--sidebar-bg);
+    color: white;
+}
+
 /* LAYOUT PRINCIPAL */
 #app-screen { display: flex; height: 100vh; }
 
@@ -300,6 +305,13 @@ input:focus, select:focus { border-color: var(--primary-color); }
     max-height: 90vh;
     overflow-y: auto;
     padding-bottom: 20px;
+}
+
+#modal-global-supplier {
+    z-index: 4000;
+}
+#modal-global-supplier .modal-content {
+    z-index: 4001;
 }
 
 .modal-header {
