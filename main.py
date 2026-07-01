@@ -90,6 +90,8 @@ def get_db():
 def startup_migrations():
     with engine.begin() as conn:
         try:
+            conn.execute(text("ALTER TABLE cash ADD COLUMN IF NOT EXISTS morning_sales NUMERIC DEFAULT 0;"))
+            conn.execute(text("ALTER TABLE cash ADD COLUMN IF NOT EXISTS afternoon_sales NUMERIC DEFAULT 0;"))
             conn.execute(text("ALTER TABLE cash ADD COLUMN IF NOT EXISTS notes TEXT;"))
             conn.execute(text("ALTER TABLE products ADD COLUMN IF NOT EXISTS supplier1_id INT NULL;"))
             conn.execute(text("ALTER TABLE products ADD COLUMN IF NOT EXISTS supplier2_id INT NULL;"))
@@ -194,6 +196,8 @@ class CashPayload(BaseModel):
     date: str
     weekday: str
     cash: float
+    morning_sales: Optional[float] = 0.0
+    afternoon_sales: Optional[float] = 0.0
     card: float
     expenses: Optional[float] = 0.0
     notes: Optional[str] = None
@@ -328,7 +332,7 @@ def delete_expense_category(cat_id: int, db: Session = Depends(get_db)):
 def get_cash_all(db: Session = Depends(get_db)):
     cash_result = db.execute(text("""
         SELECT 
-            id, date, weekday, cash, card, expenses, notes,
+            id, date, weekday, cash, morning_sales, afternoon_sales, card, expenses, notes,
             (cash + card) AS net_income,
             (cash + card - expenses) AS total
         FROM cash
@@ -374,13 +378,15 @@ def create_cash(payload: CashPayload, db: Session = Depends(get_db)):
     total = net - total_expenses
 
     result = db.execute(text("""
-        INSERT INTO cash (date, weekday, cash, card, expenses, notes, net_income, total)
-        VALUES (:date, :weekday, :cash, :card, :expenses, :notes, :net, :total)
+        INSERT INTO cash (date, weekday, cash, morning_sales, afternoon_sales, card, expenses, notes, net_income, total)
+        VALUES (:date, :weekday, :cash, :morning, :afternoon, :card, :expenses, :notes, :net, :total)
         RETURNING id
     """), {
         "date": date,
         "weekday": weekday,
         "cash": cash,
+        "morning": payload.morning_sales,
+        "afternoon": payload.afternoon_sales,
         "card": card,
         "expenses": total_expenses,
         "notes": notes,
@@ -422,7 +428,7 @@ def update_cash(cash_id: int, payload: CashPayload, db: Session = Depends(get_db
         UPDATE cash
         SET 
             date = :date, weekday = :weekday,
-            cash = :cash, card = :card, expenses = :expenses, notes = :notes,
+            cash = :cash, morning_sales = :morning, afternoon_sales = :afternoon, card = :card, expenses = :expenses, notes = :notes,
             net_income = :net, total = :total
         WHERE id = :id
     """), {
@@ -430,6 +436,8 @@ def update_cash(cash_id: int, payload: CashPayload, db: Session = Depends(get_db
         "date": date,
         "weekday": weekday,
         "cash": cash,
+        "morning": payload.morning_sales,
+        "afternoon": payload.afternoon_sales,
         "card": card,
         "expenses": total_expenses,
         "notes": notes,
