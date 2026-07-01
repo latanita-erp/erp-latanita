@@ -106,6 +106,24 @@ def startup_migrations():
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """))
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS promotions (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(255) NOT NULL,
+                    observation TEXT,
+                    discount_percentage NUMERIC DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """))
+            conn.execute(text("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS discount_percentage NUMERIC DEFAULT 0;"))
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS promotion_products (
+                    id SERIAL PRIMARY KEY,
+                    promotion_id INT NOT NULL REFERENCES promotions(id) ON DELETE CASCADE,
+                    product_id INT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+                    cost NUMERIC DEFAULT 0
+                );
+            """))
         except Exception as e:
             print("Migration info:", e)
 
@@ -212,6 +230,16 @@ class SupplierBase(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
     salesperson: Optional[str] = None
+
+class PromotionProductPayload(BaseModel):
+    product_id: int
+    cost: float
+
+class PromotionPayload(BaseModel):
+    name: str
+    observation: Optional[str] = None
+    discount_percentage: Optional[float] = 0.0
+    products: List[PromotionProductPayload] = []
 
 # ============================================
 #             MÓDULO PROVEEDORES GLOBALES
@@ -790,6 +818,77 @@ def import_products(file: UploadFile = File(...), db: Session = Depends(get_db))
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================
+#             MÓDULO PROMOCIONES
+# ============================================
+
+@app.get("/api/promotions")
+def get_promotions(db: Session = Depends(get_db)):
+    promos = db.execute(text("SELECT id, name, observation, discount_percentage, created_at FROM promotions ORDER BY created_at DESC")).mappings().all()
+    promo_list = [dict(p) for p in promos]
+    
+    prod_results = db.execute(text("""
+        SELECT pp.promotion_id, pp.product_id, pp.cost, pr.name as product_name
+        FROM promotion_products pp
+        JOIN products pr ON pp.product_id = pr.id
+    """)).mappings().all()
+    
+    products_by_promo = defaultdict(list)
+    for row in prod_results:
+        products_by_promo[row["promotion_id"]].append(dict(row))
+        
+    for p in promo_list:
+        p["products"] = products_by_promo.get(p["id"], [])
+        if p.get("created_at"):
+            p["created_at"] = p["created_at"].isoformat()
+            
+    return promo_list
+
+@app.post("/api/promotions")
+def create_promotion(payload: PromotionPayload, db: Session = Depends(get_db)):
+    result = db.execute(text("""
+        INSERT INTO promotions (name, observation, discount_percentage)
+        VALUES (:name, :obs, :discount)
+        RETURNING id
+    """), {"name": payload.name, "obs": payload.observation, "discount": payload.discount_percentage})
+    
+    promo_id = result.scalar()
+    
+    for prod in payload.products:
+        db.execute(text("""
+            INSERT INTO promotion_products (promotion_id, product_id, cost)
+            VALUES (:pid, :prod_id, :cost)
+        """), {"pid": promo_id, "prod_id": prod.product_id, "cost": prod.cost})
+        
+    db.commit()
+    return {"status": "created", "id": promo_id}
+
+@app.put("/api/promotions/{promo_id}")
+def update_promotion(promo_id: int, payload: PromotionPayload, db: Session = Depends(get_db)):
+    db.execute(text("""
+        UPDATE promotions
+        SET name = :name, observation = :obs, discount_percentage = :discount
+        WHERE id = :id
+    """), {"name": payload.name, "obs": payload.observation, "discount": payload.discount_percentage, "id": promo_id})
+    
+    db.execute(text("DELETE FROM promotion_products WHERE promotion_id = :id"), {"id": promo_id})
+    
+    for prod in payload.products:
+        db.execute(text("""
+            INSERT INTO promotion_products (promotion_id, product_id, cost)
+            VALUES (:pid, :prod_id, :cost)
+        """), {"pid": promo_id, "prod_id": prod.product_id, "cost": prod.cost})
+        
+    db.commit()
+    return {"status": "updated"}
+
+@app.delete("/api/promotions/{promo_id}")
+def delete_promotion(promo_id: int, db: Session = Depends(get_db)):
+    db.execute(text("DELETE FROM promotions WHERE id = :id"), {"id": promo_id})
+    db.commit()
+    return {"status": "deleted"}
 
 
 # ============================================
