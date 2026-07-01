@@ -164,6 +164,31 @@ document.addEventListener('DOMContentLoaded', async () => {
             productSearchTerm = e.target.value.toLowerCase().trim();
             renderProducts();
         });
+
+    // Mobile Menu Toggle
+    const mobileToggle = document.getElementById('mobile-menu-toggle');
+    const sidebar = document.querySelector('.sidebar');
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
+
+    if (mobileToggle && sidebar && sidebarOverlay) {
+        mobileToggle.addEventListener('click', () => {
+            sidebar.classList.add('open');
+            sidebarOverlay.classList.add('active');
+        });
+
+        sidebarOverlay.addEventListener('click', () => {
+            sidebar.classList.remove('open');
+            sidebarOverlay.classList.remove('active');
+        });
+
+        // Cerrar al hacer clic en un botón (opcional pero buena UX en móvil)
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                sidebar.classList.remove('open');
+                sidebarOverlay.classList.remove('active');
+            });
+        });
+    }
 });
 
 // ======================================================
