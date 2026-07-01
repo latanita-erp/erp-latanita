@@ -127,6 +127,8 @@ def startup_migrations():
                     cost NUMERIC DEFAULT 0
                 );
             """))
+            conn.execute(text("ALTER TABLE expenses ADD COLUMN IF NOT EXISTS supplier_id INT NULL REFERENCES suppliers(id);"))
+            conn.execute(text("ALTER TABLE expenses ALTER COLUMN category_id DROP NOT NULL;"))
         except Exception as e:
             print("Migration info:", e)
 
@@ -185,7 +187,7 @@ def log_price_change(db: Session, product_id: int, old_price: float, new_price: 
 # ============================================
 
 class ExpenseItemPayload(BaseModel):
-    category_id: int
+    supplier_id: Optional[int] = None
     amount: float
 
 class CashPayload(BaseModel):
@@ -334,13 +336,16 @@ def get_cash_all(db: Session = Depends(get_db)):
     """)).mappings().all()
 
     expenses_result = db.execute(text("""
-        SELECT e.id, e.cash_id, e.category_id, e.amount, c.name as category_name 
-        FROM expenses e JOIN expense_categories c ON e.category_id = c.id
+        SELECT e.id, e.cash_id, e.supplier_id, e.amount, s.name as supplier_name 
+        FROM expenses e JOIN suppliers s ON e.supplier_id = s.id
     """)).mappings().all()
 
     expenses_by_cash = defaultdict(list)
     for e in expenses_result:
-        expenses_by_cash[e["cash_id"]].append(dict(e))
+        # Convert to dict and handle None supplier_id gracefully just in case
+        d = dict(e)
+        d["category_name"] = d.pop("supplier_name", "Desconocido") # Keep frontend compat or rename in frontend
+        expenses_by_cash[e["cash_id"]].append(d)
 
     final_result = []
     for c in cash_result:
@@ -386,10 +391,11 @@ def create_cash(payload: CashPayload, db: Session = Depends(get_db)):
     cash_id = result.scalar()
 
     for exp in payload.expense_list:
-        db.execute(text("""
-            INSERT INTO expenses (cash_id, category_id, amount)
-            VALUES (:cid, :cat, :amt)
-        """), {"cid": cash_id, "cat": exp.category_id, "amt": exp.amount})
+        if exp.supplier_id:
+            db.execute(text("""
+                INSERT INTO expenses (cash_id, supplier_id, amount)
+                VALUES (:cid, :sup, :amt)
+            """), {"cid": cash_id, "sup": exp.supplier_id, "amt": exp.amount})
 
     db.commit()
     return {"status": "created"}
@@ -433,10 +439,11 @@ def update_cash(cash_id: int, payload: CashPayload, db: Session = Depends(get_db
 
     db.execute(text("DELETE FROM expenses WHERE cash_id = :id"), {"id": cash_id})
     for exp in payload.expense_list:
-        db.execute(text("""
-            INSERT INTO expenses (cash_id, category_id, amount)
-            VALUES (:cid, :cat, :amt)
-        """), {"cid": cash_id, "cat": exp.category_id, "amt": exp.amount})
+        if exp.supplier_id:
+            db.execute(text("""
+                INSERT INTO expenses (cash_id, supplier_id, amount)
+                VALUES (:cid, :sup, :amt)
+            """), {"cid": cash_id, "sup": exp.supplier_id, "amt": exp.amount})
 
     db.commit()
     return {"status": "updated"}

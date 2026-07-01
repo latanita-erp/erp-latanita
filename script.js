@@ -979,8 +979,78 @@ document.getElementById("cash-date").addEventListener("change", (e) => {
     const date = e.target.value;
     if (!date) return;
 
+    if (!date) return;
+
     document.getElementById("cash-weekday").value = getWeekdayFromDate(date);
 });
+
+// =====================================================
+//                 GASTOS POR PROVEEDOR EN CAJA
+// =====================================================
+
+let currentNewCashExpenseList = [];
+let currentEditCashExpenseList = [];
+
+function populateCashSupplierSelects() {
+    const selects = [document.getElementById('new-cash-supplier-select'), document.getElementById('edit-cash-supplier-select')];
+    selects.forEach(sel => {
+        if (!sel) return;
+        sel.innerHTML = '<option value="">Seleccionar proveedor...</option>';
+        state.suppliers.forEach(s => {
+            sel.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+        });
+    });
+}
+
+function addCashExpense(mode) {
+    const sel = document.getElementById(mode + '-cash-supplier-select');
+    const amt = document.getElementById(mode + '-cash-supplier-amount');
+    const supplier_id = sel.value;
+    const amount = parseFloat(amt.value);
+    
+    if (!supplier_id || isNaN(amount) || amount <= 0) return;
+    
+    const supplier = state.suppliers.find(s => s.id == supplier_id);
+    const list = mode === 'new' ? currentNewCashExpenseList : currentEditCashExpenseList;
+    
+    list.push({
+        supplier_id: parseInt(supplier_id),
+        supplier_name: supplier ? supplier.name : 'Desconocido',
+        amount: amount
+    });
+    
+    sel.value = '';
+    amt.value = '';
+    renderCashExpenseList(mode);
+}
+
+function removeCashExpense(mode, index) {
+    const list = mode === 'new' ? currentNewCashExpenseList : currentEditCashExpenseList;
+    list.splice(index, 1);
+    renderCashExpenseList(mode);
+}
+
+function renderCashExpenseList(mode) {
+    const list = mode === 'new' ? currentNewCashExpenseList : currentEditCashExpenseList;
+    const tbody = document.getElementById(mode + '-cash-expenses-list');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    let total = 0;
+    
+    list.forEach((exp, i) => {
+        total += exp.amount;
+        tbody.innerHTML += `
+            <tr>
+                <td>${exp.supplier_name || exp.category_name || 'Desconocido'}</td>
+                <td>$${formatMoney(exp.amount)}</td>
+                <td><button type="button" class="btn btn-danger" style="padding:0.2rem 0.5rem;" onclick="removeCashExpense('${mode}', ${i})">X</button></td>
+            </tr>
+        `;
+    });
+    
+    document.getElementById(mode + '-cash-expenses').value = total.toFixed(2);
+}
 
 // =====================================================
 //                 FETCH + NORMALIZACIÓN
@@ -1000,6 +1070,7 @@ async function fetchCash() {
         const card = Number(r.card ?? 0);
         const expenses = Number(r.expenses ?? 0);
         const notes = r.notes || '';
+        const expense_list = r.expense_list || [];
 
         const net_income = cash + card;
         const total = net_income - expenses;
@@ -1013,7 +1084,8 @@ async function fetchCash() {
             net_income,
             expenses,
             notes,
-            total
+            total,
+            expense_list
         };
     });
 
@@ -1072,8 +1144,6 @@ function renderCash() {
                 ${formatMonthLiteral(month)}
             </td>
             <td style="font-weight: bold;">$${formatMoney(mData.cashTotal)}</td>
-            <td style="font-weight: bold;">$${formatMoney(mData.cardTotal)}</td>
-            <td style="font-weight: bold; color: var(--primary-color);">$${formatMoney(mData.netTotal)}</td>
             <td style="font-weight: bold;">$${formatMoney(mData.expensesTotal)}</td>
             <td style="font-weight: bold; font-size: 1.1em; color: ${mData.profitTotal >= 0 ? 'var(--success-color)' : 'var(--danger-color)'};">
                 $${formatMoney(mData.profitTotal)}
@@ -1100,8 +1170,6 @@ function renderCash() {
                 <td style="padding-left: 2rem;">${formattedDate}</td>
                 <td>${c.weekday}</td>
                 <td>$${formatMoney(c.cash)}</td>
-                <td>$${formatMoney(c.card)}</td>
-                <td>$${formatMoney(c.net_income)}</td>
                 <td>$${formatMoney(c.expenses)}</td>
                 <td style="color: ${c.total >= 0 ? 'var(--success-color)' : 'var(--danger-color)'}; font-weight: bold;">
                     $${formatMoney(c.total)}
@@ -1149,10 +1217,10 @@ document.getElementById('cash-form').addEventListener('submit', async (e) => {
         date,
         weekday,
         cash: parseFloat(document.getElementById('cash-cash').value || 0),
-        card: parseFloat(document.getElementById('cash-card').value || 0),
+        card: 0,
         expenses: parseFloat(document.getElementById('cash-expenses').value || 0),
         notes: document.getElementById('cash-notes')?.value || '',
-        expense_list: currentExpenseList
+        expense_list: currentNewCashExpenseList
     };
 
     await fetch('/api/cash', {
@@ -1164,6 +1232,8 @@ document.getElementById('cash-form').addEventListener('submit', async (e) => {
     btn.disabled = false;
     btn.innerText = originalText;
     e.target.reset();
+    currentNewCashExpenseList = [];
+    renderCashExpenseList('new');
     await fetchCash();
     await fetchDashboard();
 });
@@ -1180,11 +1250,13 @@ function openEditCash(id) {
     document.getElementById('edit-cash-date').value = c.date;
     document.getElementById('edit-cash-weekday').value = c.weekday || '';
     document.getElementById('edit-cash-cash').value = c.cash;
-    document.getElementById('edit-cash-card').value = c.card;
     document.getElementById('edit-cash-expenses').value = c.expenses || 0;
     if (document.getElementById('edit-cash-notes')) {
         document.getElementById('edit-cash-notes').value = c.notes || '';
     }
+    
+    currentEditCashExpenseList = [...(c.expense_list || [])];
+    renderCashExpenseList('edit');
 
     toggleModal('modal-edit-cash');
 }
@@ -1213,9 +1285,10 @@ document.getElementById('edit-cash-form').addEventListener('submit', async (e) =
         date,
         weekday,
         cash: parseFloat(document.getElementById('edit-cash-cash').value || 0),
-        card: parseFloat(document.getElementById('edit-cash-card').value || 0),
+        card: 0,
         expenses: parseFloat(document.getElementById('edit-cash-expenses').value || 0),
-        notes: document.getElementById('edit-cash-notes')?.value || ''
+        notes: document.getElementById('edit-cash-notes')?.value || '',
+        expense_list: currentEditCashExpenseList
     };
 
     await fetch(`/api/cash/${id}`, {
@@ -1347,9 +1420,6 @@ function renderDashboard() {
     const currentMonthStr = new Date().toISOString().slice(0, 7);
     const currentMonthRows = cashData.filter(r => r.date.startsWith(currentMonthStr));
     renderDailySalesChart(currentMonthRows);
-
-    // 3. Efectivo vs Tarjeta (For the selected month)
-    renderPaymentChart(monthRows);
 
     // 4. Comparativo mensual (Todos los meses acumulando beneficio)
     renderMonthlyComparisonChart(cashData);
@@ -1655,6 +1725,9 @@ async function fetchGlobalSuppliers() {
         const data = await res.json();
         state.suppliers = data;
         renderGlobalSuppliers();
+        if (typeof populateCashSupplierSelects === 'function') {
+            populateCashSupplierSelects();
+        }
     } catch (err) {
         console.error("Error al cargar proveedores:", err);
     }
@@ -1995,6 +2068,7 @@ document.getElementById('global-supplier-form')?.addEventListener('submit', asyn
     } finally {
         btn.disabled = false;
         btn.innerText = originalText;
+    }
 });
 
 // ======================================================
@@ -2041,6 +2115,7 @@ function renderPromotions() {
             <td><strong>$${formatMoney(totalDiscounted)}</strong></td>
             <td>
                 <button class="btn btn-secondary" onclick="editPromotion(${p.id})">✏️ Editar</button>
+                <button class="btn btn-secondary" onclick="window.open('static/print_promo.html?id=${p.id}', '_blank')">🖨️ Imprimir</button>
                 <button class="btn btn-secondary" style="color:var(--danger-color)" onclick="deletePromotion(${p.id})">🗑️ Borrar</button>
             </td>
         `;
