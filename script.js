@@ -2102,11 +2102,11 @@ function populatePromoProductSelect() {
     const sorted = [...state.products].sort((a,b) => a.name.localeCompare(b.name));
     
     sorted.forEach(p => {
-        const cost = Math.max(p.cost1 || 0, p.cost2 || 0, p.cost_matiz || 0, p.cost_raices || 0);
+        const cost = parseFloat(p.price_150g) || 0;
         const opt = document.createElement('option');
         opt.value = p.id;
         opt.dataset.cost = cost;
-        opt.innerText = p.name + ` (Costo: $${formatMoney(cost)})`;
+        opt.innerText = p.name + ` (Precio 150g: $${formatMoney(cost)})`;
         sel.appendChild(opt);
     });
 }
