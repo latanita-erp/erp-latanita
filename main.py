@@ -111,24 +111,6 @@ def startup_migrations():
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """))
-            conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS promotions (
-                    id SERIAL PRIMARY KEY,
-                    name VARCHAR(255) NOT NULL,
-                    observation TEXT,
-                    discount_percentage NUMERIC DEFAULT 0,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            """))
-            conn.execute(text("ALTER TABLE promotions ADD COLUMN IF NOT EXISTS discount_percentage NUMERIC DEFAULT 0;"))
-            conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS promotion_products (
-                    id SERIAL PRIMARY KEY,
-                    promotion_id INT NOT NULL REFERENCES promotions(id) ON DELETE CASCADE,
-                    product_id INT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-                    cost NUMERIC DEFAULT 0
-                );
-            """))
             conn.execute(text("ALTER TABLE expenses ADD COLUMN IF NOT EXISTS supplier_id INT NULL REFERENCES suppliers(id);"))
             conn.execute(text("ALTER TABLE expenses ALTER COLUMN category_id DROP NOT NULL;"))
         except Exception as e:
