@@ -65,7 +65,6 @@
                 <button class="nav-btn" data-target="products">📦 Productos</button>
                 <button class="nav-btn" data-target="price-history">📜 Historial Precios</button>
                 <button class="nav-btn" data-target="cash">💰 Caja Diaria</button>
-                <button class="nav-btn" data-target="promotions">🏷️ Promociones</button>
                 <button class="nav-btn" onclick="toggleModal('modal-manage-suppliers'); loadManageSuppliers();">🏢 Proveedores</button>
 
                 <hr class="menu-divider">
@@ -460,69 +459,6 @@
             </div>
         </div>
 
-        <!-- MODAL PROMOCIONES -->
-        <div id="modal-manage-promotion" class="modal-overlay hidden">
-            <div class="modal-content glass-panel" style="max-width:600px;">
-                <div class="modal-header">
-                    <h2 id="promotion-modal-title">Promoción</h2>
-                    <button class="close-btn" onclick="toggleModal('modal-manage-promotion')">×</button>
-                </div>
-                <form id="promotion-form">
-                    <input type="hidden" id="promo-id">
-                    <div class="input-group">
-                        <label>Nombre</label>
-                        <input type="text" id="promo-name" required>
-                    </div>
-                    <div class="input-group">
-                        <label>Observación</label>
-                        <textarea id="promo-observation" rows="3" style="width:100%; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.05); color:#fff; padding:0.5rem; font-family:inherit;"></textarea>
-                    </div>
-                    <div class="input-group">
-                        <label>Porcentaje de Descuento Global (%)</label>
-                        <input type="number" step="0.01" id="promo-discount" value="0" oninput="renderPromoProductsTable()">
-                    </div>
-                    
-                    <div style="margin-top:1rem;">
-                        <h3>Productos</h3>
-                        <div style="display:flex; gap:10px; margin-bottom:10px;">
-                            <select id="promo-product-select" style="flex:1; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:var(--glass-bg); color:var(--text-color); padding:0.5rem;">
-                                <!-- Llenado por JS -->
-                            </select>
-                            <button type="button" class="btn btn-primary" onclick="addPromoProduct()">+ Agregar</button>
-                        </div>
-                        <table class="table" style="font-size:0.9rem;">
-                            <thead>
-                                <tr>
-                                    <th>Producto</th>
-                                    <th>Precio (150g)</th>
-                                    <th>Descuento (%)</th>
-                                    <th>Precio Final</th>
-                                    <th>Quitar</th>
-                                </tr>
-                            </thead>
-                            <tbody id="promo-products-table-body">
-                            </tbody>
-                            <tfoot>
-                                <tr>
-                                    <th colspan="3" style="text-align: right;">Total sin descuento:</th>
-                                    <th colspan="2" id="promo-total-base">$0.00</th>
-                                </tr>
-                                <tr>
-                                    <th colspan="3" style="text-align: right;">Total con descuento:</th>
-                                    <th colspan="2" id="promo-total-discounted">$0.00</th>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-
-                    <div style="display:flex; gap:10px; margin-top:1rem;">
-                        <button type="button" class="btn btn-secondary" onclick="toggleModal('modal-manage-promotion')">Cancelar</button>
-                        <button type="submit" class="btn btn-primary" style="flex:1;">Guardar Promoción</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
         <!-- ========================= -->
         <!--     CONTENIDO PRINCIPAL   -->
         <!-- ========================= -->
@@ -834,33 +770,6 @@
 
 </section>
 
-            <!-- PROMOCIONES -->
-            <section id="promotions" class="view hidden">
-                <header class="flex-between">
-                    <div>
-                        <h1>🏷️ Promociones</h1>
-                        <p>Gestión de promociones y combos</p>
-                    </div>
-                    <div class="actions">
-                        <button class="btn btn-primary" onclick="openAddPromotion()">➕ Nueva Promoción</button>
-                    </div>
-                </header>
-                <div class="glass-panel">
-                    <table class="table" id="promotions-table">
-                        <thead>
-                            <tr>
-                                <th>Nombre</th>
-                                <th>Observación</th>
-                                <th>Precio (150g)</th>
-                                <th>Descuento</th>
-                                <th>Total Final</th>
-                                <th>Acción</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
-            </section>
 
     <!-- ========================= -->
     <!--          SCRIPTS          -->
