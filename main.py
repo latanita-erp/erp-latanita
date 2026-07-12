@@ -448,9 +448,9 @@ def get_expenses_by_supplier(month: Optional[str] = None, db: Session = Depends(
         month = datetime.datetime.now().strftime("%Y-%m")
         
     result = db.execute(text("""
-        SELECT s.name AS supplier_name, SUM(e.amount) AS total_amount
+        SELECT COALESCE(s.name, 'Sin Proveedor') AS supplier_name, SUM(e.amount) AS total_amount
         FROM expenses e
-        JOIN suppliers s ON e.supplier_id = s.id
+        LEFT JOIN suppliers s ON e.supplier_id = s.id
         JOIN cash c ON e.cash_id = c.id
         WHERE c.date LIKE :month_pattern
         GROUP BY s.name
