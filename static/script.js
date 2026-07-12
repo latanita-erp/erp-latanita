@@ -220,16 +220,32 @@ async function loadData(view) {
     if (view === 'suppliers-global') await fetchGlobalSuppliers();
     if (view === 'price-history') await fetchGlobalPriceHistory(currentGlobalHistoryPeriod);
     if (view === 'expenses-report') {
-        const date = new Date();
-        const yyyy = date.getFullYear();
-        let mm = date.getMonth() + 1;
-        if (mm < 10) mm = '0' + mm;
-        const currentMonth = `${yyyy}-${mm}`;
-        
+        const cashData = state.cash || [];
         const filterEl = document.getElementById('expenses-month-filter');
-        if (!filterEl.value) {
+        
+        const months = [...new Set(cashData.map(r => r.date.slice(0, 7)))].sort().reverse();
+        filterEl.innerHTML = '';
+        months.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m;
+            opt.innerText = formatMonthLiteral(m);
+            filterEl.appendChild(opt);
+        });
+        
+        if (months.length > 0) {
+            if (!filterEl.value || !months.includes(filterEl.value)) {
+                filterEl.value = months[0];
+            }
+        } else {
+            const date = new Date();
+            const yyyy = date.getFullYear();
+            let mm = date.getMonth() + 1;
+            if (mm < 10) mm = '0' + mm;
+            const currentMonth = `${yyyy}-${mm}`;
+            filterEl.innerHTML = `<option value="${currentMonth}">${formatMonthLiteral(currentMonth)}</option>`;
             filterEl.value = currentMonth;
         }
+
         await fetchExpensesReport(filterEl.value);
     }
 }
