@@ -439,6 +439,28 @@ def delete_cash(cash_id: int, db: Session = Depends(get_db)):
     return {"status": "deleted"}
 
 # ============================================
+#             REPORTES
+# ============================================
+
+@app.get("/api/reports/expenses-by-supplier")
+def get_expenses_by_supplier(month: Optional[str] = None, db: Session = Depends(get_db)):
+    if not month:
+        month = datetime.datetime.now().strftime("%Y-%m")
+        
+    result = db.execute(text("""
+        SELECT s.name AS supplier_name, SUM(e.amount) AS total_amount
+        FROM expenses e
+        JOIN suppliers s ON e.supplier_id = s.id
+        JOIN cash c ON e.cash_id = c.id
+        WHERE c.date LIKE :month_pattern
+        GROUP BY s.name
+        ORDER BY total_amount DESC
+    """), {"month_pattern": f"{month}-%"}).mappings().all()
+    
+    return [dict(r) for r in result]
+
+
+# ============================================
 #             MÓDULO PRODUCTOS
 # ============================================
 
