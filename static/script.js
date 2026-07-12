@@ -7,11 +7,9 @@ let state = {
     cash: [],
     dashboard: null,
     suppliers: [],
-    expenseCategories: [],
-    promotions: []
+    expenseCategories: []
 };
 let currentExpenseList = []; // For cash forms
-let currentPromoProducts = []; // For promo forms
 
 
 function formatMoney(val) {
@@ -221,8 +219,74 @@ async function loadData(view) {
     if (view === 'dashboard') await fetchDashboard();
     if (view === 'suppliers-global') await fetchGlobalSuppliers();
     if (view === 'price-history') await fetchGlobalPriceHistory(currentGlobalHistoryPeriod);
-    if (view === 'promotions') await fetchPromotions();
+    if (view === 'expenses-report') {
+        const date = new Date();
+        const yyyy = date.getFullYear();
+        let mm = date.getMonth() + 1;
+        if (mm < 10) mm = '0' + mm;
+        const currentMonth = `${yyyy}-${mm}`;
+        
+        const filterEl = document.getElementById('expenses-month-filter');
+        if (!filterEl.value) {
+            filterEl.value = currentMonth;
+        }
+        await fetchExpensesReport(filterEl.value);
+    }
 }
+
+// ======================================================
+//                 REPORTE DE GASTOS
+// ======================================================
+
+async function fetchExpensesReport(month = null) {
+    let url = '/api/reports/expenses-by-supplier';
+    if (month) {
+        url += `?month=${month}`;
+    }
+    
+    try {
+        const res = await fetch(url);
+        if (res.ok) {
+            const data = await res.json();
+            renderExpensesReport(data);
+        } else {
+            showToast("Error al cargar reporte de gastos", "error");
+        }
+    } catch (e) {
+        showToast("Error de conexión", "error");
+    }
+}
+
+function renderExpensesReport(data) {
+    const tbody = document.getElementById('expenses-report-body');
+    const totalEl = document.getElementById('expenses-report-total');
+    
+    tbody.innerHTML = '';
+    let total = 0;
+    
+    if (!data || data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="2" style="text-align:center;">No hay gastos registrados.</td></tr>`;
+        totalEl.innerText = `$${formatMoney(0)}`;
+        return;
+    }
+    
+    data.forEach(item => {
+        const amt = parseFloat(item.total_amount || 0);
+        total += amt;
+        tbody.innerHTML += `
+            <tr>
+                <td>${item.supplier_name || 'Desconocido'}</td>
+                <td style="font-weight: 500;">$${formatMoney(amt)}</td>
+            </tr>
+        `;
+    });
+    
+    totalEl.innerText = `$${formatMoney(total)}`;
+}
+
+document.getElementById('expenses-month-filter')?.addEventListener('change', (e) => {
+    fetchExpensesReport(e.target.value);
+});
 
 // ======================================================
 //                 PRODUCTOS
@@ -2085,227 +2149,5 @@ document.getElementById('global-supplier-form')?.addEventListener('submit', asyn
     }
 });
 
-// ======================================================
-//                 PROMOCIONES
-// ======================================================
-
-async function fetchPromotions() {
-    try {
-        const res = await fetch('/api/promotions');
-        const data = await res.json();
-        state.promotions = data;
-        renderPromotions();
-        
-        // Cargar productos en el select si no están cargados
-        if (state.products.length === 0) {
-            await fetchProducts();
-        }
-        
-    } catch (err) {
-        showToast("Error al cargar promociones", "error");
-    }
-}
-
-function renderPromotions() {
-    const tbody = document.querySelector('#promotions-table tbody');
-    if (!tbody) return;
-    tbody.innerHTML = '';
-    
-    state.promotions.forEach(p => {
-        let totalBaseCost = 0;
-        p.products.forEach(prod => {
-            totalBaseCost += parseFloat(prod.cost || 0);
-        });
-        
-        const discount = parseFloat(p.discount_percentage || 0);
-        const totalDiscounted = totalBaseCost * (1 - (discount / 100));
-        
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td><strong>${p.name}</strong></td>
-            <td>${p.observation || '-'}</td>
-            <td>$${formatMoney(totalBaseCost)}</td>
-            <td>${discount}%</td>
-            <td><strong>$${formatMoney(totalDiscounted)}</strong></td>
-            <td>
-                <button class="btn btn-secondary" onclick="editPromotion(${p.id})">✏️ Editar</button>
-                <button class="btn btn-secondary" onclick="window.open('static/print_promo.html?id=${p.id}', '_blank')">🖨️ Imprimir</button>
-                <button class="btn btn-secondary" style="color:var(--danger-color)" onclick="deletePromotion(${p.id})">🗑️ Borrar</button>
-            </td>
-        `;
-        tbody.appendChild(tr);
-    });
-}
-
-function openAddPromotion() {
-    document.getElementById('promotion-modal-title').innerText = "Nueva Promoción";
-    document.getElementById('promo-id').value = '';
-    document.getElementById('promo-name').value = '';
-    document.getElementById('promo-observation').value = '';
-    document.getElementById('promo-discount').value = 0;
-    currentPromoProducts = [];
-    
-    populatePromoProductSelect();
-    renderPromoProductsTable();
-    toggleModal('modal-manage-promotion');
-}
-
-function editPromotion(id) {
-    const p = state.promotions.find(x => x.id === id);
-    if (!p) return;
-    
-    document.getElementById('promotion-modal-title').innerText = "Editar Promoción";
-    document.getElementById('promo-id').value = p.id;
-    document.getElementById('promo-name').value = p.name;
-    document.getElementById('promo-observation').value = p.observation || '';
-    document.getElementById('promo-discount').value = p.discount_percentage || 0;
-    
-    currentPromoProducts = p.products.map(prod => ({
-        product_id: prod.product_id,
-        product_name: prod.product_name,
-        cost: parseFloat(prod.cost)
-    }));
-    
-    populatePromoProductSelect();
-    renderPromoProductsTable();
-    toggleModal('modal-manage-promotion');
-}
-
-async function deletePromotion(id) {
-    if (confirm('¿Eliminar promoción?')) {
-        try {
-            await fetch('/api/promotions/' + id, { method: 'DELETE' });
-            showToast("Promoción eliminada");
-            fetchPromotions();
-        } catch (err) {
-            showToast("Error al eliminar", "error");
-        }
-    }
-}
-
-function populatePromoProductSelect() {
-    const sel = document.getElementById('promo-product-select');
-    sel.innerHTML = '<option value="">-- Seleccionar Producto --</option>';
-    
-    // Sort products by name
-    const sorted = [...state.products].sort((a,b) => a.name.localeCompare(b.name));
-    
-    sorted.forEach(p => {
-        const cost = parseFloat(p.price_150g) || 0;
-        const opt = document.createElement('option');
-        opt.value = p.id;
-        opt.dataset.cost = cost;
-        opt.innerText = p.name + ` (Precio 150g: $${formatMoney(cost)})`;
-        sel.appendChild(opt);
-    });
-}
-
-function addPromoProduct() {
-    const sel = document.getElementById('promo-product-select');
-    const opt = sel.options[sel.selectedIndex];
-    
-    if (!opt.value) {
-        showToast("Seleccione un producto", "error");
-        return;
-    }
-    
-    const productId = parseInt(opt.value);
-    const productName = state.products.find(p => p.id === productId)?.name || 'Producto';
-    const cost = parseFloat(opt.dataset.cost);
-    
-    currentPromoProducts.push({
-        product_id: productId,
-        product_name: productName,
-        cost: cost
-    });
-    
-    renderPromoProductsTable();
-    sel.value = '';
-}
-
-function removePromoProduct(index) {
-    currentPromoProducts.splice(index, 1);
-    renderPromoProductsTable();
-}
-
-function renderPromoProductsTable() {
-    const tbody = document.getElementById('promo-products-table-body');
-    tbody.innerHTML = '';
-    
-    const discountInput = document.getElementById('promo-discount').value;
-    const discount = parseFloat(discountInput) || 0;
-    
-    let totalBase = 0;
-    let totalDiscounted = 0;
-    
-    currentPromoProducts.forEach((p, idx) => {
-        const costBase = p.cost;
-        const costDiscounted = costBase * (1 - (discount / 100));
-        totalBase += costBase;
-        totalDiscounted += costDiscounted;
-        
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${p.product_name}</td>
-            <td>$${formatMoney(costBase)}</td>
-            <td>${discount}%</td>
-            <td><strong>$${formatMoney(costDiscounted)}</strong></td>
-            <td><button type="button" class="btn btn-secondary" onclick="removePromoProduct(${idx})">❌</button></td>
-        `;
-        tbody.appendChild(tr);
-    });
-    
-    const totalBaseEl = document.getElementById('promo-total-base');
-    const totalDiscEl = document.getElementById('promo-total-discounted');
-    
-    // Redondear totalDiscounted a la centena/milésima superior (ej: 10290 -> 11000)
-    totalDiscounted = Math.ceil(totalDiscounted / 1000) * 1000;
-
-    if(totalBaseEl) totalBaseEl.innerText = `$${formatMoney(totalBase)}`;
-    if(totalDiscEl) totalDiscEl.innerText = `$${formatMoney(totalDiscounted)}`;
-}
-
-document.getElementById('promotion-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const btn = e.submitter;
-    const originalText = btn.innerText;
-    btn.disabled = true;
-    btn.innerText = "Guardando...";
-    
-    const id = document.getElementById('promo-id').value;
-    const payload = {
-        name: document.getElementById('promo-name').value,
-        observation: document.getElementById('promo-observation').value,
-        discount_percentage: parseFloat(document.getElementById('promo-discount').value) || 0,
-        products: currentPromoProducts.map(p => ({
-            product_id: p.product_id,
-            cost: p.cost
-        }))
-    };
-    
-    try {
-        if (id) {
-            await fetch('/api/promotions/' + id, { 
-                method: 'PUT', 
-                headers: {'Content-Type': 'application/json'}, 
-                body: JSON.stringify(payload) 
-            });
-        } else {
-            await fetch('/api/promotions', { 
-                method: 'POST', 
-                headers: {'Content-Type': 'application/json'}, 
-                body: JSON.stringify(payload) 
-            });
-        }
-        showToast("Promoción guardada");
-        toggleModal('modal-manage-promotion');
-        fetchPromotions();
-    } catch (e) {
-        showToast("Error al guardar promoción", "error");
-    } finally {
-        btn.disabled = false;
-        btn.innerText = originalText;
-    }
-});
 
 

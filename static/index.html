@@ -66,6 +66,7 @@
                 <button class="nav-btn" data-target="price-history">📜 Historial Precios</button>
                 <button class="nav-btn" data-target="cash">💰 Caja Diaria</button>
                 <button class="nav-btn" onclick="toggleModal('modal-manage-suppliers'); loadManageSuppliers();">🏢 Proveedores</button>
+                <button class="nav-btn" data-target="expenses-report">📈 Reporte Gastos</button>
 
                 <hr class="menu-divider">
 
@@ -770,6 +771,39 @@
 
 </section>
 
+<!-- REPORTE DE GASTOS -->
+<section id="expenses-report" class="view" style="display: none;">
+    <header class="dash-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem;">
+        <div>
+            <h1>📈 Reporte de Gastos</h1>
+            <p>Gastos mensuales discriminados por proveedor</p>
+        </div>
+        <div class="filter-group" style="display: flex; align-items: center; gap: 0.5rem;">
+            <label for="expenses-month-filter" style="font-weight: 600; font-size: 0.95rem; color: var(--text-color);">Filtrar Mes:</label>
+            <input type="month" id="expenses-month-filter" class="select-modern" style="padding: 0.4rem 0.8rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: var(--text-color); font-weight: 500; outline: none; cursor: pointer;">
+        </div>
+    </header>
+
+    <div class="glass-panel" style="padding: 1.5rem;">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Proveedor</th>
+                    <th>Total Gasto ($)</th>
+                </tr>
+            </thead>
+            <tbody id="expenses-report-body">
+                <!-- Data loaded by JS -->
+            </tbody>
+            <tfoot>
+                <tr style="font-weight: bold; background: rgba(255,255,255,0.05);">
+                    <td style="text-align: right;">Total General:</td>
+                    <td id="expenses-report-total">$0.00</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</section>
 
     <!-- ========================= -->
     <!--          SCRIPTS          -->
