@@ -1147,6 +1147,8 @@ async function fetchCash() {
         const weekday = (r.weekday || getWeekdayFromDate(date)).toUpperCase();
 
         const cash = Number(r.cash ?? 0);
+        const morning_sales = Number(r.morning_sales ?? 0);
+        const afternoon_sales = Number(r.afternoon_sales ?? 0);
         const card = Number(r.card ?? 0);
         const expenses = Number(r.expenses ?? 0);
         const notes = r.notes || '';
@@ -1159,6 +1161,8 @@ async function fetchCash() {
             id: r.id,
             date,
             weekday,
+            morning_sales,
+            afternoon_sales,
             cash,
             card,
             net_income,
@@ -1326,6 +1330,12 @@ document.getElementById('cash-form').addEventListener('submit', async (e) => {
     renderCashExpenseList('new');
     await fetchCash();
     await fetchDashboard();
+
+    // Scroll to the history table to see the newly added record
+    const historyBox = document.querySelector('.cash-history-box');
+    if (historyBox) {
+        historyBox.scrollIntoView({ behavior: 'smooth' });
+    }
 });
 
 // =====================================================
