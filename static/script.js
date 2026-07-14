@@ -147,12 +147,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
 
             const target = e.target.dataset.target;
+            localStorage.setItem('activeView', target);
+            
             document.getElementById(target).classList.remove('hidden');
             document.getElementById(target).classList.add('active');
 
             loadData(target);
         });
     });
+
+    const savedView = localStorage.getItem('activeView');
+    if (savedView) {
+        const btn = document.querySelector(`.nav-btn[data-target="${savedView}"]`);
+        if (btn) {
+            btn.click();
+        }
+    }
 
     // Importación Excel
     document.getElementById('excel-file')
@@ -1327,15 +1337,9 @@ document.getElementById('cash-form').addEventListener('submit', async (e) => {
     btn.innerText = originalText;
     e.target.reset();
     currentNewCashExpenseList = [];
-    renderCashExpenseList('new');
-    await fetchCash();
-    await fetchDashboard();
-
-    // Scroll to the history table to see the newly added record
-    const historyBox = document.querySelector('.cash-history-box');
-    if (historyBox) {
-        historyBox.scrollIntoView({ behavior: 'smooth' });
-    }
+    
+    // El usuario solicitó que refresque la página al guardar
+    window.location.reload();
 });
 
 // =====================================================
@@ -1403,9 +1407,7 @@ document.getElementById('edit-cash-form').addEventListener('submit', async (e) =
 
     btn.disabled = false;
     btn.innerText = originalText;
-    toggleModal('modal-edit-cash');
-    await fetchCash();
-    await fetchDashboard();
+    window.location.reload();
 });
 
 // =====================================================
