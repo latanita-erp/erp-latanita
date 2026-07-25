@@ -1530,6 +1530,9 @@ function renderDashboard() {
     // 4. Comparativo mensual (Todos los meses acumulando beneficio)
     renderMonthlyComparisonChart(cashData);
 
+    // Comparativo de Turnos (Mes actual)
+    renderShiftComparisonChart(currentMonthRows);
+
     // 5. Distribución y Ranking por Día
     if (typeof renderWeekdayDistribution === 'function') {
         renderWeekdayDistribution(currentMonthRows);
@@ -1641,6 +1644,37 @@ function renderMonthlyComparisonChart(cashData) {
             }]
         },
         options: { responsive: true, plugins: { legend: { display: false } } }
+    });
+}
+
+function renderShiftComparisonChart(rows) {
+    const totalMorning = rows.reduce((acc, r) => acc + (r.morning_sales || 0), 0);
+    const totalAfternoon = rows.reduce((acc, r) => acc + (r.afternoon_sales || 0), 0);
+
+    const canvas = document.getElementById('chart-shift-compare');
+    if (!canvas) return;
+
+    charts.shiftCompare = new Chart(canvas.getContext('2d'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Turno Mañana', 'Turno Tarde'],
+            datasets: [{
+                data: [totalMorning, totalAfternoon],
+                backgroundColor: ['rgba(245, 158, 11, 0.8)', 'rgba(59, 130, 246, 0.8)'],
+                borderColor: ['rgba(245, 158, 11, 1)', 'rgba(59, 130, 246, 1)'],
+                borderWidth: 1
+            }]
+        },
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false,
+            plugins: { 
+                legend: { 
+                    position: 'bottom',
+                    labels: { color: 'var(--text-color)' }
+                } 
+            } 
+        }
     });
 }
 
