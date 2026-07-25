@@ -1671,7 +1671,7 @@ function renderShiftComparisonChart(rows) {
             plugins: { 
                 legend: { 
                     position: 'bottom',
-                    labels: { color: 'var(--text-color)' }
+                    labels: { color: '#94a3b8' }
                 } 
             } 
         }
