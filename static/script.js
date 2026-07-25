@@ -1643,7 +1643,7 @@ function renderMonthlyComparisonChart(cashData) {
                 tension: 0.4
             }]
         },
-        options: { responsive: true, plugins: { legend: { display: false } } }
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
     });
 }
 
