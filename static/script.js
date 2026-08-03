@@ -341,7 +341,7 @@ async function fetchProducts() {
 
 function populateSupplierSelects() {
     const list = state.suppliers || [];
-    ['prod-supplier1', 'prod-supplier2', 'edit-prod-supplier1', 'edit-prod-supplier2'].forEach(id => {
+    ['prod-supplier1', 'prod-supplier2', 'prod-supplier3', 'edit-prod-supplier1', 'edit-prod-supplier2', 'edit-prod-supplier3'].forEach(id => {
         const sel = document.getElementById(id);
         if (!sel) return;
         const currentVal = sel.value;
@@ -382,28 +382,27 @@ function renderProducts() {
         const typeClass = `row-${p.type.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
 
         // Determinar el costo más barato para destacar
-        let s1Class = '';
-        let s2Class = '';
-        let s1Badge = '';
-        let s2Badge = '';
-        if (p.cost1 > 0 && p.cost2 > 0) {
-            if (p.cost1 < p.cost2) {
-                s1Class = 'cheaper-cost';
-                s1Badge = '<span class="cheaper-cost-badge">Más barato</span>';
-            } else if (p.cost2 < p.cost1) {
-                s2Class = 'cheaper-cost';
-                s2Badge = '<span class="cheaper-cost-badge">Más barato</span>';
-            }
-        } else if (p.cost1 > 0 && p.cost2 === 0) {
-            s1Class = 'cheaper-cost';
-            s1Badge = '<span class="cheaper-cost-badge">Único</span>';
-        } else if (p.cost2 > 0 && p.cost1 === 0) {
-            s2Class = 'cheaper-cost';
-            s2Badge = '<span class="cheaper-cost-badge">Único</span>';
+        let s1Class = ''; let s2Class = ''; let s3Class = '';
+        let s1Badge = ''; let s2Badge = ''; let s3Badge = '';
+        
+        const costs = [
+            { idx: 1, val: p.cost1 },
+            { idx: 2, val: p.cost2 },
+            { idx: 3, val: p.cost3 }
+        ].filter(c => c.val > 0);
+        
+        if (costs.length > 0) {
+            const minCost = Math.min(...costs.map(c => c.val));
+            const badgeHtml = costs.length === 1 ? '<span class="cheaper-cost-badge">Único</span>' : '<span class="cheaper-cost-badge">Más barato</span>';
+            
+            if (p.cost1 === minCost && p.cost1 > 0) { s1Class = 'cheaper-cost'; s1Badge = badgeHtml; }
+            if (p.cost2 === minCost && p.cost2 > 0) { s2Class = 'cheaper-cost'; s2Badge = badgeHtml; }
+            if (p.cost3 === minCost && p.cost3 > 0) { s3Class = 'cheaper-cost'; s3Badge = badgeHtml; }
         }
 
         const s1Label = p.supplier1_name ? `<span style="font-size:0.8em; opacity:0.8; display:block;">${p.supplier1_name}</span>` : '';
         const s2Label = p.supplier2_name ? `<span style="font-size:0.8em; opacity:0.8; display:block;">${p.supplier2_name}</span>` : '';
+        const s3Label = p.supplier3_name ? `<span style="font-size:0.8em; opacity:0.8; display:block;">${p.supplier3_name}</span>` : '';
 
         const tr = document.createElement('tr');
         tr.className = typeClass;
@@ -412,6 +411,7 @@ function renderProducts() {
             <td class="prod-type">${p.type}</td>
             <td class="prod-cost1 ${s1Class}" data-value="${p.cost1}">${s1Label}$${formatMoney(p.cost1)}${s1Badge}</td>
             <td class="prod-cost2 ${s2Class}" data-value="${p.cost2}">${s2Label}$${formatMoney(p.cost2)}${s2Badge}</td>
+            <td class="prod-cost3 ${s3Class}" data-value="${p.cost3}">${s3Label}$${formatMoney(p.cost3)}${s3Badge}</td>
             <td class="prod-margin" data-value="${p.margin}">${p.margin}%</td>
             <td class="prod-pricekg" data-value="${p.price_kg}"><strong>$${formatMoney(p.price_kg)}</strong></td>
             <td class="prod-oldprice" data-value="${p.old_price_kg}">${oldPrice}</td>
@@ -514,7 +514,8 @@ function renderWeekdayDistribution(currentMonthRows) {
 function updateAddProductPrice() {
     const cost1 = parseFloat(document.getElementById("prod-cost1")?.value) || 0;
     const cost2 = parseFloat(document.getElementById("prod-cost2")?.value) || 0;
-    const max_cost = Math.max(cost1, cost2);
+    const cost3 = parseFloat(document.getElementById("prod-cost3")?.value) || 0;
+    const max_cost = Math.max(cost1, cost2, cost3);
     const margin = parseFloat(document.getElementById("prod-margin").value) || 0;
     const newPrice = calculatePrices(max_cost, margin);
     document.getElementById("prod-new-price").value = newPrice;
@@ -523,7 +524,8 @@ function updateAddProductPrice() {
 function updateAddProductMargin() {
     const cost1 = parseFloat(document.getElementById("prod-cost1")?.value) || 0;
     const cost2 = parseFloat(document.getElementById("prod-cost2")?.value) || 0;
-    const max_cost = Math.max(cost1, cost2);
+    const cost3 = parseFloat(document.getElementById("prod-cost3")?.value) || 0;
+    const max_cost = Math.max(cost1, cost2, cost3);
     const newPrice = parseFloat(document.getElementById("prod-new-price").value) || 0;
     if (max_cost > 0) {
         const exactMargin = ((newPrice / max_cost) - 1) * 100;
@@ -535,6 +537,7 @@ function updateAddProductMargin() {
 
 document.getElementById("prod-cost1")?.addEventListener("input", updateAddProductPrice);
 document.getElementById("prod-cost2")?.addEventListener("input", updateAddProductPrice);
+document.getElementById("prod-cost3")?.addEventListener("input", updateAddProductPrice);
 document.getElementById("prod-margin")?.addEventListener("input", updateAddProductPrice);
 document.getElementById("prod-new-price")?.addEventListener("input", updateAddProductMargin);
 
@@ -547,14 +550,17 @@ document.getElementById('add-product-form')?.addEventListener('submit', async (e
 
     const s1Val = document.getElementById('prod-supplier1').value;
     const s2Val = document.getElementById('prod-supplier2').value;
+    const s3Val = document.getElementById('prod-supplier3').value;
 
     const payload = {
         name: document.getElementById('prod-name').value,
         type: document.getElementById('prod-type').value,
         supplier1_id: s1Val ? parseInt(s1Val) : null,
         supplier2_id: s2Val ? parseInt(s2Val) : null,
+        supplier3_id: s3Val ? parseInt(s3Val) : null,
         cost1: parseFloat(document.getElementById('prod-cost1').value || 0),
         cost2: parseFloat(document.getElementById('prod-cost2').value || 0),
+        cost3: parseFloat(document.getElementById('prod-cost3').value || 0),
         cost_matiz: parseFloat(document.getElementById('prod-cost1').value || 0),
         cost_raices: parseFloat(document.getElementById('prod-cost2').value || 0),
         margin: parseFloat(document.getElementById('prod-margin').value || 0)
@@ -627,7 +633,8 @@ function calculatePrices(cost, margin) {
 function updateNewPrice() {
     const cost1 = parseFloat(document.getElementById("edit-prod-cost1")?.value) || 0;
     const cost2 = parseFloat(document.getElementById("edit-prod-cost2")?.value) || 0;
-    const max_cost = Math.max(cost1, cost2);
+    const cost3 = parseFloat(document.getElementById("edit-prod-cost3")?.value) || 0;
+    const max_cost = Math.max(cost1, cost2, cost3);
     const margin = parseFloat(document.getElementById("edit-product-margin").value) || 0;
     const newPrice = calculatePrices(max_cost, margin);
     document.getElementById("edit-product-new-price").value = newPrice;
@@ -636,7 +643,8 @@ function updateNewPrice() {
 function updateNewMargin() {
     const cost1 = parseFloat(document.getElementById("edit-prod-cost1")?.value) || 0;
     const cost2 = parseFloat(document.getElementById("edit-prod-cost2")?.value) || 0;
-    const max_cost = Math.max(cost1, cost2);
+    const cost3 = parseFloat(document.getElementById("edit-prod-cost3")?.value) || 0;
+    const max_cost = Math.max(cost1, cost2, cost3);
     const newPrice = parseFloat(document.getElementById("edit-product-new-price").value) || 0;
     if (max_cost > 0) {
         const exactMargin = ((newPrice / max_cost) - 1) * 100;
@@ -659,8 +667,10 @@ function openEditProduct(id) {
     
     if (document.getElementById("edit-prod-supplier1")) document.getElementById("edit-prod-supplier1").value = p.supplier1_id || '';
     if (document.getElementById("edit-prod-supplier2")) document.getElementById("edit-prod-supplier2").value = p.supplier2_id || '';
+    if (document.getElementById("edit-prod-supplier3")) document.getElementById("edit-prod-supplier3").value = p.supplier3_id || '';
     if (document.getElementById("edit-prod-cost1")) document.getElementById("edit-prod-cost1").value = p.cost1 || 0;
     if (document.getElementById("edit-prod-cost2")) document.getElementById("edit-prod-cost2").value = p.cost2 || 0;
+    if (document.getElementById("edit-prod-cost3")) document.getElementById("edit-prod-cost3").value = p.cost3 || 0;
 
     document.getElementById("edit-product-margin").value = p.margin;
     document.getElementById("edit-product-old-cost").value = p.cost;
@@ -672,6 +682,7 @@ function openEditProduct(id) {
 
 document.getElementById("edit-prod-cost1")?.addEventListener("input", updateNewPrice);
 document.getElementById("edit-prod-cost2")?.addEventListener("input", updateNewPrice);
+document.getElementById("edit-prod-cost3")?.addEventListener("input", updateNewPrice);
 document.getElementById("edit-product-margin")?.addEventListener("input", updateNewPrice);
 document.getElementById("edit-product-new-price")?.addEventListener("input", updateNewMargin);
 
@@ -688,9 +699,11 @@ document.getElementById("edit-product-form")?.addEventListener("submit", async (
     
     const s1Val = document.getElementById('edit-prod-supplier1').value;
     const s2Val = document.getElementById('edit-prod-supplier2').value;
+    const s3Val = document.getElementById('edit-prod-supplier3').value;
 
     const cost1 = parseFloat(document.getElementById("edit-prod-cost1").value || 0);
     const cost2 = parseFloat(document.getElementById("edit-prod-cost2").value || 0);
+    const cost3 = parseFloat(document.getElementById("edit-prod-cost3").value || 0);
     const margin = parseFloat(document.getElementById("edit-product-margin").value || 0);
 
     const payload = {
@@ -698,8 +711,10 @@ document.getElementById("edit-product-form")?.addEventListener("submit", async (
         type,
         supplier1_id: s1Val ? parseInt(s1Val) : null,
         supplier2_id: s2Val ? parseInt(s2Val) : null,
+        supplier3_id: s3Val ? parseInt(s3Val) : null,
         cost1,
         cost2,
+        cost3,
         cost_matiz: cost1,
         cost_raices: cost2,
         margin
