@@ -204,6 +204,19 @@
                         </div>
                     </div>
 
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div class="input-group">
+                            <label>Proveedor 3</label>
+                            <select id="prod-supplier3">
+                                <option value="">Seleccionar...</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Costo Proveedor 3 ($)</label>
+                            <input type="number" step="0.01" id="prod-cost3" value="0">
+                        </div>
+                    </div>
+
                     <div class="input-group">
                         <label>Margen de Ganancia (%)</label>
                         <input type="number" step="0.01" id="prod-margin" required>
@@ -298,6 +311,19 @@
                         <div class="input-group">
                             <label>Costo Proveedor 2 ($)</label>
                             <input type="number" step="0.01" id="edit-prod-cost2" value="0">
+                        </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div class="input-group">
+                            <label>Proveedor 3</label>
+                            <select id="edit-prod-supplier3">
+                                <option value="">Seleccionar...</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Costo Proveedor 3 ($)</label>
+                            <input type="number" step="0.01" id="edit-prod-cost3" value="0">
                         </div>
                     </div>
 
@@ -614,7 +640,7 @@
                     </div>
                     <table class="table" id="products-table">
                         <thead>
-                            <tr><th>Descripción</th><th>Tipo</th><th>Proveedor 1 / Costo</th><th>Proveedor 2 / Costo</th><th>Margen</th><th>Precio KG/UN</th><th>Precio Anterior</th><th>Precio por 100 gr.</th><th>Precio por 150 gr.</th><th>Precio por 250 gr.</th><th>Acción</th></tr>
+                            <tr><th>Descripción</th><th>Tipo</th><th>Proveedor 1 / Costo</th><th>Proveedor 2 / Costo</th><th>Proveedor 3 / Costo</th><th>Margen</th><th>Precio KG/UN</th><th>Precio Anterior</th><th>Precio por 100 gr.</th><th>Precio por 150 gr.</th><th>Precio por 250 gr.</th><th>Acción</th></tr>
                         </thead>
                         <tbody></tbody>
                     </table>
