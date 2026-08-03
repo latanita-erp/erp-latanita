@@ -392,12 +392,29 @@ function renderProducts() {
         ].filter(c => c.val > 0);
         
         if (costs.length > 0) {
-            const minCost = Math.min(...costs.map(c => c.val));
-            const badgeHtml = costs.length === 1 ? '<span class="cheaper-cost-badge">Único</span>' : '<span class="cheaper-cost-badge">Más barato</span>';
-            
-            if (p.cost1 === minCost && p.cost1 > 0) { s1Class = 'cheaper-cost'; s1Badge = badgeHtml; }
-            if (p.cost2 === minCost && p.cost2 > 0) { s2Class = 'cheaper-cost'; s2Badge = badgeHtml; }
-            if (p.cost3 === minCost && p.cost3 > 0) { s3Class = 'cheaper-cost'; s3Badge = badgeHtml; }
+            if (costs.length === 1) {
+                const badgeHtml = '<span class="cheaper-cost-badge">Único</span>';
+                if (p.cost1 > 0) { s1Class = 'cheaper-cost'; s1Badge = badgeHtml; }
+                if (p.cost2 > 0) { s2Class = 'cheaper-cost'; s2Badge = badgeHtml; }
+                if (p.cost3 > 0) { s3Class = 'cheaper-cost'; s3Badge = badgeHtml; }
+            } else {
+                const minCost = Math.min(...costs.map(c => c.val));
+                const maxCost = Math.max(...costs.map(c => c.val));
+                
+                if (minCost !== maxCost) {
+                    const cheapBadge = '<span class="cheaper-cost-badge">Más barato</span>';
+                    const highBadge = '<span class="higher-cost-badge">Más caro</span>';
+                    
+                    if (p.cost1 === minCost && p.cost1 > 0) { s1Class = 'cheaper-cost'; s1Badge = cheapBadge; }
+                    else if (p.cost1 === maxCost && p.cost1 > 0) { s1Class = 'higher-cost'; s1Badge = highBadge; }
+                    
+                    if (p.cost2 === minCost && p.cost2 > 0) { s2Class = 'cheaper-cost'; s2Badge = cheapBadge; }
+                    else if (p.cost2 === maxCost && p.cost2 > 0) { s2Class = 'higher-cost'; s2Badge = highBadge; }
+                    
+                    if (p.cost3 === minCost && p.cost3 > 0) { s3Class = 'cheaper-cost'; s3Badge = cheapBadge; }
+                    else if (p.cost3 === maxCost && p.cost3 > 0) { s3Class = 'higher-cost'; s3Badge = highBadge; }
+                }
+            }
         }
 
         const s1Label = p.supplier1_name ? `<span style="font-size:0.8em; opacity:0.8; display:block;">${p.supplier1_name}</span>` : '';

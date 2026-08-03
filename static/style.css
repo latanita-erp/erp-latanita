@@ -722,3 +722,18 @@ option {
     border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
+/* DESTACADO DE COSTO MAS CARO */
+.higher-cost {
+    color: var(--danger-color) !important;
+    font-weight: bold;
+}
+.higher-cost-badge {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--danger-color);
+    padding: 0.1rem 0.3rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    margin-left: 0.25rem;
+    font-weight: 600;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
