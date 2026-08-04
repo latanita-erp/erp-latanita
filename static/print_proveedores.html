@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Comparativo de Proveedores - La Tanita</title>
+    <style>
+        @page { size: 216mm 330mm; margin: 15mm; }
+        body { font-family: Arial, sans-serif; color: #000; background: #fff; margin: 0; padding: 0; }
+        @media print { .no-print { display: none !important; } }
+        .print-btn { background-color: #3b82f6; color: white; border: none; padding: 10px 20px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; margin-top: 15px; }
+        .header { text-align: center; border-bottom: 2px solid #000; margin-bottom: 20px; padding-bottom: 10px; }
+        .header h1 { margin: 5px 0 0 0; font-size: 24px; }
+        .header h2 { margin: 0; font-size: 18px; }
+        .date { text-align: right; font-size: 12px; margin-bottom: 10px; }
+        .type-group { margin-bottom: 20px; page-break-inside: avoid; }
+        .type-title { background-color: #e5e7eb; font-weight: bold; padding: 5px 10px; font-size: 14px; border: 1px solid #9ca3af; border-bottom: none; margin-bottom: 0; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #9ca3af; padding: 4px 6px; text-align: right; font-size: 11px; }
+        th { background-color: #f3f4f6; font-weight: bold; }
+        td.name-col, th.name-col { text-align: left; width: 25%; }
+        .sup-name { display: block; font-size: 0.8em; color: #6b7280; }
+        .cheaper { color: #10b981; font-weight: bold; }
+        .higher { color: #ef4444; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Panadería y Fiambrería La Tanita</h1>
+        <h2>Comparativo de Proveedores</h2>
+        <button class="print-btn no-print" onclick="window.print()">🖨️ Imprimir Listado</button>
+    </div>
+    <div class="date" id="print-date"></div>
+    <div id="content">Cargando datos...</div>
+
+    <script>
+        function formatMoney(val) {
+            if (val === null || val === undefined) return "0,00";
+            return Number(val).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        async function loadPrices() {
+            document.getElementById('print-date').innerText = "Actualizado: " + new Date().toLocaleDateString('es-AR') + " " + new Date().toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'});
+            try {
+                const token = localStorage.getItem('auth_token');
+                if (!token) {
+                    document.getElementById('content').innerHTML = "No estás autenticado. Cierra esta ventana e inicia sesión.";
+                    return;
+                }
+                const res = await fetch('/api/products', { headers: { 'Authorization': `Basic ${token}` } });
+                let products = await res.json();
+                
+                // Omitir productos que no tienen costos
+                products = products.filter(p => p.cost1 > 0 || p.cost2 > 0 || p.cost3 > 0);
+
+                const grouped = {};
+                products.forEach(p => {
+                    const type = p.type || 'Otros';
+                    if (!grouped[type]) grouped[type] = [];
+                    grouped[type].push(p);
+                });
+
+                const types = Object.keys(grouped).sort();
+                let html = '';
+
+                types.forEach(type => {
+                    html += `
+                        <div class="type-group">
+                            <div class="type-title">${type.toUpperCase()}</div>
+                             <table>
+                                <thead>
+                                    <tr>
+                                        <th class="name-col">Descripción</th>
+                                        <th>Prov 1 / Costo</th>
+                                        <th>Prov 2 / Costo</th>
+                                        <th>Prov 3 / Costo</th>
+                                        <th>Margen</th>
+                                        <th>Precio Sugerido</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                    `;
+
+                    grouped[type].sort((a, b) => a.name.localeCompare(b.name)).forEach(p => {
+                        const costs = [
+                            { idx: 1, val: p.cost1 || 0 },
+                            { idx: 2, val: p.cost2 || 0 },
+                            { idx: 3, val: p.cost3 || 0 }
+                        ].filter(c => c.val > 0);
+
+                        let s1Class = ''; let s2Class = ''; let s3Class = '';
+                        if (costs.length > 0) {
+                            if (costs.length === 1) {
+                                if (p.cost1 > 0) s1Class = 'cheaper';
+                                if (p.cost2 > 0) s2Class = 'cheaper';
+                                if (p.cost3 > 0) s3Class = 'cheaper';
+                            } else {
+                                const minCost = Math.min(...costs.map(c => c.val));
+                                const maxCost = Math.max(...costs.map(c => c.val));
+                                if (minCost !== maxCost) {
+                                    if (p.cost1 === minCost && p.cost1 > 0) s1Class = 'cheaper';
+                                    else if (p.cost1 === maxCost && p.cost1 > 0) s1Class = 'higher';
+                                    
+                                    if (p.cost2 === minCost && p.cost2 > 0) s2Class = 'cheaper';
+                                    else if (p.cost2 === maxCost && p.cost2 > 0) s2Class = 'higher';
+                                    
+                                    if (p.cost3 === minCost && p.cost3 > 0) s3Class = 'cheaper';
+                                    else if (p.cost3 === maxCost && p.cost3 > 0) s3Class = 'higher';
+                                }
+                            }
+                        }
+
+                        const s1Label = p.supplier1_name ? `<span class="sup-name">${p.supplier1_name}</span>` : '';
+                        const s2Label = p.supplier2_name ? `<span class="sup-name">${p.supplier2_name}</span>` : '';
+                        const s3Label = p.supplier3_name ? `<span class="sup-name">${p.supplier3_name}</span>` : '';
+                        
+                        const c1 = p.cost1 > 0 ? `$${formatMoney(p.cost1)}` : '-';
+                        const c2 = p.cost2 > 0 ? `$${formatMoney(p.cost2)}` : '-';
+                        const c3 = p.cost3 > 0 ? `$${formatMoney(p.cost3)}` : '-';
+
+                        html += `
+                            <tr>
+                                <td class="name-col"><strong>${p.name}</strong></td>
+                                <td class="${s1Class}">${s1Label}${c1}</td>
+                                <td class="${s2Class}">${s2Label}${c2}</td>
+                                <td class="${s3Class}">${s3Label}${c3}</td>
+                                <td>${p.margin}%</td>
+                                <td><strong>$${formatMoney(p.price_kg)}</strong></td>
+                            </tr>
+                         `;
+                    });
+
+                    html += `</tbody></table></div>`;
+                });
+
+                document.getElementById('content').innerHTML = html;
+            } catch (err) {
+                document.getElementById('content').innerHTML = "Error al cargar el comparativo.";
+            }
+        }
+        window.onload = loadPrices;
+    </script>
+</body>
+</html>
