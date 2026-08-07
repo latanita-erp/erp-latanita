@@ -1461,6 +1461,7 @@ async function deleteCash(id) {
 
 let charts = {};
 let selectedMonth = '';
+let selectedCompareMonth = '';
 
 async function fetchDashboard() {
     // We don't even need /api/dashboard anymore because we have state.cash and state.expenseCategories
@@ -1472,28 +1473,67 @@ async function fetchDashboard() {
 function populateMonthFilter() {
     const cashData = state.cash || [];
     const filter = document.getElementById('dashboard-month-filter');
+    const compareFilter = document.getElementById('dashboard-compare-filter');
     if (!filter) return;
 
     const months = [...new Set(cashData.map(r => r.date.slice(0, 7)))].sort().reverse();
+    
+    const oldMonth = filter.value;
+    const oldCompareMonth = compareFilter ? compareFilter.value : '';
 
     filter.innerHTML = '';
+    if (compareFilter) compareFilter.innerHTML = '';
+
     months.forEach(m => {
         const opt = document.createElement('option');
         opt.value = m;
         opt.innerText = formatMonthLiteral(m);
         filter.appendChild(opt);
+        
+        if (compareFilter) {
+            const opt2 = document.createElement('option');
+            opt2.value = m;
+            opt2.innerText = formatMonthLiteral(m);
+            compareFilter.appendChild(opt2);
+        }
     });
 
-    // Default to most recent month
     if (months.length > 0) {
-        selectedMonth = months[0];
+        if (oldMonth && months.includes(oldMonth)) {
+            selectedMonth = oldMonth;
+        } else {
+            selectedMonth = months[0];
+        }
         filter.value = selectedMonth;
+        
+        if (compareFilter) {
+            if (oldCompareMonth && months.includes(oldCompareMonth)) {
+                selectedCompareMonth = oldCompareMonth;
+            } else if (months.length > 1) {
+                selectedCompareMonth = months[1];
+            } else {
+                selectedCompareMonth = months[0];
+            }
+            compareFilter.value = selectedCompareMonth;
+        }
     }
 
-    filter.addEventListener('change', (e) => {
+    // Safely add event listeners without duplicates by recreating elements if necessary
+    const newFilter = filter.cloneNode(true);
+    filter.parentNode.replaceChild(newFilter, filter);
+    newFilter.addEventListener('change', (e) => {
         selectedMonth = e.target.value;
         renderDashboard();
     });
+    
+    if (compareFilter) {
+        const newCompareFilter = compareFilter.cloneNode(true);
+        compareFilter.parentNode.replaceChild(newCompareFilter, compareFilter);
+        newCompareFilter.addEventListener('change', (e) => {
+            selectedCompareMonth = e.target.value;
+            renderDashboard();
+        });
+    }
 }
 
 function renderDashboard() {
@@ -1524,12 +1564,9 @@ function renderDashboard() {
     const periodStr = formatMonthLiteral(selectedMonth);
     document.querySelectorAll('.kpi-period').forEach(el => el.innerText = periodStr);
 
-    // Trend logic (compare selected month vs previous)
-    const months = [...new Set(cashData.map(r => r.date.slice(0, 7)))].sort();
-    const idx = months.indexOf(selectedMonth);
-    if (idx > 0) {
-        const prevMonth = months[idx - 1];
-        const prevRows = cashData.filter(r => r.date.startsWith(prevMonth));
+    // Trend logic (compare selected month vs selectedCompareMonth)
+    if (selectedCompareMonth && selectedCompareMonth !== selectedMonth) {
+        const prevRows = cashData.filter(r => r.date.startsWith(selectedCompareMonth));
         const pRev = prevRows.reduce((acc, r) => acc + r.net_income, 0);
         const pExp = prevRows.reduce((acc, r) => acc + r.expenses, 0);
         const pProf = prevRows.reduce((acc, r) => acc + r.total, 0);
@@ -1542,10 +1579,15 @@ function renderDashboard() {
         document.getElementById('trend-ventas').innerText = fmtDiff(diffVentas);
         document.getElementById('trend-gastos').innerText = fmtDiff(diffGastos);
         document.getElementById('trend-ganancia').innerText = fmtDiff(diffGanancia);
+        
+        const compareLabel = formatMonthLiteral(selectedCompareMonth);
+        document.querySelectorAll('.compare-month-label').forEach(el => el.innerText = compareLabel);
     } else {
         document.getElementById('trend-ventas').innerText = '—';
         document.getElementById('trend-gastos').innerText = '—';
         document.getElementById('trend-ganancia').innerText = '—';
+        
+        document.querySelectorAll('.compare-month-label').forEach(el => el.innerText = 'Mes Seleccionado');
     }
 
     // Limpiar gráficos

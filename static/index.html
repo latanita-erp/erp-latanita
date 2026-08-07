@@ -553,21 +553,27 @@
 
     <!-- ⭐ TENDENCIA MENSUAL -->
     <div class="glass-panel summary-box pretty-box">
-        <h3 class="section-title">📊 Tendencia Mensual</h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+            <h3 class="section-title" style="margin-bottom: 0;">📊 Tendencia Mensual</h3>
+            <div class="filter-group" style="display: flex; align-items: center; gap: 0.5rem;">
+                <label for="dashboard-compare-filter" style="font-weight: 600; font-size: 0.9rem; color: var(--text-color);">Comparar con:</label>
+                <select id="dashboard-compare-filter" class="select-modern" style="padding: 0.4rem 0.8rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: var(--text-color); font-weight: 500; outline: none; cursor: pointer;"></select>
+            </div>
+        </div>
 
         <div class="summary-grid pretty-grid">
             <div class="summary-item pretty-item">
-                <label>Ventas vs Mes Anterior</label>
+                <label>Ventas vs <span class="compare-month-label">Mes Seleccionado</span></label>
                 <span id="trend-ventas">—</span>
             </div>
 
             <div class="summary-item pretty-item">
-                <label>Gastos vs Mes Anterior</label>
+                <label>Gastos vs <span class="compare-month-label">Mes Seleccionado</span></label>
                 <span id="trend-gastos">—</span>
             </div>
 
             <div class="summary-item pretty-item">
-                <label>Ganancia vs Mes Anterior</label>
+                <label>Ganancia vs <span class="compare-month-label">Mes Seleccionado</span></label>
                 <span id="trend-ganancia">—</span>
             </div>
         </div>
