@@ -496,9 +496,16 @@ function renderWeekdayDistribution(currentMonthRows) {
 
     const bgColors = keys.map(day => {
         const v = data[day];
-        if (v === maxVal && v > 0) return "rgba(16, 185, 129, 0.8)";
-        if (v === minVal && v > 0) return "rgba(239, 68, 68, 0.8)";
-        return "rgba(99, 102, 241, 0.6)";
+        if (v === maxVal && v > 0) return "rgba(16, 185, 129, 0.7)";
+        if (v === minVal && v > 0) return "rgba(239, 68, 68, 0.7)";
+        return "rgba(99, 102, 241, 0.5)";
+    });
+    
+    const borderColors = keys.map(day => {
+        const v = data[day];
+        if (v === maxVal && v > 0) return "rgba(16, 185, 129, 1)";
+        if (v === minVal && v > 0) return "rgba(239, 68, 68, 1)";
+        return "rgba(99, 102, 241, 1)";
     });
 
     const ctx = document.getElementById("chart-weekday-distribution").getContext("2d");
@@ -513,11 +520,14 @@ function renderWeekdayDistribution(currentMonthRows) {
                 label: "Ingresos por Día",
                 data: values,
                 backgroundColor: bgColors,
+                borderColor: borderColors,
+                borderWidth: 1.5,
                 borderRadius: 6
             }]
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
             scales: { y: { beginAtZero: true } },
             plugins: { legend: { display: false } }
         }
@@ -1648,8 +1658,22 @@ function renderDailySalesChart(rows) {
     if (canvas) {
         charts.dailySales = new Chart(canvas.getContext("2d"), {
             type: "bar",
-            data: { labels, datasets: [{ data: values, backgroundColor: bgColors, borderRadius: 6 }] },
-            options: { responsive: true, scales: { y: { beginAtZero: true } }, plugins: { legend: { display: false } } }
+            data: { 
+                labels, 
+                datasets: [{ 
+                    data: values, 
+                    backgroundColor: bgColors.map(c => c + 'aa'), // Add transparency
+                    borderColor: bgColors,
+                    borderWidth: 1.5,
+                    borderRadius: 6 
+                }] 
+            },
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true } }, 
+                plugins: { legend: { display: false } } 
+            }
         });
     }
 
@@ -1703,8 +1727,13 @@ function renderMonthlyComparisonChart(cashData) {
 
     const canvas = document.getElementById('chart-month-compare');
     if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+    gradient.addColorStop(0, 'rgba(139, 92, 246, 0.5)');
+    gradient.addColorStop(1, 'rgba(139, 92, 246, 0.05)');
 
-    charts.monthCompare = new Chart(canvas.getContext('2d'), {
+    charts.monthCompare = new Chart(ctx, {
         type: 'line',
         data: {
             labels,
@@ -1712,12 +1741,25 @@ function renderMonthlyComparisonChart(cashData) {
                 label: 'Beneficio Neto',
                 data: totals,
                 borderColor: '#8b5cf6',
-                backgroundColor: 'rgba(139, 92, 246, 0.2)',
+                backgroundColor: gradient,
                 fill: true,
-                tension: 0.4
+                tension: 0.4,
+                pointBackgroundColor: '#8b5cf6',
+                pointBorderColor: '#fff',
+                pointHoverBackgroundColor: '#fff',
+                pointHoverBorderColor: '#8b5cf6',
+                pointRadius: 4,
+                pointHoverRadius: 6
             }]
         },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
     });
 }
 

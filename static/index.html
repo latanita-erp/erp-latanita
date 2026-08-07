@@ -587,7 +587,9 @@
     <div class="charts-grid-compact">
         <div class="chart-box glass-panel pretty-box small-chart" style="max-height: none;">
             <h3 class="section-title">📅 Ventas por Día (Mes en curso)</h3>
-            <canvas id="chart-daily-sales"></canvas>
+            <div style="position: relative; height: 250px; width: 100%;">
+                <canvas id="chart-daily-sales"></canvas>
+            </div>
             <div id="weekly-totals" style="margin-top: 15px;"></div>
         </div>
 
@@ -597,14 +599,14 @@
     <div class="charts-grid-compact" style="margin-top: 2rem; margin-bottom: 2rem;">
         <div class="chart-box glass-panel pretty-box small-chart" style="max-height: none;">
             <h3 class="section-title">📊 Comparativo Mensual</h3>
-            <div style="position: relative; height: 300px; width: 100%;">
+            <div style="position: relative; height: 250px; width: 100%;">
                 <canvas id="chart-month-compare"></canvas>
             </div>
         </div>
         
         <div class="chart-box glass-panel pretty-box small-chart" style="max-height: none;">
             <h3 class="section-title">☀️/🌙 Ventas por Turno (Mes)</h3>
-            <div style="position: relative; height: 300px; width: 100%;">
+            <div style="position: relative; height: 250px; width: 100%;">
                 <canvas id="chart-shift-compare"></canvas>
             </div>
         </div>
@@ -613,7 +615,9 @@
     <div class="charts-grid-compact">
         <div class="chart-box glass-panel pretty-box small-chart" style="max-height: none; width: 100%;">
             <h3 class="section-title">Caja Diaria por Día de la Semana</h3>
-            <canvas id="chart-weekday-distribution"></canvas>
+            <div style="position: relative; height: 250px; width: 100%;">
+                <canvas id="chart-weekday-distribution"></canvas>
+            </div>
             <div style="overflow-x:auto; margin-top:1rem;">
                 <table class="table" id="ranking-days-table" style="width:100%; text-align:left; font-size:0.9rem;">
                     <thead><tr><th>Mes</th><th>Ranking (Beneficio)</th></tr></thead>
