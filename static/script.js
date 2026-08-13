@@ -1576,7 +1576,18 @@ function renderDashboard() {
 
     // Trend logic (compare selected month vs selectedCompareMonth)
     if (selectedCompareMonth && selectedCompareMonth !== selectedMonth) {
-        const prevRows = cashData.filter(r => r.date.startsWith(selectedCompareMonth));
+        const currentMonthStr = new Date().toISOString().slice(0, 7);
+        let limitDay = 31;
+        if (selectedMonth === currentMonthStr) {
+            limitDay = new Date().getDate();
+        }
+
+        const prevRows = cashData.filter(r => {
+            if (!r.date.startsWith(selectedCompareMonth)) return false;
+            const day = parseInt(r.date.split('-')[2], 10);
+            return day <= limitDay;
+        });
+
         const pRev = prevRows.reduce((acc, r) => acc + r.net_income, 0);
         const pExp = prevRows.reduce((acc, r) => acc + r.expenses, 0);
         const pProf = prevRows.reduce((acc, r) => acc + r.total, 0);
@@ -1590,7 +1601,10 @@ function renderDashboard() {
         document.getElementById('trend-gastos').innerText = fmtDiff(diffGastos);
         document.getElementById('trend-ganancia').innerText = fmtDiff(diffGanancia);
         
-        const compareLabel = formatMonthLiteral(selectedCompareMonth);
+        let compareLabel = formatMonthLiteral(selectedCompareMonth);
+        if (limitDay < 31) {
+            compareLabel += ` (hasta el día ${limitDay})`;
+        }
         document.querySelectorAll('.compare-month-label').forEach(el => el.innerText = compareLabel);
     } else {
         document.getElementById('trend-ventas').innerText = '—';
