@@ -136,6 +136,8 @@ def read_root():
 # ============================================
 
 def calculate_prices(cost, margin):
+    cost = float(cost)
+    margin = float(margin)
     base_price_kg = cost * (1 + margin / 100)
     price_kg = math.ceil(base_price_kg / 100.0) * 100.0
     price_100g = math.ceil((base_price_kg / 10.0) / 100.0) * 100.0
@@ -556,25 +558,27 @@ def mass_margin_update(payload: MassMarginPayload, db: Session = Depends(get_db)
     
     updated_count = 0
     for p in products:
-        new_margin = p["margin"] + payload.value
+        new_margin = float(p["margin"]) + payload.value
         update_payload = ProductUpdatePayload(margin=new_margin)
-        update_product(p["id"], update_payload, db)
+        update_product(p["id"], update_payload, db, auto_commit=False)
         updated_count += 1
         
+    db.commit()
     return {"status": "success", "updated_count": updated_count}
 
 
 @app.post("/api/products/mass-undo")
 def mass_undo_update(payload: MassUndoPayload, db: Session = Depends(get_db)):
     for item in payload.items:
-        update_payload = ProductUpdatePayload(margin=item.margin)
-        update_product(item.id, update_payload, db)
+        update_payload = ProductUpdatePayload(margin=float(item.margin))
+        update_product(item.id, update_payload, db, auto_commit=False)
         
+    db.commit()
     return {"status": "success"}
 
 
 @app.put("/api/products/{product_id}")
-def update_product(product_id: int, payload: ProductUpdatePayload, db: Session = Depends(get_db)):
+def update_product(product_id: int, payload: ProductUpdatePayload, db: Session = Depends(get_db), auto_commit: bool = True):
 
     product = db.execute(text("SELECT name, type, cost, margin, cost_matiz, cost_raices, supplier1_id, supplier2_id, supplier3_id, cost1, cost2, cost3, old_price_kg, price_kg FROM products WHERE id = :id"), {"id": product_id}).mappings().first()
     if not product:
@@ -644,7 +648,8 @@ def update_product(product_id: int, payload: ProductUpdatePayload, db: Session =
         "price_250g": prices["price_250g"]
     })
 
-    db.commit()
+    if auto_commit:
+        db.commit()
     return {"status": "updated"}
 
 
