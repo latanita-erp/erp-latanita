@@ -202,21 +202,56 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ======================================================
-//                 TOAST DE MENSAJES
+//                 TOAST DE MENSAJES Y ERRORES
 // ======================================================
 
-function showToast(msg, type = "success") {
+const originalConsoleError = console.error;
+window.lastErrorMsg = null;
+console.error = function(...args) {
+    originalConsoleError.apply(console, args);
+    const err = args.find(a => a instanceof Error || (a && a.detail) || typeof a === 'string');
+    if (err) {
+        window.lastErrorMsg = err.message || err.detail || String(err);
+    }
+};
+
+function showToast(msg, type = "success", errorObj = null) {
     const toast = document.createElement("div");
     toast.className = `toast ${type}`;
-    toast.innerText = msg;
+    
+    if (type === "error") {
+        let errDetail = errorObj ? (errorObj.message || errorObj.detail || String(errorObj)) : window.lastErrorMsg || "";
+        window.lastErrorMsg = null; // reset
+        
+        const fullErrText = errDetail ? `${msg}: ${errDetail}` : msg;
+        const safeText = fullErrText.replace(/`/g, '\\`').replace(/\$/g, '\\$');
+        
+        toast.innerHTML = `
+            <div style="display:flex; flex-direction:column; gap:5px;">
+                <span style="font-weight: bold;">${msg}</span>
+                ${errDetail ? `<span style="font-size: 0.8rem; opacity: 0.9; word-break: break-word;">${errDetail}</span>` : ''}
+                <div style="display:flex; gap:5px; margin-top:5px; justify-content: flex-end;">
+                    <button class="btn btn-secondary" style="padding: 2px 8px; font-size: 0.75rem;" onclick="navigator.clipboard.writeText(\`${safeText}\`).then(() => { this.innerText='¡Copiado!'; setTimeout(()=>this.innerText='Copiar', 2000); }).catch(()=>alert('No se pudo copiar'))">Copiar</button>
+                    <button class="btn btn-secondary" style="padding: 2px 8px; font-size: 0.75rem;" onclick="this.closest('.toast').classList.remove('visible'); setTimeout(() => this.closest('.toast').remove(), 300)">Cerrar</button>
+                </div>
+            </div>
+        `;
+        toast.style.pointerEvents = "auto";
+    } else {
+        toast.innerText = msg;
+    }
 
     document.body.appendChild(toast);
 
     setTimeout(() => toast.classList.add("visible"), 50);
-    setTimeout(() => {
-        toast.classList.remove("visible");
-        setTimeout(() => toast.remove(), 300);
-    }, 2500);
+    
+    // Solo desaparece automáticamente si no es un error
+    if (type !== "error") {
+        setTimeout(() => {
+            toast.classList.remove("visible");
+            setTimeout(() => toast.remove(), 300);
+        }, 2500);
+    }
 }
 
 // ======================================================
