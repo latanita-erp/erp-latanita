@@ -219,6 +219,18 @@ class ProductUpdatePayload(BaseModel):
     cost3: Optional[float] = None
     margin: Optional[float] = None
 
+class MassMarginPayload(BaseModel):
+    value: float
+    target: str = "ALL"
+    type: Optional[str] = None
+
+class MassUndoItemPayload(BaseModel):
+    id: int
+    margin: float
+
+class MassUndoPayload(BaseModel):
+    items: List[MassUndoItemPayload]
+
 class SupplierPayload(BaseModel):
     supplier_id: int
     cost: float
@@ -530,6 +542,35 @@ def create_product(payload: ProductPayload, db: Session = Depends(get_db)):
 
     db.commit()
     return {"status": "created"}
+
+
+@app.post("/api/products/mass-margin")
+def mass_margin_update(payload: MassMarginPayload, db: Session = Depends(get_db)):
+    products_query = "SELECT id, margin FROM products"
+    params = {}
+    if payload.target == "TYPE" and payload.type:
+        products_query += " WHERE type = :type"
+        params["type"] = payload.type
+        
+    products = db.execute(text(products_query), params).mappings().all()
+    
+    updated_count = 0
+    for p in products:
+        new_margin = p["margin"] + payload.value
+        update_payload = ProductUpdatePayload(margin=new_margin)
+        update_product(p["id"], update_payload, db)
+        updated_count += 1
+        
+    return {"status": "success", "updated_count": updated_count}
+
+
+@app.post("/api/products/mass-undo")
+def mass_undo_update(payload: MassUndoPayload, db: Session = Depends(get_db)):
+    for item in payload.items:
+        update_payload = ProductUpdatePayload(margin=item.margin)
+        update_product(item.id, update_payload, db)
+        
+    return {"status": "success"}
 
 
 @app.put("/api/products/{product_id}")
