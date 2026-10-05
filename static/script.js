@@ -765,11 +765,23 @@ document.getElementById("edit-product-form")?.addEventListener("submit", async (
 
 let lastMassUpdateBackup = null;
 
+function toggleMassMarginTarget() {
+    const target = document.getElementById("mass-margin-target").value;
+    const container = document.getElementById("mass-margin-type-container");
+    if (target === "TYPE") {
+        container.classList.remove("hidden");
+    } else {
+        container.classList.add("hidden");
+    }
+}
+
 document.getElementById("mass-margin-form").addEventListener("submit", async (e) => {
     e.preventDefault();
 
     const btn = e.submitter;
     const value = parseFloat(document.getElementById("mass-margin-value").value);
+    const target = document.getElementById("mass-margin-target").value;
+    const type = document.getElementById("mass-margin-type").value;
 
     if (isNaN(value)) {
         showToast("Ingresá un número válido", "error");
@@ -780,21 +792,20 @@ document.getElementById("mass-margin-form").addEventListener("submit", async (e)
     btn.innerText = "Aplicando...";
 
     try {
-        lastMassUpdateBackup = state.products.map(p => ({
+        // Guardar backup de los productos que van a cambiar
+        lastMassUpdateBackup = state.products.filter(p => target === "ALL" || p.type === type).map(p => ({
             id: p.id,
             margin: p.margin,
             price_kg: p.price_kg
         }));
 
-        for (const p of state.products) {
-            const newMargin = p.margin + value;
-
-            await fetch(`/api/products/${p.id}`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ margin: newMargin })
-            });
-        }
+        const response = await fetch("/api/products/mass-margin", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ value, target, type })
+        });
+        
+        if (!response.ok) throw new Error("Error en la respuesta del servidor");
 
         await fetchProducts();
         toggleModal("modal-mass-margin");
@@ -806,6 +817,7 @@ document.getElementById("mass-margin-form").addEventListener("submit", async (e)
     }
 
     btn.disabled = false;
+
     btn.innerText = "Aplicar Aumento";
 });
 
@@ -819,20 +831,27 @@ async function undoMassMargin() {
         return;
     }
 
-    for (const item of lastMassUpdateBackup) {
-        await fetch(`/api/products/${item.id}`, {
-            method: "PUT",
+    try {
+        const response = await fetch("/api/products/mass-undo", {
+            method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                margin: item.margin,
-                price_kg: item.price_kg
+                items: lastMassUpdateBackup.map(item => ({
+                    id: item.id,
+                    margin: item.margin
+                }))
             })
         });
-    }
 
-    lastMassUpdateBackup = null;
-    fetchProducts();
-    alert("Se restauraron los márgenes y precios previos al aumento masivo.");
+        if (!response.ok) throw new Error("Error en el servidor al deshacer");
+
+        lastMassUpdateBackup = null;
+        await fetchProducts();
+        showToast("Se restauraron los márgenes y precios previos al aumento masivo.", "success");
+    } catch (e) {
+        console.error(e);
+        showToast("Error deshaciendo el ajuste masivo", "error");
+    }
 }
 
 // =====================================================

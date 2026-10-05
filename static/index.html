@@ -448,11 +448,31 @@
 
                 <form id="mass-margin-form">
                     <div class="input-group">
+                        <label>Aplicar a</label>
+                        <select id="mass-margin-target" onchange="toggleMassMarginTarget()">
+                            <option value="ALL">Total de productos</option>
+                            <option value="TYPE">Por Tipo / Categoría</option>
+                        </select>
+                    </div>
+
+                    <div class="input-group hidden" id="mass-margin-type-container">
+                        <label>Seleccionar Tipo</label>
+                        <select id="mass-margin-type">
+                            <option value="FIAMBRES">FIAMBRES</option>
+                            <option value="QUESOS">QUESOS</option>
+                            <option value="ENCURTIDOS">ENCURTIDOS</option>
+                            <option value="BEBIDAS">BEBIDAS</option>
+                            <option value="DULCES">DULCES</option>
+                            <option value="PANIFICADOS">PANIFICADOS</option>
+                        </select>
+                    </div>
+
+                    <div class="input-group">
                         <label>Aumento (%)</label>
                         <input type="number" id="mass-margin-value" step="0.01" required>
                     </div>
 
-                    <p style="font-size:0.85rem;">Este porcentaje se sumará al margen actual de cada producto.</p>
+                    <p style="font-size:0.85rem;">Este porcentaje se sumará al margen actual de los productos seleccionados.</p>
 
                     <div style="display:flex; gap:10px;">
                         <button type="button" class="btn btn-secondary" onclick="toggleModal('modal-mass-margin')">Cancelar</button>
