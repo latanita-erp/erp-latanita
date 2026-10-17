@@ -182,6 +182,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const sidebar = document.querySelector('.sidebar');
     const sidebarOverlay = document.getElementById('sidebar-overlay');
     const sidebarToggleBtn = document.getElementById('sidebar-toggle-btn');
+    const sidebarExpandBtn = document.getElementById('sidebar-expand-btn');
 
     function toggleSidebar(forceState = null) {
         if (!sidebar) return;
@@ -190,6 +191,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // En pantallas móviles: cerrar drawer si está abierto
             sidebar.classList.remove('open');
             sidebarOverlay?.classList.remove('active');
+            if (sidebarExpandBtn) sidebarExpandBtn.classList.add('hidden');
             return;
         }
 
@@ -199,16 +201,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (shouldCollapse) {
             sidebar.classList.add('collapsed');
-            if (sidebarToggleBtn) {
-                sidebarToggleBtn.setAttribute('title', 'Mostrar menú');
-                sidebarToggleBtn.setAttribute('aria-label', 'Mostrar menú');
-            }
+            if (sidebarExpandBtn) sidebarExpandBtn.classList.remove('hidden');
         } else {
             sidebar.classList.remove('collapsed');
-            if (sidebarToggleBtn) {
-                sidebarToggleBtn.setAttribute('title', 'Ocultar menú');
-                sidebarToggleBtn.setAttribute('aria-label', 'Ocultar menú');
-            }
+            if (sidebarExpandBtn) sidebarExpandBtn.classList.add('hidden');
         }
 
         localStorage.setItem('sidebar_collapsed', shouldCollapse ? 'true' : 'false');
@@ -221,6 +217,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (sidebarToggleBtn) {
         sidebarToggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleSidebar();
+        });
+    }
+
+    if (sidebarExpandBtn) {
+        sidebarExpandBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             toggleSidebar();
         });
@@ -240,6 +243,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Restaurar estado guardado en escritorio si estaba colapsado previamente
     if (window.innerWidth > 768 && localStorage.getItem('sidebar_collapsed') === 'true') {
         toggleSidebar(true);
+    } else {
+        if (sidebarExpandBtn) sidebarExpandBtn.classList.add('hidden');
     }
 
     if (mobileToggle && sidebar && sidebarOverlay) {
