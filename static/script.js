@@ -175,10 +175,72 @@ document.addEventListener('DOMContentLoaded', async () => {
             renderProducts();
         });
 
-    // Mobile Menu Toggle
+    // ======================================================
+    //     SIDEBAR: OCULTAR / MOSTRAR CON FLECHA Y MÓVIL
+    // ======================================================
     const mobileToggle = document.getElementById('mobile-menu-toggle');
     const sidebar = document.querySelector('.sidebar');
     const sidebarOverlay = document.getElementById('sidebar-overlay');
+    const sidebarToggleBtn = document.getElementById('sidebar-toggle-btn');
+
+    function toggleSidebar(forceState = null) {
+        if (!sidebar) return;
+
+        if (window.innerWidth <= 768) {
+            // En pantallas móviles: cerrar drawer si está abierto
+            sidebar.classList.remove('open');
+            sidebarOverlay?.classList.remove('active');
+            return;
+        }
+
+        // En escritorio: colapsar o expandir
+        const isCurrentlyCollapsed = sidebar.classList.contains('collapsed');
+        const shouldCollapse = forceState !== null ? forceState : !isCurrentlyCollapsed;
+
+        if (shouldCollapse) {
+            sidebar.classList.add('collapsed');
+            if (sidebarToggleBtn) {
+                sidebarToggleBtn.setAttribute('title', 'Mostrar menú');
+                sidebarToggleBtn.setAttribute('aria-label', 'Mostrar menú');
+            }
+        } else {
+            sidebar.classList.remove('collapsed');
+            if (sidebarToggleBtn) {
+                sidebarToggleBtn.setAttribute('title', 'Ocultar menú');
+                sidebarToggleBtn.setAttribute('aria-label', 'Ocultar menú');
+            }
+        }
+
+        localStorage.setItem('sidebar_collapsed', shouldCollapse ? 'true' : 'false');
+
+        // Redimensionar gráficos y tablas automáticamente tras la animación
+        setTimeout(() => {
+            window.dispatchEvent(new Event('resize'));
+        }, 360);
+    }
+
+    if (sidebarToggleBtn) {
+        sidebarToggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleSidebar();
+        });
+    }
+
+    // Atajo de teclado: Ctrl + B para ocultar/mostrar menú lateral
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B')) {
+            const activeTag = document.activeElement ? document.activeElement.tagName : '';
+            if (activeTag !== 'INPUT' && activeTag !== 'TEXTAREA' && activeTag !== 'SELECT') {
+                e.preventDefault();
+                toggleSidebar();
+            }
+        }
+    });
+
+    // Restaurar estado guardado en escritorio si estaba colapsado previamente
+    if (window.innerWidth > 768 && localStorage.getItem('sidebar_collapsed') === 'true') {
+        toggleSidebar(true);
+    }
 
     if (mobileToggle && sidebar && sidebarOverlay) {
         mobileToggle.addEventListener('click', () => {
@@ -191,11 +253,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             sidebarOverlay.classList.remove('active');
         });
 
-        // Cerrar al hacer clic en un botón (opcional pero buena UX en móvil)
+        // Cerrar al hacer clic en un botón en móvil
         document.querySelectorAll('.nav-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                sidebar.classList.remove('open');
-                sidebarOverlay.classList.remove('active');
+                if (window.innerWidth <= 768) {
+                    sidebar.classList.remove('open');
+                    sidebarOverlay.classList.remove('active');
+                }
             });
         });
     }
