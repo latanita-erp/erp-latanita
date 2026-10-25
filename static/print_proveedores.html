@@ -4,53 +4,355 @@
     <meta charset="UTF-8">
     <title>Comparativo de Proveedores - La Tanita</title>
     <style>
-        @page { size: 216mm 330mm; margin: 15mm; }
-        body { font-family: Arial, sans-serif; color: #000; background: #fff; margin: 0; padding: 0; }
-        @media print { .no-print { display: none !important; } }
-        .print-btn { background-color: #3b82f6; color: white; border: none; padding: 10px 20px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; margin-top: 15px; }
-        .header { text-align: center; border-bottom: 2px solid #000; margin-bottom: 20px; padding-bottom: 10px; }
-        .header h1 { margin: 5px 0 0 0; font-size: 24px; }
-        .header h2 { margin: 0; font-size: 18px; }
-        .date { text-align: right; font-size: 12px; margin-bottom: 10px; }
-        .type-group { margin-bottom: 20px; page-break-inside: avoid; }
-        .type-title { background-color: #e5e7eb; font-weight: bold; padding: 5px 10px; font-size: 14px; border: 1px solid #9ca3af; border-bottom: none; margin-bottom: 0; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #9ca3af; padding: 4px 6px; text-align: right; font-size: 11px; }
-        th { background-color: #f3f4f6; font-weight: bold; }
-        td.name-col, th.name-col { text-align: left; width: 25%; }
-        .sup-name { display: block; font-size: 0.8em; color: #6b7280; }
-        .cheaper { color: #10b981; font-weight: bold; }
-        .higher { color: #ef4444; font-weight: bold; }
+        @page {
+            size: A4 portrait;
+            margin: 10mm 8mm;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: #111827;
+            background: #f3f4f6;
+            margin: 0;
+            padding: 20px 10px;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        /* Contenedor tipo hoja A4 en pantalla */
+        .page-sheet {
+            max-width: 1020px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 24px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        }
+
+        @media print {
+            body {
+                background: #fff !important;
+                padding: 0 !important;
+            }
+            .page-sheet {
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                box-shadow: none !important;
+                border-radius: 0 !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+        }
+
+        /* Barra de herramientas / Controles en pantalla */
+        .toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            background: #ffffff;
+            padding: 12px 18px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+            margin-bottom: 20px;
+        }
+
+        .size-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .size-btn {
+            background-color: #f3f4f6;
+            color: #374151;
+            border: 1px solid #d1d5db;
+            padding: 6px 14px;
+            font-size: 14px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .size-btn:hover {
+            background-color: #e5e7eb;
+        }
+
+        .size-btn.active {
+            background-color: #2563eb;
+            color: #ffffff;
+            border-color: #2563eb;
+        }
+
+        .print-btn {
+            background-color: #16a34a;
+            color: white;
+            border: none;
+            padding: 10px 22px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 3px 6px rgba(22, 163, 74, 0.25);
+            transition: background 0.15s ease;
+        }
+
+        .print-btn:hover {
+            background-color: #15803d;
+        }
+
+        .header {
+            text-align: center;
+            border-bottom: 2.5px solid #111827;
+            margin-bottom: 16px;
+            padding-bottom: 10px;
+        }
+
+        .header img {
+            max-width: 90px;
+            height: auto;
+            margin-bottom: 4px;
+        }
+
+        .header h1 {
+            margin: 2px 0;
+            font-size: 26px;
+            font-weight: 800;
+            color: #111827;
+            letter-spacing: -0.3px;
+        }
+
+        .header h2 {
+            margin: 2px 0;
+            font-size: 20px;
+            font-weight: 700;
+            color: #374151;
+        }
+
+        .date {
+            text-align: right;
+            font-size: 13px;
+            font-weight: 600;
+            color: #4b5563;
+            margin-bottom: 12px;
+        }
+
+        .type-group {
+            margin-bottom: 22px;
+            break-inside: auto;
+            page-break-inside: auto;
+        }
+
+        .type-title {
+            background-color: #e2e8f0;
+            color: #0f172a;
+            font-weight: 800;
+            padding: 6px 10px;
+            border: 1.5px solid #64748b;
+            border-bottom: none;
+            margin-bottom: 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            break-after: avoid;
+            page-break-after: avoid;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            display: table-header-group;
+        }
+
+        tr {
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+
+        th, td {
+            border: 1px solid #94a3b8;
+            text-align: right;
+            vertical-align: middle;
+        }
+
+        th {
+            background-color: #f1f5f9;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        td.name-col, th.name-col {
+            text-align: left;
+            width: 27%;
+        }
+
+        td.price-col {
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+
+        .sup-name {
+            display: block;
+            font-size: 0.82em;
+            color: #4b5563;
+            font-weight: 500;
+            margin-bottom: 2px;
+            white-space: normal;
+        }
+
+        .cheaper {
+            color: #059669;
+            font-weight: 700;
+        }
+
+        .higher {
+            color: #dc2626;
+            font-weight: 700;
+        }
+
+        /* ======================================================== */
+        /* NIVELES DE TAMAÑO DE FUENTE                              */
+        /* ======================================================== */
+
+        /* Tamaño Normal */
+        .size-normal .type-title {
+            font-size: 15px;
+            padding: 4px 8px;
+        }
+        .size-normal th, .size-normal td {
+            font-size: 12.5px;
+            padding: 4px 5px;
+        }
+
+        /* Tamaño Grande - Predeterminado para hoja A4 */
+        .size-large .type-title {
+            font-size: 17.5px;
+            padding: 5px 10px;
+        }
+        .size-large th {
+            font-size: 14px;
+            padding: 5px 6px;
+        }
+        .size-large td {
+            font-size: 14.5px;
+            padding: 5px 6px;
+        }
+        .size-large td.name-col strong {
+            font-size: 14.5px;
+            font-weight: 700;
+        }
+
+        /* Tamaño Muy Grande */
+        .size-xlarge .type-title {
+            font-size: 19.5px;
+            padding: 6px 10px;
+        }
+        .size-xlarge th {
+            font-size: 16px;
+            padding: 6px 7px;
+        }
+        .size-xlarge td {
+            font-size: 16.5px;
+            padding: 6px 7px;
+        }
+        .size-xlarge td.name-col strong {
+            font-size: 16.5px;
+            font-weight: 700;
+        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>Panadería y Fiambrería La Tanita</h1>
-        <h2>Comparativo de Proveedores</h2>
-        <button class="print-btn no-print" onclick="window.print()">🖨️ Imprimir Listado</button>
+    <div class="page-sheet">
+        <!-- Barra de opciones (no se imprime) -->
+        <div class="toolbar no-print">
+            <div class="size-controls">
+                <span>Tamaño de letra en A4:</span>
+                <button type="button" class="size-btn" id="btn-normal" onclick="setFontSize('normal')">Estándar</button>
+                <button type="button" class="size-btn active" id="btn-large" onclick="setFontSize('large')">Grande (Recomendado A4)</button>
+                <button type="button" class="size-btn" id="btn-xlarge" onclick="setFontSize('xlarge')">Muy Grande</button>
+            </div>
+            <button class="print-btn" onclick="window.print()">
+                🖨️ Imprimir Listado
+            </button>
+        </div>
+
+        <div id="print-area" class="size-large">
+            <div class="header">
+                <img src="logo.jpg" alt="La Tanita" onerror="this.style.display='none'">
+                <h1>Panadería y Fiambrería La Tanita</h1>
+                <h2>Comparativo de Proveedores</h2>
+            </div>
+            <div class="date" id="print-date"></div>
+            <div id="content">Cargando datos...</div>
+        </div>
     </div>
-    <div class="date" id="print-date"></div>
-    <div id="content">Cargando datos...</div>
 
     <script>
+        function setFontSize(size) {
+            const container = document.getElementById('print-area');
+            container.className = 'size-' + size;
+
+            document.getElementById('btn-normal').classList.toggle('active', size === 'normal');
+            document.getElementById('btn-large').classList.toggle('active', size === 'large');
+            document.getElementById('btn-xlarge').classList.toggle('active', size === 'xlarge');
+
+            localStorage.setItem('print_price_size', size);
+        }
+
         function formatMoney(val) {
-            if (val === null || val === undefined) return "0,00";
+            if (val === null || val === undefined || isNaN(val)) return "0,00";
             return Number(val).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
 
         async function loadPrices() {
-            document.getElementById('print-date').innerText = "Actualizado: " + new Date().toLocaleDateString('es-AR') + " " + new Date().toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'});
+            // Cargar preferencia guardada si existe
+            const savedSize = localStorage.getItem('print_price_size');
+            if (savedSize && ['normal', 'large', 'xlarge'].includes(savedSize)) {
+                setFontSize(savedSize);
+            }
+
+            document.getElementById('print-date').innerText =
+                "Actualizado: " + new Date().toLocaleDateString('es-AR') + " " +
+                new Date().toLocaleTimeString('es-AR', {hour: '2-digit', minute:'2-digit'});
+
             try {
                 const token = localStorage.getItem('auth_token');
                 if (!token) {
-                    document.getElementById('content').innerHTML = "No estás autenticado. Cierra esta ventana e inicia sesión.";
+                    document.getElementById('content').innerHTML = `
+                        <div style="padding: 20px; text-align: center; color: #b91c1c; font-weight: bold; font-size: 16px;">
+                            No estás autenticado. Por favor inicia sesión en el sistema y vuelve a abrir este listado.
+                        </div>`;
                     return;
                 }
-                const res = await fetch('/api/products', { headers: { 'Authorization': `Basic ${token}` } });
+                const res = await fetch('/api/products', {
+                    headers: { 'Authorization': `Basic ${token}` }
+                });
                 let products = await res.json();
-                
+
                 // Omitir productos que no tienen costos
-                products = products.filter(p => p.cost1 > 0 || p.cost2 > 0 || p.cost3 > 0);
+                products = products.filter(p => (p.cost1 || 0) > 0 || (p.cost2 || 0) > 0 || (p.cost3 || 0) > 0);
 
                 const grouped = {};
                 products.forEach(p => {
@@ -66,7 +368,7 @@
                     html += `
                         <div class="type-group">
                             <div class="type-title">${type.toUpperCase()}</div>
-                             <table>
+                            <table>
                                 <thead>
                                     <tr>
                                         <th class="name-col">Descripción</th>
@@ -87,24 +389,27 @@
                             { idx: 3, val: p.cost3 || 0 }
                         ].filter(c => c.val > 0);
 
-                        let s1Class = ''; let s2Class = ''; let s3Class = '';
+                        let s1Class = 'price-col';
+                        let s2Class = 'price-col';
+                        let s3Class = 'price-col';
+
                         if (costs.length > 0) {
                             if (costs.length === 1) {
-                                if (p.cost1 > 0) s1Class = 'cheaper';
-                                if (p.cost2 > 0) s2Class = 'cheaper';
-                                if (p.cost3 > 0) s3Class = 'cheaper';
+                                if ((p.cost1 || 0) > 0) s1Class = 'cheaper price-col';
+                                if ((p.cost2 || 0) > 0) s2Class = 'cheaper price-col';
+                                if ((p.cost3 || 0) > 0) s3Class = 'cheaper price-col';
                             } else {
                                 const minCost = Math.min(...costs.map(c => c.val));
                                 const maxCost = Math.max(...costs.map(c => c.val));
                                 if (minCost !== maxCost) {
-                                    if (p.cost1 === minCost && p.cost1 > 0) s1Class = 'cheaper';
-                                    else if (p.cost1 === maxCost && p.cost1 > 0) s1Class = 'higher';
-                                    
-                                    if (p.cost2 === minCost && p.cost2 > 0) s2Class = 'cheaper';
-                                    else if (p.cost2 === maxCost && p.cost2 > 0) s2Class = 'higher';
-                                    
-                                    if (p.cost3 === minCost && p.cost3 > 0) s3Class = 'cheaper';
-                                    else if (p.cost3 === maxCost && p.cost3 > 0) s3Class = 'higher';
+                                    if (p.cost1 === minCost && p.cost1 > 0) s1Class = 'cheaper price-col';
+                                    else if (p.cost1 === maxCost && p.cost1 > 0) s1Class = 'higher price-col';
+
+                                    if (p.cost2 === minCost && p.cost2 > 0) s2Class = 'cheaper price-col';
+                                    else if (p.cost2 === maxCost && p.cost2 > 0) s2Class = 'higher price-col';
+
+                                    if (p.cost3 === minCost && p.cost3 > 0) s3Class = 'cheaper price-col';
+                                    else if (p.cost3 === maxCost && p.cost3 > 0) s3Class = 'higher price-col';
                                 }
                             }
                         }
@@ -112,10 +417,10 @@
                         const s1Label = p.supplier1_name ? `<span class="sup-name">${p.supplier1_name}</span>` : '';
                         const s2Label = p.supplier2_name ? `<span class="sup-name">${p.supplier2_name}</span>` : '';
                         const s3Label = p.supplier3_name ? `<span class="sup-name">${p.supplier3_name}</span>` : '';
-                        
-                        const c1 = p.cost1 > 0 ? `$${formatMoney(p.cost1)}` : '-';
-                        const c2 = p.cost2 > 0 ? `$${formatMoney(p.cost2)}` : '-';
-                        const c3 = p.cost3 > 0 ? `$${formatMoney(p.cost3)}` : '-';
+
+                        const c1 = (p.cost1 || 0) > 0 ? `$${formatMoney(p.cost1)}` : '-';
+                        const c2 = (p.cost2 || 0) > 0 ? `$${formatMoney(p.cost2)}` : '-';
+                        const c3 = (p.cost3 || 0) > 0 ? `$${formatMoney(p.cost3)}` : '-';
 
                         html += `
                             <tr>
@@ -123,20 +428,31 @@
                                 <td class="${s1Class}">${s1Label}${c1}</td>
                                 <td class="${s2Class}">${s2Label}${c2}</td>
                                 <td class="${s3Class}">${s3Label}${c3}</td>
-                                <td>${p.margin}%</td>
-                                <td><strong>$${formatMoney(p.price_kg)}</strong></td>
+                                <td style="font-weight:600;">${p.margin ?? 0}%</td>
+                                <td class="price-col" style="font-weight:700;">$${formatMoney(p.price_kg)}</td>
                             </tr>
-                         `;
+                        `;
                     });
 
-                    html += `</tbody></table></div>`;
+                    html += `   </tbody>
+                            </table>
+                        </div>`;
                 });
+
+                if (types.length === 0) {
+                    html = '<div style="padding: 30px; text-align: center; color: #6b7280; font-size: 16px;">No se encontraron productos con costos de proveedores configurados.</div>';
+                }
 
                 document.getElementById('content').innerHTML = html;
             } catch (err) {
-                document.getElementById('content').innerHTML = "Error al cargar el comparativo.";
+                console.error(err);
+                document.getElementById('content').innerHTML = `
+                    <div style="padding: 20px; text-align: center; color: #b91c1c; font-weight: bold;">
+                        Error al cargar el comparativo. Inténtalo de nuevo.
+                    </div>`;
             }
         }
+
         window.onload = loadPrices;
     </script>
 </body>
