@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Lista Técnica - La Tanita</title>
+    <title>Lista Técnica de Productos - La Tanita</title>
     <style>
         @page {
             size: A4 portrait;
@@ -25,7 +25,7 @@
 
         /* Contenedor tipo hoja A4 en pantalla */
         .page-sheet {
-            max-width: 960px;
+            max-width: 980px;
             margin: 0 auto;
             background: #fff;
             padding: 24px;
@@ -65,11 +65,18 @@
             margin-bottom: 20px;
         }
 
+        .controls-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
         .size-controls {
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-size: 14px;
+            gap: 6px;
+            font-size: 13.5px;
             font-weight: 600;
             color: #374151;
         }
@@ -78,8 +85,8 @@
             background-color: #f3f4f6;
             color: #374151;
             border: 1px solid #d1d5db;
-            padding: 6px 14px;
-            font-size: 14px;
+            padding: 6px 12px;
+            font-size: 13px;
             font-weight: 600;
             border-radius: 6px;
             cursor: pointer;
@@ -96,12 +103,36 @@
             border-color: #2563eb;
         }
 
+        .search-input {
+            padding: 6px 12px;
+            font-size: 13.5px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            outline: none;
+            width: 180px;
+            transition: border-color 0.15s ease;
+        }
+
+        .search-input:focus {
+            border-color: #2563eb;
+        }
+
+        .filter-select {
+            padding: 6px 10px;
+            font-size: 13px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            background: #fff;
+            color: #374151;
+            font-weight: 500;
+        }
+
         .print-btn {
             background-color: #16a34a;
             color: white;
             border: none;
-            padding: 10px 22px;
-            font-size: 16px;
+            padding: 10px 20px;
+            font-size: 15px;
             font-weight: bold;
             border-radius: 8px;
             cursor: pointer;
@@ -119,19 +150,19 @@
         .header {
             text-align: center;
             border-bottom: 2.5px solid #111827;
-            margin-bottom: 16px;
+            margin-bottom: 14px;
             padding-bottom: 10px;
         }
 
         .header img {
-            max-width: 90px;
+            max-width: 85px;
             height: auto;
             margin-bottom: 4px;
         }
 
         .header h1 {
             margin: 2px 0;
-            font-size: 26px;
+            font-size: 25px;
             font-weight: 800;
             color: #111827;
             letter-spacing: -0.3px;
@@ -139,21 +170,24 @@
 
         .header h2 {
             margin: 2px 0;
-            font-size: 20px;
+            font-size: 19px;
             font-weight: 700;
             color: #374151;
         }
 
-        .date {
-            text-align: right;
+        .header-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             font-size: 13px;
             font-weight: 600;
             color: #4b5563;
-            margin-bottom: 12px;
+            margin-bottom: 14px;
+            padding: 0 4px;
         }
 
         .type-group {
-            margin-bottom: 22px;
+            margin-bottom: 20px;
             break-inside: auto;
             page-break-inside: auto;
         }
@@ -204,18 +238,71 @@
 
         td.name-col, th.name-col {
             text-align: left;
-            width: 38%;
+            width: 36%;
         }
 
-        td.price-col {
-            font-weight: 600;
+        td.cost-col, th.cost-col {
+            width: 16%;
+        }
+
+        td.margin-col, th.margin-col {
+            width: 15%;
+            text-align: center;
+        }
+
+        td.price-col, th.price-col {
+            width: 17%;
+        }
+
+        td.price100-col, th.price100-col {
+            width: 16%;
+        }
+
+        .num-val {
+            font-weight: 700;
             font-variant-numeric: tabular-nums;
             white-space: nowrap;
         }
 
-        .best-cost {
-            color: #059669;
+        .cost-val {
+            color: #0f172a;
             font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+
+        .supplier-subtitle {
+            font-size: 10.5px;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin-top: 1px;
+            display: block;
+        }
+
+        .margin-badge {
+            display: inline-block;
+            background: #eef2ff;
+            color: #3730a3;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 4px;
+            border: 1px solid #c7d2fe;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+
+        .sale-price-val {
+            color: #1e3a8a;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+
+        .empty-val {
+            color: #9ca3af;
+            font-weight: 500;
         }
 
         /* ======================================================== */
@@ -224,48 +311,57 @@
 
         /* Tamaño Normal */
         .size-normal .type-title {
-            font-size: 15px;
+            font-size: 14.5px;
             padding: 4px 8px;
         }
         .size-normal th, .size-normal td {
-            font-size: 13.5px;
+            font-size: 13px;
             padding: 4px 6px;
+        }
+        .size-normal .supplier-subtitle {
+            font-size: 10px;
         }
 
         /* Tamaño Grande - Predeterminado para hoja A4 */
         .size-large .type-title {
-            font-size: 18px;
+            font-size: 17px;
             padding: 5px 10px;
         }
         .size-large th {
-            font-size: 15px;
+            font-size: 14.5px;
             padding: 5px 8px;
         }
         .size-large td {
-            font-size: 15.5px;
+            font-size: 14.5px;
             padding: 5px 8px;
         }
         .size-large td.name-col strong {
-            font-size: 15.5px;
+            font-size: 14.5px;
             font-weight: 700;
+        }
+        .size-large .supplier-subtitle {
+            font-size: 10.5px;
         }
 
         /* Tamaño Muy Grande */
         .size-xlarge .type-title {
-            font-size: 20px;
+            font-size: 19px;
             padding: 6px 12px;
         }
         .size-xlarge th {
-            font-size: 17px;
+            font-size: 16px;
             padding: 6px 8px;
         }
         .size-xlarge td {
-            font-size: 17.5px;
+            font-size: 16px;
             padding: 6px 8px;
         }
         .size-xlarge td.name-col strong {
-            font-size: 17.5px;
+            font-size: 16px;
             font-weight: 700;
+        }
+        .size-xlarge .supplier-subtitle {
+            font-size: 11px;
         }
     </style>
 </head>
@@ -273,12 +369,23 @@
     <div class="page-sheet">
         <!-- Barra de opciones (no se imprime) -->
         <div class="toolbar no-print">
-            <div class="size-controls">
-                <span>Tamaño de letra en A4:</span>
-                <button type="button" class="size-btn" id="btn-normal" onclick="setFontSize('normal')">Estándar</button>
-                <button type="button" class="size-btn active" id="btn-large" onclick="setFontSize('large')">Grande (Recomendado A4)</button>
-                <button type="button" class="size-btn" id="btn-xlarge" onclick="setFontSize('xlarge')">Muy Grande</button>
+            <div class="controls-group">
+                <div class="size-controls">
+                    <span>Letra A4:</span>
+                    <button type="button" class="size-btn" id="btn-normal" onclick="setFontSize('normal')">Estándar</button>
+                    <button type="button" class="size-btn active" id="btn-large" onclick="setFontSize('large')">Grande</button>
+                    <button type="button" class="size-btn" id="btn-xlarge" onclick="setFontSize('xlarge')">Muy Grande</button>
+                </div>
+
+                <select id="filter-cost" class="filter-select" onchange="renderView()">
+                    <option value="all" selected>Todos los Productos</option>
+                    <option value="with-cost">Solo con Costo</option>
+                    <option value="active">Con Costo o Precio</option>
+                </select>
+
+                <input type="text" id="search-input" class="search-input" placeholder="🔍 Buscar..." oninput="renderView()">
             </div>
+
             <button class="print-btn" onclick="window.print()">
                 🖨️ Imprimir Listado
             </button>
@@ -290,12 +397,17 @@
                 <h1>Panadería y Fiambrería La Tanita</h1>
                 <h2>Lista Técnica de Productos</h2>
             </div>
-            <div class="date" id="print-date"></div>
+            <div class="header-meta">
+                <span id="product-count">Cargando...</span>
+                <span id="print-date"></span>
+            </div>
             <div id="content">Cargando datos...</div>
         </div>
     </div>
 
     <script>
+        let allProducts = [];
+
         function setFontSize(size) {
             const container = document.getElementById('print-area');
             container.className = 'size-' + size;
@@ -312,8 +424,172 @@
             return Number(val).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
 
+        function getProductCost(p) {
+            const cost = parseFloat(p.cost) || 0;
+            const c1 = parseFloat(p.cost1) || 0;
+            const c2 = parseFloat(p.cost2) || 0;
+            const c3 = parseFloat(p.cost3) || 0;
+            const cm = parseFloat(p.cost_matiz) || 0;
+            const cr = parseFloat(p.cost_raices) || 0;
+            let maxCost = Math.max(cost, c1, c2, c3, cm, cr, 0);
+
+            // Si no tiene costo explícito, pero sí tiene precio de venta y margen, deducir costo base
+            if (maxCost <= 0) {
+                const priceKg = parseFloat(p.price_kg) || 0;
+                const margin = parseFloat(p.margin) || 0;
+                if (priceKg > 0 && margin > 0) {
+                    maxCost = Math.round((priceKg / (1 + margin / 100)) * 100) / 100;
+                }
+            }
+            return maxCost;
+        }
+
+        function getSupplierLabel(p, cost) {
+            if (!cost || cost <= 0) return '';
+            
+            // Si el costo coincide con algún proveedor específico, mostrar su nombre
+            if (p.cost3 && Math.abs(parseFloat(p.cost3) - cost) < 1.0 && p.supplier3_name) {
+                return p.supplier3_name;
+            }
+            if (p.cost1 && Math.abs(parseFloat(p.cost1) - cost) < 1.0 && p.supplier1_name) {
+                return p.supplier1_name;
+            }
+            if (p.cost2 && Math.abs(parseFloat(p.cost2) - cost) < 1.0 && p.supplier2_name) {
+                return p.supplier2_name;
+            }
+            if (p.cost_matiz && Math.abs(parseFloat(p.cost_matiz) - cost) < 1.0) {
+                return 'Matiz';
+            }
+            if (p.cost_raices && Math.abs(parseFloat(p.cost_raices) - cost) < 1.0) {
+                return 'Raíces';
+            }
+            
+            return p.supplier3_name || p.supplier1_name || p.supplier2_name || '';
+        }
+
+        function renderView() {
+            const filterMode = document.getElementById('filter-cost').value;
+            const searchTerm = (document.getElementById('search-input').value || '').trim().toLowerCase();
+
+            let filtered = allProducts.filter(p => {
+                const cost = getProductCost(p);
+                const priceKg = parseFloat(p.price_kg) || 0;
+                const price100 = parseFloat(p.price_100g) || 0;
+
+                if (filterMode === 'with-cost') {
+                    if (cost <= 0) return false;
+                } else if (filterMode === 'active') {
+                    if (cost <= 0 && priceKg <= 0 && price100 <= 0) return false;
+                }
+
+                if (searchTerm) {
+                    const name = (p.name || '').toLowerCase();
+                    const type = (p.type || '').toLowerCase();
+                    return name.includes(searchTerm) || type.includes(searchTerm);
+                }
+
+                return true;
+            });
+
+            document.getElementById('product-count').innerText = `Total: ${filtered.length} productos`;
+
+            // AGRUPAR POR TIPO
+            const grouped = {};
+            filtered.forEach(p => {
+                const type = p.type || 'Otros';
+                if (!grouped[type]) grouped[type] = [];
+                grouped[type].push(p);
+            });
+
+            const types = Object.keys(grouped).sort();
+
+            let html = '';
+            types.forEach(type => {
+                html += `<div class="type-group">`;
+                html += `<div class="type-title">${type.toUpperCase()}</div>`;
+                html += `<table>
+                            <thead>
+                                <tr>
+                                    <th class="name-col">Descripción</th>
+                                    <th class="cost-col">Precio Costo</th>
+                                    <th class="margin-col">% Ganancia</th>
+                                    <th class="price-col">Precio Venta (1 Kg)</th>
+                                    <th class="price100-col">Precio 100 g</th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
+
+                grouped[type]
+                    .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+                    .forEach(p => {
+                        let cost = getProductCost(p);
+                        let margin = parseFloat(p.margin);
+                        let priceKg = parseFloat(p.price_kg) || 0;
+
+                        // Si falta el precio de venta pero tenemos costo y margen
+                        if (priceKg <= 0 && cost > 0 && !isNaN(margin) && margin > 0) {
+                            priceKg = Math.ceil((cost * (1 + margin / 100)) / 100) * 100;
+                        }
+
+                        // Si falta el costo pero tenemos precio de venta y margen
+                        if (cost <= 0 && priceKg > 0 && !isNaN(margin) && margin > 0) {
+                            cost = Math.round((priceKg / (1 + margin / 100)) * 100) / 100;
+                        }
+
+                        // Si falta el margen pero tenemos precio de venta y costo
+                        if ((isNaN(margin) || margin <= 0) && priceKg > 0 && cost > 0) {
+                            margin = Math.round(((priceKg - cost) / cost) * 10000) / 100;
+                        }
+
+                        let price100g = parseFloat(p.price_100g) || 0;
+                        if (price100g <= 0 && priceKg > 0 && p.type !== 'BEBIDAS') {
+                            price100g = Math.ceil((priceKg / 10) / 100) * 100;
+                        }
+
+                        const supLabel = getSupplierLabel(p, cost);
+
+                        // Formatear columnas
+                        const costHtml = cost > 0
+                            ? `<span class="cost-val">$${formatMoney(cost)}</span>${supLabel ? `<span class="supplier-subtitle">${supLabel}</span>` : ''}`
+                            : `<span class="empty-val">-</span>`;
+
+                        const marginHtml = !isNaN(margin)
+                            ? `<span class="margin-badge">${margin}%</span>`
+                            : `<span class="empty-val">-</span>`;
+
+                        const priceKgHtml = priceKg > 0
+                            ? `<span class="sale-price-val">$${formatMoney(priceKg)}</span>`
+                            : `<span class="empty-val">-</span>`;
+
+                        const isBebida = p.type === 'BEBIDAS';
+                        const price100gHtml = isBebida
+                            ? `<span class="empty-val"></span>`
+                            : (price100g > 0 ? `<span class="num-val">$${formatMoney(price100g)}</span>` : `<span class="empty-val">-</span>`);
+
+                        html += `
+                            <tr>
+                                <td class="name-col"><strong>${p.name}</strong></td>
+                                <td class="cost-col">${costHtml}</td>
+                                <td class="margin-col">${marginHtml}</td>
+                                <td class="price-col">${priceKgHtml}</td>
+                                <td class="price100-col">${price100gHtml}</td>
+                            </tr>
+                        `;
+                    });
+
+                html += `   </tbody>
+                         </table>
+                         </div>`;
+            });
+
+            if (types.length === 0) {
+                html = '<div style="padding: 30px; text-align: center; color: #6b7280; font-size: 15px;">No se encontraron productos con el filtro aplicado.</div>';
+            }
+
+            document.getElementById('content').innerHTML = html;
+        }
+
         async function loadPrices() {
-            // Cargar preferencia guardada si existe
             const savedSize = localStorage.getItem('print_price_size');
             if (savedSize && ['normal', 'large', 'xlarge'].includes(savedSize)) {
                 setFontSize(savedSize);
@@ -325,103 +601,19 @@
 
             try {
                 const token = localStorage.getItem('auth_token');
-                if (!token) {
+                const headers = token ? { 'Authorization': `Basic ${token}` } : {};
+
+                const res = await fetch('/api/products', { headers });
+                if (!res.ok && res.status === 401) {
                     document.getElementById('content').innerHTML = `
                         <div style="padding: 20px; text-align: center; color: #b91c1c; font-weight: bold; font-size: 16px;">
                             No estás autenticado. Por favor inicia sesión en el sistema y vuelve a abrir este listado.
                         </div>`;
                     return;
                 }
-                const res = await fetch('/api/products', {
-                    headers: { 'Authorization': `Basic ${token}` }
-                });
-                let products = await res.json();
 
-                // Omitir productos con precio 0
-                products = products.filter(p => (p.price_kg || 0) > 0 || (p.price_100g || 0) > 0);
-
-                // AGRUPAR POR TIPO
-                const grouped = {};
-                products.forEach(p => {
-                    const type = p.type || 'Otros';
-                    if (!grouped[type]) grouped[type] = [];
-                    grouped[type].push(p);
-                });
-
-                const types = Object.keys(grouped).sort();
-
-                let html = '';
-                types.forEach(type => {
-                    html += `<div class="type-group">`;
-                    html += `<div class="type-title">${type.toUpperCase()}</div>`;
-                    html += `<table>
-                                <thead>
-                                    <tr>
-                                        <th class="name-col">Descripción</th>
-                                        <th>Costo Matiz</th>
-                                        <th>Costo Raíces</th>
-                                        <th>Precio 1 Kg</th>
-                                        <th>Margen %</th>
-                                    </tr>
-                                </thead>
-                                <tbody>`;
-
-                    grouped[type]
-                        .sort((a, b) => a.name.localeCompare(b.name))
-                        .forEach(p => {
-                            const cost_matiz = p.cost_matiz ?? 0;
-                            const cost_raices = p.cost_raices ?? 0;
-                            const priceKg = p.price_kg ?? 0;
-                            const margin = p.margin ?? 0;
-
-                            let classMatiz = '';
-                            let classRaices = '';
-                            if (cost_matiz > 0 && cost_raices > 0) {
-                                if (cost_matiz < cost_raices) {
-                                    classMatiz = 'class="best-cost price-col"';
-                                    classRaices = 'class="price-col"';
-                                } else if (cost_raices < cost_matiz) {
-                                    classMatiz = 'class="price-col"';
-                                    classRaices = 'class="best-cost price-col"';
-                                } else {
-                                    classMatiz = 'class="price-col"';
-                                    classRaices = 'class="price-col"';
-                                }
-                            } else if (cost_matiz > 0) {
-                                classMatiz = 'class="best-cost price-col"';
-                                classRaices = 'class="price-col"';
-                            } else if (cost_raices > 0) {
-                                classMatiz = 'class="price-col"';
-                                classRaices = 'class="best-cost price-col"';
-                            } else {
-                                classMatiz = 'class="price-col"';
-                                classRaices = 'class="price-col"';
-                            }
-
-                            const valMatiz = cost_matiz > 0 ? `$${formatMoney(cost_matiz)}` : '-';
-                            const valRaices = cost_raices > 0 ? `$${formatMoney(cost_raices)}` : '-';
-
-                            html += `
-                                <tr>
-                                    <td class="name-col"><strong>${p.name}</strong></td>
-                                    <td ${classMatiz}>${valMatiz}</td>
-                                    <td ${classRaices}>${valRaices}</td>
-                                    <td class="price-col">$${formatMoney(priceKg)}</td>
-                                    <td style="font-weight:600;">${margin}%</td>
-                                </tr>
-                            `;
-                        });
-
-                    html += `   </tbody>
-                             </table>
-                             </div>`;
-                });
-
-                if (types.length === 0) {
-                    html = '<div style="padding: 30px; text-align: center; color: #6b7280; font-size: 16px;">No se encontraron productos disponibles.</div>';
-                }
-
-                document.getElementById('content').innerHTML = html;
+                allProducts = await res.json();
+                renderView();
 
             } catch (err) {
                 console.error(err);
