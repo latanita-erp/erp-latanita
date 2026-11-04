@@ -25,6 +25,13 @@ try:
 except ImportError:
     pass
 
+from telegram_service import (
+    get_app_setting,
+    set_app_setting,
+    send_telegram_message,
+    check_and_send_due_notifications
+)
+
 app = FastAPI()
 
 @app.middleware("http")
@@ -92,6 +99,10 @@ def startup_migrations():
         try:
             conn.execute(text("ALTER TABLE cash ADD COLUMN IF NOT EXISTS morning_sales NUMERIC DEFAULT 0;"))
             conn.execute(text("ALTER TABLE cash ADD COLUMN IF NOT EXISTS afternoon_sales NUMERIC DEFAULT 0;"))
+            conn.execute(text("ALTER TABLE cash ADD COLUMN IF NOT EXISTS morning_ef NUMERIC DEFAULT 0;"))
+            conn.execute(text("ALTER TABLE cash ADD COLUMN IF NOT EXISTS morning_qr NUMERIC DEFAULT 0;"))
+            conn.execute(text("ALTER TABLE cash ADD COLUMN IF NOT EXISTS afternoon_ef NUMERIC DEFAULT 0;"))
+            conn.execute(text("ALTER TABLE cash ADD COLUMN IF NOT EXISTS afternoon_qr NUMERIC DEFAULT 0;"))
             conn.execute(text("ALTER TABLE cash ADD COLUMN IF NOT EXISTS notes TEXT;"))
             conn.execute(text("ALTER TABLE products ADD COLUMN IF NOT EXISTS supplier1_id INT NULL;"))
             conn.execute(text("ALTER TABLE products ADD COLUMN IF NOT EXISTS supplier2_id INT NULL;"))
@@ -116,7 +127,63 @@ def startup_migrations():
                 );
             """))
             conn.execute(text("ALTER TABLE expenses ADD COLUMN IF NOT EXISTS supplier_id INT NULL REFERENCES suppliers(id);"))
+            conn.execute(text("ALTER TABLE expenses ADD COLUMN IF NOT EXISTS category_type VARCHAR(50) DEFAULT 'PROVEEDORES';"))
+            conn.execute(text("ALTER TABLE expenses ADD COLUMN IF NOT EXISTS description TEXT NULL;"))
+            conn.execute(text("ALTER TABLE expenses ADD COLUMN IF NOT EXISTS payment_method VARCHAR(30) DEFAULT 'EFECTIVO';"))
             conn.execute(text("ALTER TABLE expenses ALTER COLUMN category_id DROP NOT NULL;"))
+
+            # Tablas de Pagos Diferidos a Proveedores
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS supplier_debts (
+                    id SERIAL PRIMARY KEY,
+                    supplier_id INT NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
+                    reception_date DATE NOT NULL,
+                    invoice_number VARCHAR(100),
+                    total_amount NUMERIC NOT NULL DEFAULT 0,
+                    paid_amount NUMERIC NOT NULL DEFAULT 0,
+                    balance NUMERIC NOT NULL DEFAULT 0,
+                    status VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE',
+                    due_date DATE NULL,
+                    notes TEXT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """))
+
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS supplier_debt_payments (
+                    id SERIAL PRIMARY KEY,
+                    debt_id INT NOT NULL REFERENCES supplier_debts(id) ON DELETE CASCADE,
+                    payment_date DATE NOT NULL,
+                    amount NUMERIC NOT NULL,
+                    payment_method VARCHAR(50) DEFAULT 'EFECTIVO',
+                    notes TEXT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """))
+
+            # Tabla de Vencimientos del Hogar
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS household_bills (
+                    id SERIAL PRIMARY KEY,
+                    concept VARCHAR(150) NOT NULL,
+                    category VARCHAR(50) NOT NULL DEFAULT 'SERVICIO',
+                    amount NUMERIC NOT NULL DEFAULT 0,
+                    due_date DATE NOT NULL,
+                    is_paid BOOLEAN NOT NULL DEFAULT FALSE,
+                    payment_date DATE NULL,
+                    notes TEXT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """))
+
+            # Configuraciones de Sistema (Telegram, etc.)
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS app_settings (
+                    key VARCHAR(100) PRIMARY KEY,
+                    value TEXT,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """))
         except Exception as e:
             print("Migration info:", e)
 
@@ -179,19 +246,51 @@ def log_price_change(db: Session, product_id: int, old_price: float, new_price: 
 # ============================================
 
 class ExpenseItemPayload(BaseModel):
+    category_type: str = "PROVEEDORES"
     supplier_id: Optional[int] = None
+    description: Optional[str] = None
     amount: float
+    payment_method: str = "EFECTIVO"
 
 class CashPayload(BaseModel):
     date: str
     weekday: str
-    cash: float
+    cash: Optional[float] = 0.0
+    morning_ef: Optional[float] = 0.0
+    morning_qr: Optional[float] = 0.0
+    afternoon_ef: Optional[float] = 0.0
+    afternoon_qr: Optional[float] = 0.0
     morning_sales: Optional[float] = 0.0
     afternoon_sales: Optional[float] = 0.0
-    card: float
+    card: Optional[float] = 0.0
     expenses: Optional[float] = 0.0
     notes: Optional[str] = None
     expense_list: List[ExpenseItemPayload] = []
+
+class SupplierDebtPayload(BaseModel):
+    supplier_id: int
+    reception_date: str
+    invoice_number: Optional[str] = None
+    total_amount: float
+    due_date: Optional[str] = None
+    notes: Optional[str] = None
+
+class SupplierDebtPaymentPayload(BaseModel):
+    payment_date: str
+    amount: float
+    payment_method: str = "EFECTIVO"
+    notes: Optional[str] = None
+
+class HouseholdBillPayload(BaseModel):
+    concept: str
+    category: str = "SERVICIO"
+    amount: float
+    due_date: str
+    notes: Optional[str] = None
+
+class TelegramConfigPayload(BaseModel):
+    bot_token: str
+    chat_id: str
 
 class ProductPayload(BaseModel):
     name: str
@@ -330,23 +429,30 @@ def delete_expense_category(cat_id: int, db: Session = Depends(get_db)):
 def get_cash_all(db: Session = Depends(get_db)):
     cash_result = db.execute(text("""
         SELECT 
-            id, date, weekday, cash, morning_sales, afternoon_sales, card, expenses, notes,
-            (cash + card) AS net_income,
-            (cash + card - expenses) AS total
+            id, date, weekday, cash, morning_sales, afternoon_sales,
+            COALESCE(morning_ef, 0) as morning_ef,
+            COALESCE(morning_qr, 0) as morning_qr,
+            COALESCE(afternoon_ef, 0) as afternoon_ef,
+            COALESCE(afternoon_qr, 0) as afternoon_qr,
+            card, expenses, notes,
+            (COALESCE(cash, 0) + COALESCE(card, 0)) AS net_income,
+            (COALESCE(cash, 0) + COALESCE(card, 0) - COALESCE(expenses, 0)) AS total
         FROM cash
         ORDER BY date ASC
     """)).mappings().all()
 
     expenses_result = db.execute(text("""
-        SELECT e.id, e.cash_id, e.supplier_id, e.amount, s.name as supplier_name 
-        FROM expenses e JOIN suppliers s ON e.supplier_id = s.id
+        SELECT e.id, e.cash_id, e.supplier_id, e.category_type, e.description, e.payment_method, e.amount, s.name as supplier_name 
+        FROM expenses e 
+        LEFT JOIN suppliers s ON e.supplier_id = s.id
     """)).mappings().all()
 
     expenses_by_cash = defaultdict(list)
     for e in expenses_result:
-        # Convert to dict and handle None supplier_id gracefully just in case
         d = dict(e)
-        d["category_name"] = d.pop("supplier_name", "Desconocido") # Keep frontend compat or rename in frontend
+        d["category_name"] = d.get("category_type") or "PROVEEDORES"
+        if not d.get("supplier_name"):
+            d["supplier_name"] = d.get("description") or d["category_name"]
         expenses_by_cash[e["cash_id"]].append(d)
 
     final_result = []
@@ -360,32 +466,57 @@ def get_cash_all(db: Session = Depends(get_db)):
 
 @app.post("/api/cash")
 def create_cash(payload: CashPayload, db: Session = Depends(get_db)):
-
     date = payload.date
     weekday = payload.weekday
-    cash = payload.cash
-    card = payload.card
     notes = payload.notes or ""
 
-    if payload.expenses is not None and not payload.expense_list:
-        total_expenses = payload.expenses
-    else:
-        total_expenses = sum([e.amount for e in payload.expense_list])
+    morning_ef = float(payload.morning_ef or 0.0)
+    morning_qr = float(payload.morning_qr or 0.0)
+    afternoon_ef = float(payload.afternoon_ef or 0.0)
+    afternoon_qr = float(payload.afternoon_qr or 0.0)
 
-    net = cash + card
+    morning_sales = morning_ef + morning_qr
+    afternoon_sales = afternoon_ef + afternoon_qr
+    total_ef = morning_ef + afternoon_ef
+    total_qr = morning_qr + afternoon_qr
+
+    if total_ef == 0 and total_qr == 0 and (payload.cash or payload.card):
+        total_ef = float(payload.cash or 0.0)
+        total_qr = float(payload.card or 0.0)
+        morning_sales = float(payload.morning_sales or total_ef)
+        afternoon_sales = float(payload.afternoon_sales or 0.0)
+
+    if payload.expenses is not None and not payload.expense_list:
+        total_expenses = float(payload.expenses)
+    else:
+        total_expenses = sum([float(e.amount) for e in payload.expense_list])
+
+    net = total_ef + total_qr
     total = net - total_expenses
 
     result = db.execute(text("""
-        INSERT INTO cash (date, weekday, cash, morning_sales, afternoon_sales, card, expenses, notes, net_income, total)
-        VALUES (:date, :weekday, :cash, :morning, :afternoon, :card, :expenses, :notes, :net, :total)
+        INSERT INTO cash (
+            date, weekday, cash, morning_sales, afternoon_sales, 
+            morning_ef, morning_qr, afternoon_ef, afternoon_qr,
+            card, expenses, notes, net_income, total
+        )
+        VALUES (
+            :date, :weekday, :cash, :morning, :afternoon,
+            :m_ef, :m_qr, :a_ef, :a_qr,
+            :card, :expenses, :notes, :net, :total
+        )
         RETURNING id
     """), {
         "date": date,
         "weekday": weekday,
-        "cash": cash,
-        "morning": payload.morning_sales,
-        "afternoon": payload.afternoon_sales,
-        "card": card,
+        "cash": total_ef,
+        "morning": morning_sales,
+        "afternoon": afternoon_sales,
+        "m_ef": morning_ef,
+        "m_qr": morning_qr,
+        "a_ef": afternoon_ef,
+        "a_qr": afternoon_qr,
+        "card": total_qr,
         "expenses": total_expenses,
         "notes": notes,
         "net": net,
@@ -395,11 +526,17 @@ def create_cash(payload: CashPayload, db: Session = Depends(get_db)):
     cash_id = result.scalar()
 
     for exp in payload.expense_list:
-        if exp.supplier_id:
-            db.execute(text("""
-                INSERT INTO expenses (cash_id, supplier_id, amount)
-                VALUES (:cid, :sup, :amt)
-            """), {"cid": cash_id, "sup": exp.supplier_id, "amt": exp.amount})
+        db.execute(text("""
+            INSERT INTO expenses (cash_id, supplier_id, category_type, description, payment_method, amount)
+            VALUES (:cid, :sup, :cat, :desc, :pm, :amt)
+        """), {
+            "cid": cash_id,
+            "sup": exp.supplier_id,
+            "cat": exp.category_type or "PROVEEDORES",
+            "desc": exp.description or "",
+            "pm": exp.payment_method or "EFECTIVO",
+            "amt": float(exp.amount)
+        })
 
     db.commit()
     return {"status": "created"}
@@ -407,36 +544,55 @@ def create_cash(payload: CashPayload, db: Session = Depends(get_db)):
 
 @app.put("/api/cash/{cash_id}")
 def update_cash(cash_id: int, payload: CashPayload, db: Session = Depends(get_db)):
-
     date = payload.date
     weekday = payload.weekday
-    cash = payload.cash
-    card = payload.card
     notes = payload.notes or ""
 
-    if payload.expenses is not None and not payload.expense_list:
-        total_expenses = payload.expenses
-    else:
-        total_expenses = sum([e.amount for e in payload.expense_list])
+    morning_ef = float(payload.morning_ef or 0.0)
+    morning_qr = float(payload.morning_qr or 0.0)
+    afternoon_ef = float(payload.afternoon_ef or 0.0)
+    afternoon_qr = float(payload.afternoon_qr or 0.0)
 
-    net = cash + card
+    morning_sales = morning_ef + morning_qr
+    afternoon_sales = afternoon_ef + afternoon_qr
+    total_ef = morning_ef + afternoon_ef
+    total_qr = morning_qr + afternoon_qr
+
+    if total_ef == 0 and total_qr == 0 and (payload.cash or payload.card):
+        total_ef = float(payload.cash or 0.0)
+        total_qr = float(payload.card or 0.0)
+        morning_sales = float(payload.morning_sales or total_ef)
+        afternoon_sales = float(payload.afternoon_sales or 0.0)
+
+    if payload.expenses is not None and not payload.expense_list:
+        total_expenses = float(payload.expenses)
+    else:
+        total_expenses = sum([float(e.amount) for e in payload.expense_list])
+
+    net = total_ef + total_qr
     total = net - total_expenses
 
     db.execute(text("""
         UPDATE cash
         SET 
             date = :date, weekday = :weekday,
-            cash = :cash, morning_sales = :morning, afternoon_sales = :afternoon, card = :card, expenses = :expenses, notes = :notes,
+            cash = :cash, morning_sales = :morning, afternoon_sales = :afternoon,
+            morning_ef = :m_ef, morning_qr = :m_qr, afternoon_ef = :a_ef, afternoon_qr = :a_qr,
+            card = :card, expenses = :expenses, notes = :notes,
             net_income = :net, total = :total
         WHERE id = :id
     """), {
         "id": cash_id,
         "date": date,
         "weekday": weekday,
-        "cash": cash,
-        "morning": payload.morning_sales,
-        "afternoon": payload.afternoon_sales,
-        "card": card,
+        "cash": total_ef,
+        "morning": morning_sales,
+        "afternoon": afternoon_sales,
+        "m_ef": morning_ef,
+        "m_qr": morning_qr,
+        "a_ef": afternoon_ef,
+        "a_qr": afternoon_qr,
+        "card": total_qr,
         "expenses": total_expenses,
         "notes": notes,
         "net": net,
@@ -445,11 +601,17 @@ def update_cash(cash_id: int, payload: CashPayload, db: Session = Depends(get_db
 
     db.execute(text("DELETE FROM expenses WHERE cash_id = :id"), {"id": cash_id})
     for exp in payload.expense_list:
-        if exp.supplier_id:
-            db.execute(text("""
-                INSERT INTO expenses (cash_id, supplier_id, amount)
-                VALUES (:cid, :sup, :amt)
-            """), {"cid": cash_id, "sup": exp.supplier_id, "amt": exp.amount})
+        db.execute(text("""
+            INSERT INTO expenses (cash_id, supplier_id, category_type, description, payment_method, amount)
+            VALUES (:cid, :sup, :cat, :desc, :pm, :amt)
+        """), {
+            "cid": cash_id,
+            "sup": exp.supplier_id,
+            "cat": exp.category_type or "PROVEEDORES",
+            "desc": exp.description or "",
+            "pm": exp.payment_method or "EFECTIVO",
+            "amt": float(exp.amount)
+        })
 
     db.commit()
     return {"status": "updated"}
@@ -461,6 +623,354 @@ def delete_cash(cash_id: int, db: Session = Depends(get_db)):
     db.execute(text("DELETE FROM cash WHERE id = :id"), {"id": cash_id})
     db.commit()
     return {"status": "deleted"}
+
+# ============================================
+#       MÓDULO PAGOS A PROVEEDORES DIFERIDOS
+# ============================================
+
+@app.get("/api/supplier-debts")
+def get_supplier_debts(db: Session = Depends(get_db)):
+    debts = db.execute(text("""
+        SELECT d.id, d.supplier_id, s.name as supplier_name, d.reception_date,
+               d.invoice_number, d.total_amount, d.paid_amount, d.balance,
+               d.status, d.due_date, d.notes, d.created_at
+        FROM supplier_debts d
+        JOIN suppliers s ON d.supplier_id = s.id
+        ORDER BY d.reception_date DESC, d.id DESC
+    """)).mappings().all()
+
+    debt_ids = [d["id"] for d in debts]
+    payments_by_debt = defaultdict(list)
+    if debt_ids:
+        payments = db.execute(text("""
+            SELECT id, debt_id, payment_date, amount, payment_method, notes, created_at
+            FROM supplier_debt_payments
+            WHERE debt_id = ANY(:ids)
+            ORDER BY payment_date ASC, id ASC
+        """), {"ids": debt_ids}).mappings().all()
+        for p in payments:
+            p_dict = dict(p)
+            if p_dict.get("created_at"):
+                p_dict["created_at"] = p_dict["created_at"].isoformat()
+            if p_dict.get("payment_date"):
+                p_dict["payment_date"] = str(p_dict["payment_date"])
+            payments_by_debt[p["debt_id"]].append(p_dict)
+
+    res = []
+    for d in debts:
+        d_dict = dict(d)
+        if d_dict.get("created_at"):
+            d_dict["created_at"] = d_dict["created_at"].isoformat()
+        if d_dict.get("reception_date"):
+            d_dict["reception_date"] = str(d_dict["reception_date"])
+        if d_dict.get("due_date"):
+            d_dict["due_date"] = str(d_dict["due_date"])
+        d_dict["payments"] = payments_by_debt.get(d["id"], [])
+        res.append(d_dict)
+
+    return res
+
+@app.post("/api/supplier-debts")
+def create_supplier_debt(payload: SupplierDebtPayload, db: Session = Depends(get_db)):
+    total = float(payload.total_amount)
+    db.execute(text("""
+        INSERT INTO supplier_debts (supplier_id, reception_date, invoice_number, total_amount, paid_amount, balance, status, due_date, notes)
+        VALUES (:sup, :rec, :inv, :tot, 0, :tot, 'PENDIENTE', :due, :notes)
+    """), {
+        "sup": payload.supplier_id,
+        "rec": payload.reception_date,
+        "inv": payload.invoice_number,
+        "tot": total,
+        "due": payload.due_date if payload.due_date else None,
+        "notes": payload.notes
+    })
+    db.commit()
+    return {"status": "created"}
+
+@app.post("/api/supplier-debts/{debt_id}/payments")
+def add_supplier_debt_payment(debt_id: int, payload: SupplierDebtPaymentPayload, db: Session = Depends(get_db)):
+    debt = db.execute(text("SELECT id, total_amount, paid_amount FROM supplier_debts WHERE id = :id"), {"id": debt_id}).mappings().first()
+    if not debt:
+        raise HTTPException(status_code=404, detail="Deuda con proveedor no encontrada")
+
+    amount = float(payload.amount)
+    db.execute(text("""
+        INSERT INTO supplier_debt_payments (debt_id, payment_date, amount, payment_method, notes)
+        VALUES (:did, :pdate, :amt, :pm, :notes)
+    """), {
+        "did": debt_id,
+        "pdate": payload.payment_date,
+        "amt": amount,
+        "pm": payload.payment_method,
+        "notes": payload.notes
+    })
+
+    # Recalcular saldo total pagado
+    sum_paid = db.execute(text("SELECT COALESCE(SUM(amount), 0) FROM supplier_debt_payments WHERE debt_id = :did"), {"did": debt_id}).scalar()
+    total_amt = float(debt["total_amount"])
+    new_balance = max(0.0, total_amt - float(sum_paid))
+    new_status = "PAGADO" if new_balance <= 0.001 else "PARCIAL"
+
+    db.execute(text("""
+        UPDATE supplier_debts
+        SET paid_amount = :paid, balance = :bal, status = :st
+        WHERE id = :id
+    """), {
+        "id": debt_id,
+        "paid": sum_paid,
+        "bal": new_balance,
+        "st": new_status
+    })
+
+    db.commit()
+    return {"status": "payment_added", "new_balance": new_balance, "new_status": new_status}
+
+@app.delete("/api/supplier-debts/{debt_id}")
+def delete_supplier_debt(debt_id: int, db: Session = Depends(get_db)):
+    db.execute(text("DELETE FROM supplier_debts WHERE id = :id"), {"id": debt_id})
+    db.commit()
+    return {"status": "deleted"}
+
+@app.delete("/api/supplier-debts/payments/{payment_id}")
+def delete_supplier_debt_payment(payment_id: int, db: Session = Depends(get_db)):
+    pmt = db.execute(text("SELECT debt_id FROM supplier_debt_payments WHERE id = :id"), {"id": payment_id}).mappings().first()
+    if not pmt:
+        raise HTTPException(status_code=404, detail="Pago no encontrado")
+    
+    debt_id = pmt["debt_id"]
+    db.execute(text("DELETE FROM supplier_debt_payments WHERE id = :id"), {"id": payment_id})
+
+    # Recalcular
+    debt = db.execute(text("SELECT total_amount FROM supplier_debts WHERE id = :id"), {"id": debt_id}).mappings().first()
+    sum_paid = db.execute(text("SELECT COALESCE(SUM(amount), 0) FROM supplier_debt_payments WHERE debt_id = :did"), {"did": debt_id}).scalar()
+    total_amt = float(debt["total_amount"]) if debt else 0.0
+    new_balance = max(0.0, total_amt - float(sum_paid))
+    new_status = "PAGADO" if (new_balance <= 0.001 and float(sum_paid) > 0) else ("PARCIAL" if float(sum_paid) > 0 else "PENDIENTE")
+
+    db.execute(text("""
+        UPDATE supplier_debts
+        SET paid_amount = :paid, balance = :bal, status = :st
+        WHERE id = :id
+    """), {
+        "id": debt_id,
+        "paid": sum_paid,
+        "bal": new_balance,
+        "st": new_status
+    })
+
+    db.commit()
+    return {"status": "payment_deleted"}
+
+# ============================================
+#       MÓDULO VENCIMIENTOS DEL HOGAR
+# ============================================
+
+@app.get("/api/household-bills")
+def get_household_bills(db: Session = Depends(get_db)):
+    rows = db.execute(text("""
+        SELECT id, concept, category, amount, due_date, is_paid, payment_date, notes, created_at
+        FROM household_bills
+        ORDER BY is_paid ASC, due_date ASC
+    """)).mappings().all()
+
+    res = []
+    for r in rows:
+        d = dict(r)
+        if d.get("created_at"):
+            d["created_at"] = d["created_at"].isoformat()
+        if d.get("due_date"):
+            d["due_date"] = str(d["due_date"])
+        if d.get("payment_date"):
+            d["payment_date"] = str(d["payment_date"])
+        res.append(d)
+    return res
+
+@app.post("/api/household-bills")
+def create_household_bill(payload: HouseholdBillPayload, db: Session = Depends(get_db)):
+    db.execute(text("""
+        INSERT INTO household_bills (concept, category, amount, due_date, notes)
+        VALUES (:concept, :cat, :amt, :due, :notes)
+    """), {
+        "concept": payload.concept,
+        "cat": payload.category,
+        "amt": float(payload.amount),
+        "due": payload.due_date,
+        "notes": payload.notes
+    })
+    db.commit()
+    return {"status": "created"}
+
+@app.put("/api/household-bills/{bill_id}/toggle-paid")
+def toggle_household_bill_paid(bill_id: int, db: Session = Depends(get_db)):
+    bill = db.execute(text("SELECT is_paid FROM household_bills WHERE id = :id"), {"id": bill_id}).mappings().first()
+    if not bill:
+        raise HTTPException(status_code=404, detail="Vencimiento no encontrado")
+    
+    current_state = bill["is_paid"]
+    new_state = not current_state
+    today_str = datetime.date.today().strftime("%Y-%m-%d") if new_state else None
+
+    db.execute(text("""
+        UPDATE household_bills
+        SET is_paid = :state, payment_date = :pdate
+        WHERE id = :id
+    """), {"id": bill_id, "state": new_state, "pdate": today_str})
+    db.commit()
+    return {"status": "updated", "is_paid": new_state, "payment_date": today_str}
+
+@app.delete("/api/household-bills/{bill_id}")
+def delete_household_bill(bill_id: int, db: Session = Depends(get_db)):
+    db.execute(text("DELETE FROM household_bills WHERE id = :id"), {"id": bill_id})
+    db.commit()
+    return {"status": "deleted"}
+
+# ============================================
+#       MÓDULO TELEGRAM & NOTIFICACIONES
+# ============================================
+
+@app.get("/api/telegram/config")
+def get_telegram_config(db: Session = Depends(get_db)):
+    token = get_app_setting(db, "telegram_bot_token")
+    chat_id = get_app_setting(db, "telegram_chat_id")
+    masked_token = (token[:6] + "..." + token[-4:]) if len(token) > 10 else ("Configurado" if token else "")
+    return {
+        "has_token": bool(token),
+        "bot_token": masked_token,
+        "chat_id": chat_id
+    }
+
+@app.post("/api/telegram/config")
+def save_telegram_config(payload: TelegramConfigPayload, db: Session = Depends(get_db)):
+    if payload.bot_token and payload.bot_token != "Configurado" and not payload.bot_token.endswith("..."):
+        set_app_setting(db, "telegram_bot_token", payload.bot_token.strip())
+    set_app_setting(db, "telegram_chat_id", payload.chat_id.strip())
+    return {"status": "saved"}
+
+@app.post("/api/telegram/test")
+def test_telegram_alert(db: Session = Depends(get_db)):
+    token = get_app_setting(db, "telegram_bot_token")
+    chat_id = get_app_setting(db, "telegram_chat_id")
+    if not token or not chat_id:
+        raise HTTPException(status_code=400, detail="Telegram no está configurado (falta Token o Chat ID).")
+    
+    msg = "🚀 <b>¡Conexión Exitosa con La Tanita ERP!</b>\n\nTu bot de Telegram está activo y listo para enviarte alertas de vencimientos de impuestos, servicios y compras."
+    res = send_telegram_message(token, chat_id, msg)
+    if not res.get("success"):
+        raise HTTPException(status_code=400, detail=res.get("error", "Error al enviar mensaje a Telegram"))
+    return {"status": "success", "message": "Mensaje de prueba enviado con éxito a Telegram"}
+
+@app.post("/api/telegram/send-alerts")
+def send_due_alerts_endpoint(db: Session = Depends(get_db)):
+    res = check_and_send_due_notifications(db)
+    if not res.get("success") and res.get("error"):
+        raise HTTPException(status_code=400, detail=res.get("error"))
+    return res
+
+# ============================================
+#       REPORTE CONTABLE INTEGRAL
+# ============================================
+
+@app.get("/api/reports/accounting")
+def get_accounting_report(month: Optional[str] = None, db: Session = Depends(get_db)):
+    if not month:
+        month = datetime.datetime.now().strftime("%Y-%m")
+
+    # 1. Ventas por método de pago (EF vs QR) en el mes
+    sales_res = db.execute(text("""
+        SELECT 
+            COALESCE(SUM(morning_ef + afternoon_ef), 0) as total_ef,
+            COALESCE(SUM(morning_qr + afternoon_qr), 0) as total_qr,
+            COALESCE(SUM(cash), 0) as fallback_cash,
+            COALESCE(SUM(card), 0) as fallback_card,
+            COALESCE(SUM(net_income), 0) as total_sales,
+            COALESCE(SUM(morning_sales), 0) as total_morning,
+            COALESCE(SUM(afternoon_sales), 0) as total_afternoon
+        FROM cash
+        WHERE date LIKE :month_pattern
+    """), {"month_pattern": f"{month}-%"}).mappings().first()
+
+    total_ef = float(sales_res["total_ef"]) if sales_res else 0.0
+    total_qr = float(sales_res["total_qr"]) if sales_res else 0.0
+    if total_ef == 0 and total_qr == 0 and sales_res:
+        total_ef = float(sales_res["fallback_cash"])
+        total_qr = float(sales_res["fallback_card"])
+    total_sales = total_ef + total_qr
+
+    # 2. Egresos agrupados por categoría contable
+    expenses_rows = db.execute(text("""
+        SELECT 
+            COALESCE(e.category_type, 'PROVEEDORES') as category_type,
+            SUM(e.amount) as total_amount
+        FROM expenses e
+        JOIN cash c ON e.cash_id = c.id
+        WHERE c.date LIKE :month_pattern
+        GROUP BY COALESCE(e.category_type, 'PROVEEDORES')
+    """), {"month_pattern": f"{month}-%"}).mappings().all()
+
+    expenses_by_cat = {
+        "PROVEEDORES": 0.0,
+        "GASTOS OPERATIVOS": 0.0,
+        "GASTOS FIJOS": 0.0,
+        "SUELDOS": 0.0,
+        "RETIROS PERSONALES": 0.0,
+        "GASTOS HOGAR": 0.0
+    }
+
+    for row in expenses_rows:
+        cat = str(row["category_type"]).upper().strip()
+        # Normalizar si viene con guion bajo o espacio
+        cat_key = cat.replace("_", " ")
+        if cat_key in expenses_by_cat:
+            expenses_by_cat[cat_key] = float(row["total_amount"])
+        elif "PROV" in cat_key:
+            expenses_by_cat["PROVEEDORES"] += float(row["total_amount"])
+        elif "OPERAT" in cat_key:
+            expenses_by_cat["GASTOS OPERATIVOS"] += float(row["total_amount"])
+        elif "FIJO" in cat_key:
+            expenses_by_cat["GASTOS FIJOS"] += float(row["total_amount"])
+        elif "SUELD" in cat_key:
+            expenses_by_cat["SUELDOS"] += float(row["total_amount"])
+        elif "RETIR" in cat_key:
+            expenses_by_cat["RETIROS PERSONALES"] += float(row["total_amount"])
+        elif "HOGAR" in cat_key:
+            expenses_by_cat["GASTOS HOGAR"] += float(row["total_amount"])
+        else:
+            expenses_by_cat["GASTOS OPERATIVOS"] += float(row["total_amount"])
+
+    cost_suppliers = expenses_by_cat["PROVEEDORES"]
+    cost_operating = expenses_by_cat["GASTOS OPERATIVOS"]
+    cost_fixed = expenses_by_cat["GASTOS FIJOS"]
+    cost_salaries = expenses_by_cat["SUELDOS"]
+    personal_withdrawals = expenses_by_cat["RETIROS PERSONALES"]
+    home_expenses = expenses_by_cat["GASTOS HOGAR"]
+
+    # Total de egresos puramente del negocio (excluyendo lo personal)
+    business_expenses = cost_suppliers + cost_operating + cost_fixed + cost_salaries
+    total_all_expenses = business_expenses + personal_withdrawals + home_expenses
+
+    # Márgenes y ganancias
+    operating_profit = total_sales - cost_suppliers - cost_operating
+    net_business_profit = total_sales - business_expenses
+    final_cash_pocket = net_business_profit - personal_withdrawals - home_expenses
+
+    return {
+        "month": month,
+        "sales": {
+            "total": total_sales,
+            "ef": total_ef,
+            "qr": total_qr,
+            "morning": float(sales_res["total_morning"]) if sales_res else 0.0,
+            "afternoon": float(sales_res["total_afternoon"]) if sales_res else 0.0
+        },
+        "expenses": expenses_by_cat,
+        "kpis": {
+            "business_expenses": business_expenses,
+            "total_expenses": total_all_expenses,
+            "operating_profit": operating_profit,
+            "net_business_profit": net_business_profit,
+            "final_cash_pocket": final_cash_pocket
+        }
+    }
 
 # ============================================
 #             REPORTES
@@ -512,7 +1022,8 @@ def create_product(payload: ProductPayload, db: Session = Depends(get_db)):
     cost_matiz = payload.cost_matiz if payload.cost_matiz is not None else cost1
     cost_raices = payload.cost_raices if payload.cost_raices is not None else cost2
     
-    cost = max(cost1, cost2, cost3, cost_matiz, cost_raices)
+    payload_cost = float(payload.cost) if payload.cost is not None else 0.0
+    cost = max(cost1, cost2, cost3, cost_matiz, cost_raices, payload_cost)
     prices = calculate_prices(cost, payload.margin)
 
     result = db.execute(text("""
@@ -599,7 +1110,9 @@ def update_product(product_id: int, payload: ProductUpdatePayload, db: Session =
     cost_matiz = payload.cost_matiz if payload.cost_matiz is not None else (product["cost_matiz"] if product["cost_matiz"] is not None else cost1)
     cost_raices = payload.cost_raices if payload.cost_raices is not None else (product["cost_raices"] if product["cost_raices"] is not None else cost2)
 
-    cost = max(cost1, cost2, cost3, cost_matiz, cost_raices)
+    existing_cost = float(product["cost"]) if product["cost"] is not None else 0.0
+    payload_cost = float(payload.cost) if payload.cost is not None else 0.0
+    cost = max(cost1, cost2, cost3, cost_matiz, cost_raices, payload_cost, existing_cost)
     prices = calculate_prices(cost, margin)
 
     old_price_kg = product["old_price_kg"] if product["old_price_kg"] is not None else 0.0
