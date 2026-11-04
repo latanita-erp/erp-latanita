@@ -5,6 +5,8 @@
 import os
 import math
 import datetime
+import calendar
+import asyncio
 import urllib.parse
 import pandas as pd
 from collections import defaultdict
@@ -187,6 +189,38 @@ def startup_migrations():
         except Exception as e:
             print("Migration info:", e)
 
+@app.on_event("startup")
+async def start_telegram_scheduler():
+    async def telegram_worker():
+        # Esperar 15 segundos después del inicio para dar tiempo a la inicialización
+        await asyncio.sleep(15)
+        while True:
+            try:
+                db = SessionLocal()
+                try:
+                    token = get_app_setting(db, "telegram_bot_token")
+                    chat_id = get_app_setting(db, "telegram_chat_id")
+                    if token and chat_id:
+                        today_str = datetime.date.today().strftime("%Y-%m-%d")
+                        last_sent = get_app_setting(db, "last_telegram_alert_date", "")
+                        now = datetime.datetime.now()
+
+                        # Enviar si aún no se envió hoy y es después de las 08:30 AM
+                        if last_sent != today_str and (now.hour > 8 or (now.hour == 8 and now.minute >= 30)):
+                            res = check_and_send_due_notifications(db)
+                            if res.get("success"):
+                                set_app_setting(db, "last_telegram_alert_date", today_str)
+                                print(f"[TELEGRAM WORKER] Alerta diaria enviada ({today_str}). Items: {res.get('items_count', 0)}")
+                finally:
+                    db.close()
+            except Exception as e:
+                print("[TELEGRAM WORKER] Error en chequeo:", e)
+
+            # Revisar cada 30 minutos
+            await asyncio.sleep(1800)
+
+    asyncio.create_task(telegram_worker())
+
 
 # ============================================
 #           ARCHIVOS ESTÁTICOS
@@ -280,6 +314,7 @@ class SupplierDebtPaymentPayload(BaseModel):
     amount: float
     payment_method: str = "EFECTIVO"
     notes: Optional[str] = None
+    impact_cash: bool = True
 
 class HouseholdBillPayload(BaseModel):
     concept: str
@@ -689,7 +724,7 @@ def create_supplier_debt(payload: SupplierDebtPayload, db: Session = Depends(get
 
 @app.post("/api/supplier-debts/{debt_id}/payments")
 def add_supplier_debt_payment(debt_id: int, payload: SupplierDebtPaymentPayload, db: Session = Depends(get_db)):
-    debt = db.execute(text("SELECT id, total_amount, paid_amount FROM supplier_debts WHERE id = :id"), {"id": debt_id}).mappings().first()
+    debt = db.execute(text("SELECT id, supplier_id, invoice_number, total_amount, paid_amount FROM supplier_debts WHERE id = :id"), {"id": debt_id}).mappings().first()
     if not debt:
         raise HTTPException(status_code=404, detail="Deuda con proveedor no encontrada")
 
@@ -721,6 +756,61 @@ def add_supplier_debt_payment(debt_id: int, payload: SupplierDebtPaymentPayload,
         "bal": new_balance,
         "st": new_status
     })
+
+    # Impactar en la Caja Diaria si corresponde
+    if getattr(payload, "impact_cash", True):
+        sup_name = db.execute(text("SELECT name FROM suppliers WHERE id = :sid"), {"sid": debt["supplier_id"]}).scalar() or "Proveedor"
+        inv_txt = f" (Rem/Fac: {debt['invoice_number']})" if debt.get("invoice_number") else ""
+        desc = f"Pago diferido a {sup_name}{inv_txt}"
+
+        cash_record = db.execute(text("SELECT id, cash, card, net_income, expenses, total FROM cash WHERE date = :pdate"), {"pdate": payload.payment_date}).mappings().first()
+        if cash_record:
+            cid = cash_record["id"]
+            db.execute(text("""
+                INSERT INTO expenses (cash_id, supplier_id, category_type, description, payment_method, amount)
+                VALUES (:cid, :sup, 'PROVEEDORES', :desc, :pm, :amt)
+            """), {
+                "cid": cid,
+                "sup": debt["supplier_id"],
+                "desc": desc,
+                "pm": payload.payment_method,
+                "amt": amount
+            })
+            new_exp = db.execute(text("SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE cash_id = :cid"), {"cid": cid}).scalar()
+            net = float(cash_record["net_income"] or 0)
+            db.execute(text("UPDATE cash SET expenses = :exp, total = :tot WHERE id = :cid"), {
+                "cid": cid,
+                "exp": new_exp,
+                "tot": net - float(new_exp)
+            })
+        else:
+            try:
+                dt = datetime.datetime.strptime(payload.payment_date, "%Y-%m-%d")
+                weekdays = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO", "DOMINGO"]
+                wday = weekdays[dt.weekday()]
+            except Exception:
+                wday = "DÍA"
+            res = db.execute(text("""
+                INSERT INTO cash (date, weekday, cash, morning_sales, afternoon_sales, morning_ef, morning_qr, afternoon_ef, afternoon_qr, card, expenses, notes, net_income, total)
+                VALUES (:dt, :wd, 0, 0, 0, 0, 0, 0, 0, 0, :amt, 'Generado por pago a proveedor', 0, :neg_tot)
+                RETURNING id
+            """), {
+                "dt": payload.payment_date,
+                "wd": wday,
+                "amt": amount,
+                "neg_tot": -amount
+            })
+            new_cid = res.scalar()
+            db.execute(text("""
+                INSERT INTO expenses (cash_id, supplier_id, category_type, description, payment_method, amount)
+                VALUES (:cid, :sup, 'PROVEEDORES', :desc, :pm, :amt)
+            """), {
+                "cid": new_cid,
+                "sup": debt["supplier_id"],
+                "desc": desc,
+                "pm": payload.payment_method,
+                "amt": amount
+            })
 
     db.commit()
     return {"status": "payment_added", "new_balance": new_balance, "new_status": new_status}
@@ -817,6 +907,44 @@ def toggle_household_bill_paid(bill_id: int, db: Session = Depends(get_db)):
     """), {"id": bill_id, "state": new_state, "pdate": today_str})
     db.commit()
     return {"status": "updated", "is_paid": new_state, "payment_date": today_str}
+
+@app.post("/api/household-bills/{bill_id}/repeat-next-month")
+def repeat_household_bill_next_month(bill_id: int, db: Session = Depends(get_db)):
+    bill = db.execute(text("SELECT id, concept, category, amount, due_date, notes FROM household_bills WHERE id = :id"), {"id": bill_id}).mappings().first()
+    if not bill:
+        raise HTTPException(status_code=404, detail="Vencimiento no encontrado")
+
+    b_date = bill["due_date"]
+    if isinstance(b_date, str):
+        b_date = datetime.datetime.strptime(b_date, "%Y-%m-%d").date()
+
+    y = b_date.year
+    m = b_date.month
+    d = b_date.day
+
+    if m == 12:
+        next_y = y + 1
+        next_m = 1
+    else:
+        next_y = y
+        next_m = m + 1
+
+    max_days = calendar.monthrange(next_y, next_m)[1]
+    next_d = min(d, max_days)
+    next_due_date = datetime.date(next_y, next_m, next_d)
+
+    db.execute(text("""
+        INSERT INTO household_bills (concept, category, amount, due_date, is_paid, payment_date, notes)
+        VALUES (:concept, :cat, :amt, :due, FALSE, NULL, :notes)
+    """), {
+        "concept": bill["concept"],
+        "cat": bill["category"],
+        "amt": float(bill["amount"]),
+        "due": next_due_date.strftime("%Y-%m-%d"),
+        "notes": bill["notes"]
+    })
+    db.commit()
+    return {"status": "repeated", "new_due_date": next_due_date.strftime("%Y-%m-%d")}
 
 @app.delete("/api/household-bills/{bill_id}")
 def delete_household_bill(bill_id: int, db: Session = Depends(get_db)):
