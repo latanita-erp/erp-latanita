@@ -172,15 +172,14 @@
             </div>
 
             <nav>
-                <button class="nav-btn active" data-target="dashboard">📊 Dashboard</button>
-                <button class="nav-btn" data-target="products">📦 Productos</button>
-                <button class="nav-btn" data-target="price-history">📜 Historial Precios</button>
-                <button class="nav-btn" data-target="cash">💰 Caja Diaria</button>
+                <button class="nav-btn active" data-target="cash">💰 Caja Diaria</button>
                 <button class="nav-btn" data-target="supplier-debts">🚚 Pagos Proveedores</button>
                 <button class="nav-btn" data-target="household-bills">🏠 Vencimientos Casa</button>
                 <button class="nav-btn" data-target="accounting-report">⚖️ Balance Contable</button>
+                <button class="nav-btn" data-target="dashboard">📊 Dashboard</button>
+                <button class="nav-btn" data-target="products">📦 Productos</button>
+                <button class="nav-btn" data-target="price-history">📜 Historial Precios</button>
                 <button class="nav-btn" onclick="toggleModal('modal-manage-suppliers'); loadManageSuppliers();">🏢 Proveedores</button>
-                <button class="nav-btn" data-target="expenses-report">📈 Reporte Gastos</button>
 
                 <hr class="menu-divider">
 
@@ -690,6 +689,11 @@
                         <input type="text" id="sd-pay-notes" placeholder="Ej: Pago parcial 1 de 2, transf N°...">
                     </div>
 
+                    <div class="input-group" style="flex-direction:row; align-items:center; gap:8px; margin-top:0.8rem; background:rgba(0,0,0,0.25); padding:0.6rem 0.8rem; border-radius:8px; border:1px solid rgba(255,255,255,0.08);">
+                        <input type="checkbox" id="sd-pay-impact-cash" checked style="width:18px; height:18px; cursor:pointer; accent-color:var(--primary-color);">
+                        <label for="sd-pay-impact-cash" style="cursor:pointer; margin-bottom:0; font-weight:600; color:var(--text-color);">☑️ Descontar automáticamente de la Caja Diaria</label>
+                    </div>
+
                     <div style="display:flex; gap:10px; margin-top: 1.5rem;">
                         <button type="button" class="btn btn-secondary" onclick="toggleModal('modal-pay-supplier-debt')">Cancelar</button>
                         <button type="submit" class="btn btn-primary" style="flex:1;">Confirmar Pago</button>
@@ -874,7 +878,7 @@
         <main class="content">
 
             <!-- DASHBOARD -->
-<section id="dashboard" class="view active">
+<section id="dashboard" class="view hidden">
     <!-- ⭐ KPI PRINCIPALES (HISTÓRICO) -->
     <header class="dash-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
         <div>
@@ -1101,7 +1105,7 @@
             </section>
 
             <!-- CAJA -->
-            <section id="cash" class="view hidden">
+            <section id="cash" class="view active">
                 <header class="cash-header">
                     <h1>Caja Diaria</h1>
                     <p>Registro de ingresos por turno (EF / QR), egresos clasificados y totales del día</p>
@@ -1466,40 +1470,7 @@
                     </div>
                 </div>
             </section>
-
-            <!-- REPORTE DE GASTOS -->
-            <section id="expenses-report" class="view" style="display: none;">
-    <header class="dash-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem;">
-        <div>
-            <h1>📈 Reporte de Gastos</h1>
-            <p>Gastos mensuales discriminados por proveedor</p>
-        </div>
-        <div class="filter-group" style="display: flex; align-items: center; gap: 0.5rem;">
-            <label for="expenses-month-filter" style="font-weight: 600; font-size: 0.95rem; color: var(--text-color);">Filtrar Mes:</label>
-            <select id="expenses-month-filter" class="select-modern" style="padding: 0.4rem 0.8rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: var(--text-color); font-weight: 500; outline: none; cursor: pointer;"></select>
-        </div>
-    </header>
-
-    <div class="glass-panel" style="padding: 1.5rem;">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Proveedor</th>
-                    <th>Total Gasto ($)</th>
-                </tr>
-            </thead>
-            <tbody id="expenses-report-body">
-                <!-- Data loaded by JS -->
-            </tbody>
-            <tfoot>
-                <tr style="font-weight: bold; background: rgba(255,255,255,0.05);">
-                    <td style="text-align: right;">Total General:</td>
-                    <td id="expenses-report-total">$0.00</td>
-                </tr>
-            </tfoot>
-        </table>
-    </div>
-</section>
+        </main>
 
     <!-- ========================= -->
     <!--          SCRIPTS          -->

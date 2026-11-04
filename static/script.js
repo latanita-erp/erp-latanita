@@ -2791,11 +2791,13 @@ document.getElementById('pay-supplier-debt-form')?.addEventListener('submit', as
     if (btn) { btn.disabled = true; btn.innerText = "Registrando..."; }
 
     const debtId = document.getElementById('sd-pay-debt-id').value;
+    const impactCash = document.getElementById('sd-pay-impact-cash')?.checked ?? true;
     const payload = {
         payment_date: document.getElementById('sd-pay-date').value,
         amount: parseFloat(document.getElementById('sd-pay-amount').value),
         payment_method: document.getElementById('sd-pay-method').value,
-        notes: document.getElementById('sd-pay-notes').value.trim() || null
+        notes: document.getElementById('sd-pay-notes').value.trim() || null,
+        impact_cash: impactCash
     };
 
     try {
@@ -2812,7 +2814,10 @@ document.getElementById('pay-supplier-debt-form')?.addEventListener('submit', as
         toggleModal('modal-pay-supplier-debt');
         e.target.reset();
         await fetchSupplierDebts();
-        alert("¡Pago registrado correctamente!");
+        if (impactCash) {
+            await fetchCash();
+        }
+        alert(impactCash ? "¡Pago registrado e impactado en la Caja Diaria!" : "¡Pago registrado correctamente!");
     } finally {
         if (btn) { btn.disabled = false; btn.innerText = originalText; }
     }
@@ -3000,15 +3005,38 @@ function renderHouseholdBillsTable() {
                 <td style="font-weight:700; font-size:1.05rem;">$${formatMoney(parseFloat(b.amount))}</td>
                 <td>${statusBadge}</td>
                 <td style="font-size:0.85rem; color:#94a3b8;">${b.notes || '-'}</td>
-                <td style="display:flex; gap:0.4rem;">
+                <td style="display:flex; gap:0.4rem; align-items:center;">
                     <button class="btn ${b.is_paid ? 'btn-secondary' : 'btn-primary'}" style="padding:0.25rem 0.6rem; font-size:0.8rem;" onclick="toggleHouseholdBillPaid(${b.id})">
                         ${b.is_paid ? 'Desmarcar' : '✓ Pagado'}
+                    </button>
+                    <button class="btn btn-secondary" style="padding:0.25rem 0.5rem; font-size:0.8rem;" title="Duplicar para el próximo mes" onclick="repeatHouseholdBillNextMonth(${b.id})">
+                        🔁 Mes Sig.
                     </button>
                     <button class="btn btn-danger" style="padding:0.25rem 0.5rem; font-size:0.8rem;" onclick="deleteHouseholdBill(${b.id})">🗑️</button>
                 </td>
             </tr>
         `;
     });
+}
+
+async function repeatHouseholdBillNextMonth(billId) {
+    try {
+        const res = await fetch(`/api/household-bills/${billId}/repeat-next-month`, { method: 'POST' });
+        if (res.ok) {
+            const data = await res.json();
+            let dueFmt = data.new_due_date || '';
+            if (dueFmt.includes('-')) {
+                const [y, m, d] = dueFmt.split('-');
+                dueFmt = `${d}/${m}/${y}`;
+            }
+            await fetchHouseholdBills();
+            alert(`✅ ¡Vencimiento repetido para el próximo mes con fecha ${dueFmt}!`);
+        } else {
+            alert("Error al repetir vencimiento.");
+        }
+    } catch (e) {
+        alert("Error de conexión al repetir vencimiento.");
+    }
 }
 
 document.getElementById('add-household-bill-form')?.addEventListener('submit', async (e) => {
@@ -3046,10 +3074,18 @@ document.getElementById('add-household-bill-form')?.addEventListener('submit', a
 });
 
 async function toggleHouseholdBillPaid(billId) {
+    const bill = (state.householdBills || []).find(x => x.id == billId);
+    const wasUnpaid = bill && !bill.is_paid;
+
     try {
         const res = await fetch(`/api/household-bills/${billId}/toggle-paid`, { method: 'PUT' });
         if (res.ok) {
             await fetchHouseholdBills();
+            if (wasUnpaid) {
+                if (confirm(`🎉 ¡Vencimiento marcado como pagado!\n\n¿Querés generar automáticamente la misma boleta para el próximo mes?`)) {
+                    await repeatHouseholdBillNextMonth(billId);
+                }
+            }
         }
     } catch (e) {
         alert("Error al cambiar estado");
