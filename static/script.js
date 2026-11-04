@@ -331,6 +331,9 @@ async function loadData(view) {
     if (view === 'products') await fetchProducts();
     if (view === 'cash') await fetchCash();
     if (view === 'dashboard') await fetchDashboard();
+    if (view === 'supplier-debts') await fetchSupplierDebts();
+    if (view === 'household-bills') await fetchHouseholdBills();
+    if (view === 'accounting-report') await loadAccountingReport();
     if (view === 'suppliers-global') await fetchGlobalSuppliers();
     if (view === 'price-history') await fetchGlobalPriceHistory(currentGlobalHistoryPeriod);
     if (view === 'expenses-report') {
@@ -1257,37 +1260,84 @@ function populateCashSupplierSelects() {
     });
 }
 
+function toggleExpenseFields(mode) {
+    const prefix = mode === 'new' ? 'new-cash' : 'edit-cash';
+    const catSel = document.getElementById(`${prefix}-expense-category`);
+    const supSel = document.getElementById(`${prefix}-supplier-select`);
+    const descInput = document.getElementById(`${prefix}-expense-desc`);
+    if (!catSel || !supSel || !descInput) return;
+
+    if (catSel.value === 'PROVEEDORES') {
+        supSel.classList.remove('hidden');
+        descInput.classList.add('hidden');
+    } else {
+        supSel.classList.add('hidden');
+        descInput.classList.remove('hidden');
+    }
+}
+
 function addCashExpense(mode) {
-    const sel = document.getElementById(mode + '-cash-supplier-select');
-    const amt = document.getElementById(mode + '-cash-supplier-amount');
-    const supplier_id = sel.value;
+    const prefix = mode === 'new' ? 'new-cash' : 'edit-cash';
+    const catSel = document.getElementById(`${prefix}-expense-category`);
+    const supSel = document.getElementById(`${prefix}-supplier-select`);
+    const descInput = document.getElementById(`${prefix}-expense-desc`);
+    const methodSel = document.getElementById(`${prefix}-expense-method`);
+    const amt = document.getElementById(`${prefix}-supplier-amount`);
+    
+    const category_type = catSel ? catSel.value : 'PROVEEDORES';
     const amount = parseFloat(amt.value);
+    const payment_method = methodSel ? methodSel.value : 'EFECTIVO';
     
-    if (!supplier_id || isNaN(amount) || amount <= 0) return;
+    if (isNaN(amount) || amount <= 0) {
+        alert("Por favor ingresá un monto mayor a 0");
+        return;
+    }
     
-    const supplier = state.suppliers.find(s => s.id == supplier_id);
+    let supplier_id = null;
+    let description = '';
+    let display_name = '';
+
+    if (category_type === 'PROVEEDORES') {
+        if (!supSel || !supSel.value) {
+            alert("Por favor seleccioná un proveedor");
+            return;
+        }
+        supplier_id = parseInt(supSel.value);
+        const supplier = state.suppliers.find(s => s.id == supplier_id);
+        display_name = supplier ? supplier.name : 'Proveedor';
+    } else {
+        description = descInput && descInput.value ? descInput.value.trim() : category_type;
+        display_name = description;
+    }
+    
     const list = mode === 'new' ? currentNewCashExpenseList : currentEditCashExpenseList;
-    
     list.push({
-        supplier_id: parseInt(supplier_id),
-        supplier_name: supplier ? supplier.name : 'Desconocido',
-        amount: amount
+        category_type,
+        supplier_id,
+        supplier_name: display_name,
+        description,
+        payment_method,
+        amount
     });
     
-    sel.value = '';
     amt.value = '';
+    if (descInput) descInput.value = '';
+    if (supSel) supSel.value = '';
+
     renderCashExpenseList(mode);
+    calculateTotalCash(mode);
 }
 
 function removeCashExpense(mode, index) {
     const list = mode === 'new' ? currentNewCashExpenseList : currentEditCashExpenseList;
     list.splice(index, 1);
     renderCashExpenseList(mode);
+    calculateTotalCash(mode);
 }
 
 function renderCashExpenseList(mode) {
     const list = mode === 'new' ? currentNewCashExpenseList : currentEditCashExpenseList;
-    const tbody = document.getElementById(mode + '-cash-expenses-list');
+    const tbody = document.getElementById(`${mode}-cash-expenses-list`);
     if (!tbody) return;
     
     tbody.innerHTML = '';
@@ -1295,16 +1345,22 @@ function renderCashExpenseList(mode) {
     
     list.forEach((exp, i) => {
         total += exp.amount;
+        const cat = exp.category_type || 'PROVEEDORES';
+        const concept = exp.supplier_name || exp.description || '-';
+        const method = exp.payment_method || 'EFECTIVO';
         tbody.innerHTML += `
             <tr>
-                <td>${exp.supplier_name || exp.category_name || 'Desconocido'}</td>
-                <td>$${formatMoney(exp.amount)}</td>
-                <td><button type="button" class="btn btn-danger" style="padding:0.2rem 0.5rem;" onclick="removeCashExpense('${mode}', ${i})">X</button></td>
+                <td><span class="badge badge-info">${cat}</span></td>
+                <td>${concept}</td>
+                <td><span style="font-size:0.8rem; color:#94a3b8;">${method}</span></td>
+                <td style="font-weight:600; color:var(--danger-color);">$${formatMoney(exp.amount)}</td>
+                <td><button type="button" class="btn btn-danger" style="padding:0.2rem 0.5rem;" onclick="removeCashExpense('${mode}', ${i})">✕</button></td>
             </tr>
         `;
     });
     
-    document.getElementById(mode + '-cash-expenses').value = total.toFixed(2);
+    const expInput = document.getElementById(mode === 'new' ? 'cash-expenses' : 'edit-cash-expenses');
+    if (expInput) expInput.value = total.toFixed(2);
 }
 
 // =====================================================
@@ -1321,10 +1377,17 @@ async function fetchCash() {
 
         const weekday = (r.weekday || getWeekdayFromDate(date)).toUpperCase();
 
-        const cash = Number(r.cash ?? 0);
-        const morning_sales = Number(r.morning_sales ?? 0);
-        const afternoon_sales = Number(r.afternoon_sales ?? 0);
-        const card = Number(r.card ?? 0);
+        const morning_ef = Number(r.morning_ef ?? 0);
+        const morning_qr = Number(r.morning_qr ?? 0);
+        const afternoon_ef = Number(r.afternoon_ef ?? 0);
+        const afternoon_qr = Number(r.afternoon_qr ?? 0);
+
+        const morning_sales = (morning_ef + morning_qr > 0) ? (morning_ef + morning_qr) : Number(r.morning_sales ?? 0);
+        const afternoon_sales = (afternoon_ef + afternoon_qr > 0) ? (afternoon_ef + afternoon_qr) : Number(r.afternoon_sales ?? 0);
+
+        const cash = (morning_ef + afternoon_ef > 0) ? (morning_ef + afternoon_ef) : Number(r.cash ?? 0);
+        const card = (morning_qr + afternoon_qr > 0) ? (morning_qr + afternoon_qr) : Number(r.card ?? 0);
+
         const expenses = Number(r.expenses ?? 0);
         const notes = r.notes || '';
         const expense_list = r.expense_list || [];
@@ -1336,6 +1399,10 @@ async function fetchCash() {
             id: r.id,
             date,
             weekday,
+            morning_ef,
+            morning_qr,
+            afternoon_ef,
+            afternoon_qr,
             morning_sales,
             afternoon_sales,
             cash,
@@ -1361,7 +1428,10 @@ function renderCash() {
 
     tbody.innerHTML = '';
 
-    if (!state.cash || state.cash.length === 0) return;
+    if (!state.cash || state.cash.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:2rem; color:var(--text-secondary);">No hay registros de caja aún. ¡Comenzá cargando el cierre de hoy!</td></tr>`;
+        return;
+    }
 
     // Agrupar por mes
     const byMonth = {};
@@ -1370,6 +1440,8 @@ function renderCash() {
         if (!byMonth[month]) {
             byMonth[month] = {
                 rows: [],
+                morningTotal: 0,
+                afternoonTotal: 0,
                 cashTotal: 0,
                 cardTotal: 0,
                 netTotal: 0,
@@ -1378,6 +1450,8 @@ function renderCash() {
             };
         }
         byMonth[month].rows.push(c);
+        byMonth[month].morningTotal += c.morning_sales;
+        byMonth[month].afternoonTotal += c.afternoon_sales;
         byMonth[month].cashTotal += c.cash;
         byMonth[month].cardTotal += c.card;
         byMonth[month].netTotal += c.net_income;
@@ -1385,7 +1459,6 @@ function renderCash() {
         byMonth[month].profitTotal += c.total;
     });
 
-    // Ordenar los meses de forma descendente (el más reciente arriba)
     const sortedMonths = Object.keys(byMonth).sort((a, b) => b.localeCompare(a));
     const currentMonth = sortedMonths[0];
 
@@ -1393,18 +1466,19 @@ function renderCash() {
         const mData = byMonth[month];
         const isCurrent = month === currentMonth;
 
-        // Crear fila cabecera del mes
         const headerTr = document.createElement('tr');
         headerTr.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
         headerTr.style.cursor = 'pointer';
         headerTr.innerHTML = `
-            <td colspan="2" style="font-weight: bold; font-size: 1.1em; color: var(--text-color);">
+            <td colspan="2" style="font-weight: bold; font-size: 1.05em; color: var(--text-color);">
                 <span style="display: inline-block; width: 20px;">${isCurrent ? '▼' : '▶'}</span>
                 ${formatMonthLiteral(month)}
             </td>
-            <td style="font-weight: bold;">$${formatMoney(mData.cashTotal)}</td>
-            <td style="font-weight: bold;">$${formatMoney(mData.expensesTotal)}</td>
-            <td style="font-weight: bold; font-size: 1.1em; color: ${mData.profitTotal >= 0 ? 'var(--success-color)' : 'var(--danger-color)'};">
+            <td style="font-weight: bold;">$${formatMoney(mData.morningTotal)}</td>
+            <td style="font-weight: bold;">$${formatMoney(mData.afternoonTotal)}</td>
+            <td style="font-weight: bold; color:var(--primary-color);">$${formatMoney(mData.netTotal)}</td>
+            <td style="font-weight: bold; color:var(--danger-color);">$${formatMoney(mData.expensesTotal)}</td>
+            <td style="font-weight: bold; color: ${mData.profitTotal >= 0 ? 'var(--success-color)' : 'var(--danger-color)'};">
                 $${formatMoney(mData.profitTotal)}
             </td>
             <td></td>
@@ -1414,8 +1488,6 @@ function renderCash() {
         tbody.appendChild(headerTr);
 
         const monthRows = [];
-
-        // Ordenar los días dentro del mes de forma descendente
         mData.rows.sort((a, b) => b.date.localeCompare(a.date));
 
         mData.rows.forEach(c => {
@@ -1426,26 +1498,34 @@ function renderCash() {
             tr.style.display = isCurrent ? 'table-row' : 'none';
             tr.style.backgroundColor = 'transparent';
             tr.innerHTML = `
-                <td style="padding-left: 2rem;">${formattedDate}</td>
+                <td style="padding-left: 1.5rem; font-weight:600;">${formattedDate}</td>
                 <td>${c.weekday}</td>
-                <td>$${formatMoney(c.cash)}</td>
-                <td>$${formatMoney(c.expenses)}</td>
+                <td>
+                    <b>$${formatMoney(c.morning_sales || 0)}</b>
+                    <div style="font-size:0.75rem; color:#94a3b8;">EF: $${formatMoney(c.morning_ef || 0)} | QR: $${formatMoney(c.morning_qr || 0)}</div>
+                </td>
+                <td>
+                    <b>$${formatMoney(c.afternoon_sales || 0)}</b>
+                    <div style="font-size:0.75rem; color:#94a3b8;">EF: $${formatMoney(c.afternoon_ef || 0)} | QR: $${formatMoney(c.afternoon_qr || 0)}</div>
+                </td>
+                <td>
+                    <b style="color:var(--primary-color);">$${formatMoney(c.net_income || 0)}</b>
+                    <div style="font-size:0.75rem; color:#94a3b8;">EF: $${formatMoney(c.cash || 0)} | QR: $${formatMoney(c.card || 0)}</div>
+                </td>
+                <td style="color:var(--danger-color); font-weight:600;">$${formatMoney(c.expenses || 0)}</td>
                 <td style="color: ${c.total >= 0 ? 'var(--success-color)' : 'var(--danger-color)'}; font-weight: bold;">
-                    $${formatMoney(c.total)}
+                    $${formatMoney(c.total || 0)}
                 </td>
                 <td style="font-size:0.85rem; color:var(--text-secondary); max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${c.notes || ''}">${c.notes || '-'}</td>
                 <td style="display: flex; gap: 0.5rem;">
-                    <button class="btn btn-secondary" style="padding: 0.3rem 0.6rem;"
-                        onclick="openEditCash(${c.id})">✏️</button>
-                    <button class="btn btn-danger" style="padding: 0.3rem 0.6rem;"
-                        onclick="deleteCash(${c.id})">🗑️</button>
+                    <button class="btn btn-secondary" style="padding: 0.3rem 0.6rem;" onclick="openEditCash(${c.id})">✏️</button>
+                    <button class="btn btn-danger" style="padding: 0.3rem 0.6rem;" onclick="deleteCash(${c.id})">🗑️</button>
                 </td>
             `;
             tbody.appendChild(tr);
             monthRows.push(tr);
         });
 
-        // Evento para expandir/colapsar
         headerTr.addEventListener('click', () => {
             const isExpanded = headerTr.querySelector('span').innerText === '▼';
             headerTr.querySelector('span').innerText = isExpanded ? '▶' : '▼';
@@ -1457,54 +1537,102 @@ function renderCash() {
 }
 
 // =====================================================
-//                 NUEVO REGISTRO
+//                 NUEVO REGISTRO & CÁLCULOS
 // =====================================================
 
 function calculateTotalCash(mode) {
-    const prefix = mode === 'new' ? 'cash' : 'edit-cash';
-    const m = parseFloat(document.getElementById(`${prefix}-morning`).value || 0);
-    const a = parseFloat(document.getElementById(`${prefix}-afternoon`).value || 0);
-    document.getElementById(`${prefix}-cash`).value = (m + a).toFixed(2);
+    if (mode === 'new') {
+        const m_ef = parseFloat(document.getElementById('cash-morning-ef')?.value || 0);
+        const m_qr = parseFloat(document.getElementById('cash-morning-qr')?.value || 0);
+        const a_ef = parseFloat(document.getElementById('cash-afternoon-ef')?.value || 0);
+        const a_qr = parseFloat(document.getElementById('cash-afternoon-qr')?.value || 0);
+
+        const m_tot = m_ef + m_qr;
+        const a_tot = a_ef + a_qr;
+        const tot_ef = m_ef + a_ef;
+        const tot_qr = m_qr + a_qr;
+        const tot_ventas = tot_ef + tot_qr;
+
+        const expenses = parseFloat(document.getElementById('cash-expenses')?.value || 0);
+        const net_total = tot_ventas - expenses;
+
+        if (document.getElementById('cash-morning')) document.getElementById('cash-morning').value = m_tot.toFixed(2);
+        if (document.getElementById('cash-afternoon')) document.getElementById('cash-afternoon').value = a_tot.toFixed(2);
+        if (document.getElementById('cash-total-ef')) document.getElementById('cash-total-ef').value = tot_ef.toFixed(2);
+        if (document.getElementById('cash-total-qr')) document.getElementById('cash-total-qr').value = tot_qr.toFixed(2);
+        if (document.getElementById('cash-cash')) document.getElementById('cash-cash').value = tot_ventas.toFixed(2);
+        if (document.getElementById('cash-net-total')) document.getElementById('cash-net-total').value = net_total.toFixed(2);
+    } else {
+        const m_ef = parseFloat(document.getElementById('edit-cash-morning-ef')?.value || 0);
+        const m_qr = parseFloat(document.getElementById('edit-cash-morning-qr')?.value || 0);
+        const a_ef = parseFloat(document.getElementById('edit-cash-afternoon-ef')?.value || 0);
+        const a_qr = parseFloat(document.getElementById('edit-cash-afternoon-qr')?.value || 0);
+
+        const m_tot = m_ef + m_qr;
+        const a_tot = a_ef + a_qr;
+        const tot_ef = m_ef + a_ef;
+        const tot_qr = m_qr + a_qr;
+        const tot_ventas = tot_ef + tot_qr;
+
+        if (document.getElementById('edit-cash-morning')) document.getElementById('edit-cash-morning').value = m_tot.toFixed(2);
+        if (document.getElementById('edit-cash-afternoon')) document.getElementById('edit-cash-afternoon').value = a_tot.toFixed(2);
+        if (document.getElementById('edit-cash-total-ef')) document.getElementById('edit-cash-total-ef').value = tot_ef.toFixed(2);
+        if (document.getElementById('edit-cash-total-qr')) document.getElementById('edit-cash-total-qr').value = tot_qr.toFixed(2);
+        if (document.getElementById('edit-cash-cash')) document.getElementById('edit-cash-cash').value = tot_ventas.toFixed(2);
+    }
 }
 
-
-document.getElementById('cash-form').addEventListener('submit', async (e) => {
+document.getElementById('cash-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = e.submitter;
-    const originalText = btn.innerText;
-    btn.disabled = true;
-    btn.innerText = "Guardando...";
+    const originalText = btn ? btn.innerText : '';
+    if (btn) { btn.disabled = true; btn.innerText = "Guardando..."; }
 
     const date = document.getElementById('cash-date').value;
     let weekday = document.getElementById('cash-weekday').value;
-
     if (!weekday) weekday = getWeekdayFromDate(date);
+
+    const m_ef = parseFloat(document.getElementById('cash-morning-ef')?.value || 0);
+    const m_qr = parseFloat(document.getElementById('cash-morning-qr')?.value || 0);
+    const a_ef = parseFloat(document.getElementById('cash-afternoon-ef')?.value || 0);
+    const a_qr = parseFloat(document.getElementById('cash-afternoon-qr')?.value || 0);
 
     const payload = {
         date,
         weekday,
-        morning_sales: parseFloat(document.getElementById('cash-morning').value || 0),
-        afternoon_sales: parseFloat(document.getElementById('cash-afternoon').value || 0),
-        cash: parseFloat(document.getElementById('cash-cash').value || 0),
-        card: 0,
-        expenses: parseFloat(document.getElementById('cash-expenses').value || 0),
+        morning_ef: m_ef,
+        morning_qr: m_qr,
+        afternoon_ef: a_ef,
+        afternoon_qr: a_qr,
+        morning_sales: m_ef + m_qr,
+        afternoon_sales: a_ef + a_qr,
+        cash: m_ef + a_ef,
+        card: m_qr + a_qr,
+        expenses: parseFloat(document.getElementById('cash-expenses')?.value || 0),
         notes: document.getElementById('cash-notes')?.value || '',
         expense_list: currentNewCashExpenseList
     };
 
-    await fetch('/api/cash', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    });
-
-    btn.disabled = false;
-    btn.innerText = originalText;
-    e.target.reset();
-    currentNewCashExpenseList = [];
-    
-    // El usuario solicitó que refresque la página al guardar
-    window.location.reload();
+    try {
+        const res = await fetch('/api/cash', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            alert("Error al guardar caja: " + (err.detail || JSON.stringify(err)));
+            return;
+        }
+        e.target.reset();
+        currentNewCashExpenseList = [];
+        renderCashExpenseList('new');
+        await fetchCash();
+        await fetchDashboard();
+        alert("¡Cierre de caja guardado con éxito!");
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerText = originalText; }
+    }
 });
 
 // =====================================================
@@ -1518,33 +1646,41 @@ function openEditCash(id) {
     document.getElementById('edit-cash-id').value = c.id;
     document.getElementById('edit-cash-date').value = c.date;
     document.getElementById('edit-cash-weekday').value = c.weekday || '';
+    
+    document.getElementById('edit-cash-morning-ef').value = c.morning_ef || 0;
+    document.getElementById('edit-cash-morning-qr').value = c.morning_qr || 0;
+    document.getElementById('edit-cash-afternoon-ef').value = c.afternoon_ef || 0;
+    document.getElementById('edit-cash-afternoon-qr').value = c.afternoon_qr || 0;
+
     document.getElementById('edit-cash-morning').value = c.morning_sales || 0;
     document.getElementById('edit-cash-afternoon').value = c.afternoon_sales || 0;
-    document.getElementById('edit-cash-cash').value = c.cash;
+    document.getElementById('edit-cash-total-ef').value = c.cash || 0;
+    document.getElementById('edit-cash-total-qr').value = c.card || 0;
+    document.getElementById('edit-cash-cash').value = c.net_income || 0;
     document.getElementById('edit-cash-expenses').value = c.expenses || 0;
+
     if (document.getElementById('edit-cash-notes')) {
         document.getElementById('edit-cash-notes').value = c.notes || '';
     }
     
     currentEditCashExpenseList = [...(c.expense_list || [])];
     renderCashExpenseList('edit');
+    calculateTotalCash('edit');
 
     toggleModal('modal-edit-cash');
 }
 
-document.getElementById("edit-cash-date").addEventListener("change", (e) => {
+document.getElementById("edit-cash-date")?.addEventListener("change", (e) => {
     const date = e.target.value;
     if (!date) return;
-
     document.getElementById("edit-cash-weekday").value = getWeekdayFromDate(date);
 });
 
-document.getElementById('edit-cash-form').addEventListener('submit', async (e) => {
+document.getElementById('edit-cash-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = e.submitter;
-    const originalText = btn.innerText;
-    btn.disabled = true;
-    btn.innerText = "Guardando...";
+    const originalText = btn ? btn.innerText : '';
+    if (btn) { btn.disabled = true; btn.innerText = "Guardando..."; }
 
     const id = document.getElementById('edit-cash-id').value;
     const date = document.getElementById('edit-cash-date').value;
@@ -1552,27 +1688,45 @@ document.getElementById('edit-cash-form').addEventListener('submit', async (e) =
     let weekday = document.getElementById('edit-cash-weekday').value;
     if (!weekday) weekday = getWeekdayFromDate(date);
 
+    const m_ef = parseFloat(document.getElementById('edit-cash-morning-ef')?.value || 0);
+    const m_qr = parseFloat(document.getElementById('edit-cash-morning-qr')?.value || 0);
+    const a_ef = parseFloat(document.getElementById('edit-cash-afternoon-ef')?.value || 0);
+    const a_qr = parseFloat(document.getElementById('edit-cash-afternoon-qr')?.value || 0);
+
     const payload = {
         date,
         weekday,
-        morning_sales: parseFloat(document.getElementById('edit-cash-morning').value || 0),
-        afternoon_sales: parseFloat(document.getElementById('edit-cash-afternoon').value || 0),
-        cash: parseFloat(document.getElementById('edit-cash-cash').value || 0),
-        card: 0,
-        expenses: parseFloat(document.getElementById('edit-cash-expenses').value || 0),
+        morning_ef: m_ef,
+        morning_qr: m_qr,
+        afternoon_ef: a_ef,
+        afternoon_qr: a_qr,
+        morning_sales: m_ef + m_qr,
+        afternoon_sales: a_ef + a_qr,
+        cash: m_ef + a_ef,
+        card: m_qr + a_qr,
+        expenses: parseFloat(document.getElementById('edit-cash-expenses')?.value || 0),
         notes: document.getElementById('edit-cash-notes')?.value || '',
         expense_list: currentEditCashExpenseList
     };
 
-    await fetch(`/api/cash/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    });
-
-    btn.disabled = false;
-    btn.innerText = originalText;
-    window.location.reload();
+    try {
+        const res = await fetch(`/api/cash/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            alert("Error al actualizar: " + (err.detail || JSON.stringify(err)));
+            return;
+        }
+        toggleModal('modal-edit-cash');
+        await fetchCash();
+        await fetchDashboard();
+        alert("¡Registro de caja actualizado!");
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerText = originalText; }
+    }
 });
 
 // =====================================================
@@ -2463,6 +2617,649 @@ document.getElementById('global-supplier-form')?.addEventListener('submit', asyn
         btn.innerText = originalText;
     }
 });
+
+
+// ======================================================
+//         MÓDULO PAGOS A PROVEEDORES DIFERIDOS
+// ======================================================
+
+async function fetchSupplierDebts() {
+    try {
+        const res = await fetch('/api/supplier-debts');
+        if (!res.ok) return;
+        state.supplierDebts = await res.json();
+
+        let totalBalance = 0;
+        let totalPaid = 0;
+        let totalPurchases = 0;
+
+        state.supplierDebts.forEach(d => {
+            totalBalance += parseFloat(d.balance || 0);
+            totalPaid += parseFloat(d.paid_amount || 0);
+            totalPurchases += parseFloat(d.total_amount || 0);
+        });
+
+        const kpiBal = document.getElementById('kpi-debt-balance');
+        const kpiPaid = document.getElementById('kpi-debt-paid');
+        const kpiTot = document.getElementById('kpi-debt-total');
+
+        if (kpiBal) kpiBal.innerText = `$${formatMoney(totalBalance)}`;
+        if (kpiPaid) kpiPaid.innerText = `$${formatMoney(totalPaid)}`;
+        if (kpiTot) kpiTot.innerText = `$${formatMoney(totalPurchases)}`;
+
+        renderSupplierDebts(state.supplierDebts);
+    } catch (e) {
+        console.error("Error al cargar deudas de proveedores:", e);
+    }
+}
+
+function renderSupplierDebts(list) {
+    const tbody = document.getElementById('supplier-debts-body');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+    if (!list || list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:2rem; color:var(--text-secondary);">No hay compras diferidas registradas. ¡Hacé clic en "+ Nueva Recepción / Factura" para cargar una!</td></tr>`;
+        return;
+    }
+
+    list.forEach(d => {
+        let recDate = d.reception_date || '-';
+        if (recDate.includes('-')) {
+            const [y, m, day] = recDate.split('-');
+            recDate = `${day}/${m}/${y}`;
+        }
+
+        let dueDate = d.due_date || '-';
+        if (dueDate !== '-' && dueDate.includes('-')) {
+            const [y, m, day] = dueDate.split('-');
+            dueDate = `${day}/${m}/${y}`;
+        }
+
+        let statusBadge = '<span class="badge badge-danger">PENDIENTE</span>';
+        if (d.status === 'PAGADO') {
+            statusBadge = '<span class="badge badge-success">PAGADO</span>';
+        } else if (d.status === 'PARCIAL') {
+            statusBadge = '<span class="badge badge-warning">PARCIAL</span>';
+        }
+
+        const balColor = parseFloat(d.balance) > 0 ? 'var(--danger-color)' : 'var(--success-color)';
+
+        tbody.innerHTML += `
+            <tr>
+                <td style="font-weight:600;">${recDate}</td>
+                <td><b>${d.supplier_name}</b></td>
+                <td><span style="font-family:monospace; font-size:0.9rem;">${d.invoice_number || '-'}</span></td>
+                <td>$${formatMoney(parseFloat(d.total_amount))}</td>
+                <td style="color:var(--success-color);">$${formatMoney(parseFloat(d.paid_amount))}</td>
+                <td style="font-weight:700; color:${balColor}; font-size:1.05rem;">$${formatMoney(parseFloat(d.balance))}</td>
+                <td>${dueDate}</td>
+                <td>${statusBadge}</td>
+                <td style="display:flex; gap:0.4rem; align-items:center;">
+                    ${parseFloat(d.balance) > 0.001 ? `<button class="btn btn-primary" style="padding:0.25rem 0.6rem; font-size:0.8rem;" onclick="openPaySupplierDebtModal(${d.id})">+ Pagar</button>` : ''}
+                    <button class="btn btn-secondary" style="padding:0.25rem 0.5rem; font-size:0.8rem;" title="Ver pagos" onclick="openViewSupplierPaymentsModal(${d.id})">📜 Cuotas (${(d.payments || []).length})</button>
+                    <button class="btn btn-danger" style="padding:0.25rem 0.5rem; font-size:0.8rem;" title="Eliminar" onclick="deleteSupplierDebt(${d.id})">🗑️</button>
+                </td>
+            </tr>
+        `;
+    });
+}
+
+function filterSupplierDebts() {
+    const q = (document.getElementById('supplier-debt-search')?.value || '').toLowerCase().trim();
+    if (!q) {
+        renderSupplierDebts(state.supplierDebts);
+        return;
+    }
+    const filtered = (state.supplierDebts || []).filter(d => 
+        (d.supplier_name && d.supplier_name.toLowerCase().includes(q)) ||
+        (d.invoice_number && d.invoice_number.toLowerCase().includes(q)) ||
+        (d.notes && d.notes.toLowerCase().includes(q))
+    );
+    renderSupplierDebts(filtered);
+}
+
+function openAddSupplierDebtModal() {
+    const supSel = document.getElementById('sd-supplier');
+    if (supSel) {
+        supSel.innerHTML = '<option value="">Seleccionar proveedor...</option>';
+        (state.suppliers || []).forEach(s => {
+            supSel.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+        });
+    }
+    const today = new Date().toISOString().split('T')[0];
+    const recInput = document.getElementById('sd-reception-date');
+    if (recInput) recInput.value = today;
+    toggleModal('modal-add-supplier-debt');
+}
+
+document.getElementById('add-supplier-debt-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.submitter;
+    const originalText = btn ? btn.innerText : '';
+    if (btn) { btn.disabled = true; btn.innerText = "Guardando..."; }
+
+    const payload = {
+        supplier_id: parseInt(document.getElementById('sd-supplier').value),
+        reception_date: document.getElementById('sd-reception-date').value,
+        invoice_number: document.getElementById('sd-invoice-num').value.trim() || null,
+        total_amount: parseFloat(document.getElementById('sd-total-amount').value),
+        due_date: document.getElementById('sd-due-date').value || null,
+        notes: document.getElementById('sd-notes').value.trim() || null
+    };
+
+    try {
+        const res = await fetch('/api/supplier-debts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            alert("Error al registrar compra: " + (err.detail || JSON.stringify(err)));
+            return;
+        }
+        toggleModal('modal-add-supplier-debt');
+        e.target.reset();
+        await fetchSupplierDebts();
+        alert("¡Compra diferida registrada exitosamente!");
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerText = originalText; }
+    }
+});
+
+function openPaySupplierDebtModal(debtId) {
+    const debt = (state.supplierDebts || []).find(d => d.id == debtId);
+    if (!debt) return;
+
+    document.getElementById('sd-pay-debt-id').value = debt.id;
+    document.getElementById('sd-pay-supplier-name').innerText = debt.supplier_name;
+    document.getElementById('sd-pay-invoice-num').innerText = debt.invoice_number || 'S/N';
+    document.getElementById('sd-pay-current-balance').innerText = `$${formatMoney(parseFloat(debt.balance))}`;
+    document.getElementById('sd-pay-amount').value = parseFloat(debt.balance).toFixed(2);
+
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('sd-pay-date').value = today;
+
+    toggleModal('modal-pay-supplier-debt');
+}
+
+document.getElementById('pay-supplier-debt-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.submitter;
+    const originalText = btn ? btn.innerText : '';
+    if (btn) { btn.disabled = true; btn.innerText = "Registrando..."; }
+
+    const debtId = document.getElementById('sd-pay-debt-id').value;
+    const payload = {
+        payment_date: document.getElementById('sd-pay-date').value,
+        amount: parseFloat(document.getElementById('sd-pay-amount').value),
+        payment_method: document.getElementById('sd-pay-method').value,
+        notes: document.getElementById('sd-pay-notes').value.trim() || null
+    };
+
+    try {
+        const res = await fetch(`/api/supplier-debts/${debtId}/payments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            alert("Error al registrar pago: " + (err.detail || JSON.stringify(err)));
+            return;
+        }
+        toggleModal('modal-pay-supplier-debt');
+        e.target.reset();
+        await fetchSupplierDebts();
+        alert("¡Pago registrado correctamente!");
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerText = originalText; }
+    }
+});
+
+function openViewSupplierPaymentsModal(debtId) {
+    const debt = (state.supplierDebts || []).find(d => d.id == debtId);
+    if (!debt) return;
+
+    document.getElementById('view-pmts-supplier').innerText = debt.supplier_name;
+    document.getElementById('view-pmts-invoice').innerText = debt.invoice_number || 'S/N';
+
+    const tbody = document.getElementById('view-pmts-table-body');
+    tbody.innerHTML = '';
+
+    const pmts = debt.payments || [];
+    if (pmts.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:1.5rem; color:#94a3b8;">Aún no se registraron pagos para esta compra.</td></tr>`;
+    } else {
+        pmts.forEach(p => {
+            let pDate = p.payment_date || '-';
+            if (pDate.includes('-')) {
+                const [y, m, day] = pDate.split('-');
+                pDate = `${day}/${m}/${y}`;
+            }
+            tbody.innerHTML += `
+                <tr>
+                    <td><b>${pDate}</b></td>
+                    <td style="color:var(--success-color); font-weight:700;">$${formatMoney(parseFloat(p.amount))}</td>
+                    <td><span class="badge badge-info">${p.payment_method}</span></td>
+                    <td style="color:#94a3b8; font-size:0.85rem;">${p.notes || '-'}</td>
+                    <td>
+                        <button class="btn btn-danger" style="padding:0.2rem 0.4rem; font-size:0.75rem;" onclick="deleteSupplierDebtPayment(${p.id}, ${debt.id})">Anular</button>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    toggleModal('modal-view-supplier-payments');
+}
+
+async function deleteSupplierDebtPayment(paymentId, debtId) {
+    if (!confirm("¿Anular este pago realizado? El saldo de la deuda se recalculará automáticamente.")) return;
+    try {
+        const res = await fetch(`/api/supplier-debts/payments/${paymentId}`, { method: 'DELETE' });
+        if (res.ok) {
+            await fetchSupplierDebts();
+            openViewSupplierPaymentsModal(debtId);
+        }
+    } catch (e) {
+        alert("Error al anular pago");
+    }
+}
+
+async function deleteSupplierDebt(debtId) {
+    if (!confirm("¿Eliminar este registro de compra diferida y todo su historial de cuotas?")) return;
+    try {
+        const res = await fetch(`/api/supplier-debts/${debtId}`, { method: 'DELETE' });
+        if (res.ok) {
+            await fetchSupplierDebts();
+        }
+    } catch (e) {
+        alert("Error al eliminar compra");
+    }
+}
+
+
+// ======================================================
+//         MÓDULO VENCIMIENTOS DEL HOGAR
+// ======================================================
+
+let currentBillFilter = 'pending';
+
+async function fetchHouseholdBills() {
+    try {
+        const res = await fetch('/api/household-bills');
+        if (!res.ok) return;
+        state.householdBills = await res.json();
+        renderHouseholdBillsTable();
+    } catch (e) {
+        console.error("Error al cargar vencimientos del hogar:", e);
+    }
+}
+
+function filterHouseholdBills(filterType) {
+    currentBillFilter = filterType;
+    document.querySelectorAll('.bill-filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === filterType);
+    });
+    renderHouseholdBillsTable();
+}
+
+function renderHouseholdBillsTable() {
+    const tbody = document.getElementById('household-bills-body');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+    const bills = state.householdBills || [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let dueTodayOrOverdue = 0;
+    let dueSoon = 0;
+    let totalPendingAmount = 0;
+
+    bills.forEach(b => {
+        if (!b.is_paid) {
+            totalPendingAmount += parseFloat(b.amount || 0);
+            const [y, m, d] = b.due_date.split('-');
+            const dueDate = new Date(y, parseInt(m) - 1, d);
+            const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+
+            if (diffDays <= 0) {
+                dueTodayOrOverdue++;
+            } else if (diffDays <= 5) {
+                dueSoon++;
+            }
+        }
+    });
+
+    const kpiToday = document.getElementById('kpi-bills-due-today');
+    const kpiSoon = document.getElementById('kpi-bills-due-soon');
+    const kpiPending = document.getElementById('kpi-bills-total-pending');
+
+    if (kpiToday) kpiToday.innerText = dueTodayOrOverdue;
+    if (kpiSoon) kpiSoon.innerText = dueSoon;
+    if (kpiPending) kpiPending.innerText = `$${formatMoney(totalPendingAmount)}`;
+
+    const searchQ = (document.getElementById('household-bills-search')?.value || '').toLowerCase().trim();
+
+    let filtered = bills.filter(b => {
+        if (currentBillFilter === 'pending' && b.is_paid) return false;
+        if (currentBillFilter === 'paid' && !b.is_paid) return false;
+        if (searchQ) {
+            return (b.concept && b.concept.toLowerCase().includes(searchQ)) ||
+                   (b.category && b.category.toLowerCase().includes(searchQ)) ||
+                   (b.notes && b.notes.toLowerCase().includes(searchQ));
+        }
+        return true;
+    });
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--text-secondary);">No hay vencimientos para mostrar en este filtro.</td></tr>`;
+        return;
+    }
+
+    filtered.forEach(b => {
+        const [y, m, d] = b.due_date.split('-');
+        const formattedDueDate = `${d}/${m}/${y}`;
+        const dueDate = new Date(y, parseInt(m) - 1, d);
+        const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+
+        let statusBadge = '';
+        if (b.is_paid) {
+            let pDate = b.payment_date || '';
+            if (pDate.includes('-')) {
+                const [py, pm, pd] = pDate.split('-');
+                pDate = ` el ${pd}/${pm}`;
+            }
+            statusBadge = `<span class="badge badge-success">✓ PAGADO${pDate}</span>`;
+        } else {
+            if (diffDays < 0) {
+                statusBadge = `<span class="badge badge-danger">🔴 VENCIDO HACE ${Math.abs(diffDays)} DÍAS</span>`;
+            } else if (diffDays === 0) {
+                statusBadge = `<span class="badge badge-danger">🔴 ¡VENCE HOY!</span>`;
+            } else if (diffDays <= 3) {
+                statusBadge = `<span class="badge badge-warning">🟡 VENCE EN ${diffDays} DÍAS</span>`;
+            } else {
+                statusBadge = `<span class="badge badge-info">🟢 Vence en ${diffDays} días</span>`;
+            }
+        }
+
+        let catBadge = `<span class="badge badge-purple">${b.category}</span>`;
+        if (b.category === 'SERVICIO') catBadge = `<span class="badge badge-info">💡 SERVICIO</span>`;
+        if (b.category === 'IMPUESTO') catBadge = `<span class="badge badge-warning">🏛️ IMPUESTO</span>`;
+        if (b.category === 'CREDITO') catBadge = `<span class="badge badge-danger">🏦 CRÉDITO</span>`;
+        if (b.category === 'TARJETA') catBadge = `<span class="badge badge-purple">💳 TARJETA</span>`;
+
+        tbody.innerHTML += `
+            <tr style="${b.is_paid ? 'opacity:0.6;' : ''}">
+                <td style="font-weight:600;">${formattedDueDate}</td>
+                <td>${catBadge}</td>
+                <td><b>${b.concept}</b></td>
+                <td style="font-weight:700; font-size:1.05rem;">$${formatMoney(parseFloat(b.amount))}</td>
+                <td>${statusBadge}</td>
+                <td style="font-size:0.85rem; color:#94a3b8;">${b.notes || '-'}</td>
+                <td style="display:flex; gap:0.4rem;">
+                    <button class="btn ${b.is_paid ? 'btn-secondary' : 'btn-primary'}" style="padding:0.25rem 0.6rem; font-size:0.8rem;" onclick="toggleHouseholdBillPaid(${b.id})">
+                        ${b.is_paid ? 'Desmarcar' : '✓ Pagado'}
+                    </button>
+                    <button class="btn btn-danger" style="padding:0.25rem 0.5rem; font-size:0.8rem;" onclick="deleteHouseholdBill(${b.id})">🗑️</button>
+                </td>
+            </tr>
+        `;
+    });
+}
+
+document.getElementById('add-household-bill-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.submitter;
+    const originalText = btn ? btn.innerText : '';
+    if (btn) { btn.disabled = true; btn.innerText = "Guardando..."; }
+
+    const payload = {
+        concept: document.getElementById('hb-concept').value.trim(),
+        category: document.getElementById('hb-category').value,
+        amount: parseFloat(document.getElementById('hb-amount').value),
+        due_date: document.getElementById('hb-due-date').value,
+        notes: document.getElementById('hb-notes').value.trim() || null
+    };
+
+    try {
+        const res = await fetch('/api/household-bills', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            alert("Error al guardar: " + (err.detail || JSON.stringify(err)));
+            return;
+        }
+        toggleModal('modal-add-household-bill');
+        e.target.reset();
+        await fetchHouseholdBills();
+        alert("¡Vencimiento guardado correctamente!");
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerText = originalText; }
+    }
+});
+
+async function toggleHouseholdBillPaid(billId) {
+    try {
+        const res = await fetch(`/api/household-bills/${billId}/toggle-paid`, { method: 'PUT' });
+        if (res.ok) {
+            await fetchHouseholdBills();
+        }
+    } catch (e) {
+        alert("Error al cambiar estado");
+    }
+}
+
+async function deleteHouseholdBill(billId) {
+    if (!confirm("¿Eliminar este vencimiento?")) return;
+    try {
+        const res = await fetch(`/api/household-bills/${billId}`, { method: 'DELETE' });
+        if (res.ok) {
+            await fetchHouseholdBills();
+        }
+    } catch (e) {
+        alert("Error al eliminar");
+    }
+}
+
+
+// ======================================================
+//         MÓDULO TELEGRAM & ALERTAS
+// ======================================================
+
+async function loadTelegramConfig() {
+    try {
+        const res = await fetch('/api/telegram/config');
+        if (!res.ok) return;
+        const cfg = await res.json();
+        const tokenInput = document.getElementById('tg-bot-token');
+        const chatInput = document.getElementById('tg-chat-id');
+        if (tokenInput && cfg.bot_token) {
+            tokenInput.placeholder = `Actual: ${cfg.bot_token}`;
+        }
+        if (chatInput && cfg.chat_id) {
+            chatInput.value = cfg.chat_id;
+        }
+    } catch (e) {
+        console.error("Error al cargar config de Telegram:", e);
+    }
+}
+
+document.getElementById('telegram-config-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.submitter;
+    const originalText = btn ? btn.innerText : '';
+    if (btn) { btn.disabled = true; btn.innerText = "Guardando..."; }
+
+    const payload = {
+        bot_token: document.getElementById('tg-bot-token').value.trim(),
+        chat_id: document.getElementById('tg-chat-id').value.trim()
+    };
+
+    try {
+        const res = await fetch('/api/telegram/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+            toggleModal('modal-telegram-config');
+            alert("¡Configuración de Telegram guardada correctamente!");
+        } else {
+            alert("Error al guardar configuración");
+        }
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerText = originalText; }
+    }
+});
+
+async function testTelegramAlert() {
+    const token = document.getElementById('tg-bot-token')?.value.trim();
+    const chat_id = document.getElementById('tg-chat-id')?.value.trim();
+
+    if (token || chat_id) {
+        await fetch('/api/telegram/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bot_token: token || '', chat_id: chat_id || '' })
+        });
+    }
+
+    try {
+        const res = await fetch('/api/telegram/test', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+            alert("✅ " + data.message);
+        } else {
+            alert("❌ Error: " + (data.detail || "No se pudo conectar con Telegram"));
+        }
+    } catch (e) {
+        alert("Error de conexión al probar Telegram");
+    }
+}
+
+async function triggerTelegramAlerts() {
+    try {
+        const res = await fetch('/api/telegram/send-alerts', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+            alert(`✅ ¡Avisos enviados a Telegram! Items notificados: ${data.items_count || 0}`);
+        } else {
+            alert("❌ Error: " + (data.detail || "Verificá la configuración de tu bot de Telegram"));
+        }
+    } catch (e) {
+        alert("Error de conexión al enviar avisos a Telegram");
+    }
+}
+
+
+// ======================================================
+//         MÓDULO BALANCE CONTABLE INTEGRAL
+// ======================================================
+
+async function loadAccountingReport() {
+    const filterEl = document.getElementById('accounting-month-filter');
+    if (!filterEl) return;
+
+    // Poblar meses desde state.cash si está vacío
+    if (filterEl.children.length === 0) {
+        const cashData = state.cash || [];
+        const months = [...new Set(cashData.map(r => r.date.slice(0, 7)))].sort().reverse();
+        const date = new Date();
+        const currentMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        if (!months.includes(currentMonth)) months.unshift(currentMonth);
+
+        months.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m;
+            opt.innerText = formatMonthLiteral(m);
+            filterEl.appendChild(opt);
+        });
+        filterEl.value = months[0];
+    }
+
+    const month = filterEl.value;
+    try {
+        const res = await fetch(`/api/reports/accounting?month=${month}`);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        // KPIs
+        const salesTot = data.sales.total || 0;
+        document.getElementById('acc-kpi-sales').innerText = `$${formatMoney(salesTot)}`;
+        document.getElementById('acc-kpi-sales-ef').innerText = `$${formatMoney(data.sales.ef || 0)}`;
+        document.getElementById('acc-kpi-sales-qr').innerText = `$${formatMoney(data.sales.qr || 0)}`;
+
+        document.getElementById('acc-kpi-business-exp').innerText = `$${formatMoney(data.kpis.business_expenses || 0)}`;
+        document.getElementById('acc-kpi-business-profit').innerText = `$${formatMoney(data.kpis.net_business_profit || 0)}`;
+
+        document.getElementById('acc-summary-business-profit').innerText = `$${formatMoney(data.kpis.net_business_profit || 0)}`;
+        const personalExp = (data.expenses["RETIROS PERSONALES"] || 0) + (data.expenses["GASTOS HOGAR"] || 0);
+        document.getElementById('acc-summary-personal-exp').innerText = `$${formatMoney(personalExp)}`;
+        document.getElementById('acc-summary-final-pocket').innerText = `$${formatMoney(data.kpis.final_cash_pocket || 0)}`;
+
+        // Tabla Desglose
+        const tbody = document.getElementById('accounting-table-body');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+
+        const pct = (val) => salesTot > 0 ? ((val / salesTot) * 100).toFixed(1) + '%' : '0.0%';
+
+        // 1. Ingresos
+        tbody.innerHTML += `
+            <tr style="background:rgba(245,158,11,0.08); font-weight:600;">
+                <td>💰 Ventas en Efectivo (Caja)</td>
+                <td><span class="badge badge-success">INGRESO</span></td>
+                <td>$${formatMoney(data.sales.ef || 0)}</td>
+                <td>${pct(data.sales.ef || 0)}</td>
+            </tr>
+            <tr style="background:rgba(245,158,11,0.08); font-weight:600;">
+                <td>📱 Ventas Digitales (QR / Transferencia)</td>
+                <td><span class="badge badge-success">INGRESO</span></td>
+                <td>$${formatMoney(data.sales.qr || 0)}</td>
+                <td>${pct(data.sales.qr || 0)}</td>
+            </tr>
+            <tr style="background:rgba(245,158,11,0.15); font-weight:700;">
+                <td>⭐ TOTAL INGRESOS POR VENTAS</td>
+                <td><span class="badge badge-success">TOTAL INGRESOS</span></td>
+                <td style="color:var(--primary-color);">$${formatMoney(salesTot)}</td>
+                <td>100.0%</td>
+            </tr>
+        `;
+
+        // 2. Egresos Operativos y Comerciales
+        const expItems = [
+            { name: "🏢 Proveedores de Mercadería (Costo de Ventas)", key: "PROVEEDORES", badge: "badge-danger", type: "COSTO DIRECTO" },
+            { name: "📦 Gastos Operativos (Bolsas, film, insumos, fletes)", key: "GASTOS OPERATIVOS", badge: "badge-warning", type: "OPERATIVO" },
+            { name: "💡 Gastos Fijos (Alquiler, luz, internet, seguro)", key: "GASTOS FIJOS", badge: "badge-warning", type: "FIJO" },
+            { name: "👥 Sueldos de Empleados", key: "SUELDOS", badge: "badge-danger", type: "PERSONAL" },
+            { name: "💼 Retiros Personales / Retiro del Titular", key: "RETIROS PERSONALES", badge: "badge-purple", type: "EXTRACCIÓN" },
+            { name: "🏠 Gastos del Hogar", key: "GASTOS HOGAR", badge: "badge-purple", type: "PERSONAL" }
+        ];
+
+        expItems.forEach(item => {
+            const val = data.expenses[item.key] || 0;
+            tbody.innerHTML += `
+                <tr>
+                    <td>${item.name}</td>
+                    <td><span class="badge ${item.badge}">${item.type}</span></td>
+                    <td style="color:var(--danger-color); font-weight:600;">$${formatMoney(val)}</td>
+                    <td style="color:#94a3b8;">${pct(val)}</td>
+                </tr>
+            `;
+        });
+
+    } catch (e) {
+        console.error("Error al cargar reporte contable:", e);
+    }
+}
+
 
 
 

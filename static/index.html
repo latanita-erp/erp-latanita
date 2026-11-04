@@ -176,6 +176,9 @@
                 <button class="nav-btn" data-target="products">📦 Productos</button>
                 <button class="nav-btn" data-target="price-history">📜 Historial Precios</button>
                 <button class="nav-btn" data-target="cash">💰 Caja Diaria</button>
+                <button class="nav-btn" data-target="supplier-debts">🚚 Pagos Proveedores</button>
+                <button class="nav-btn" data-target="household-bills">🏠 Vencimientos Casa</button>
+                <button class="nav-btn" data-target="accounting-report">⚖️ Balance Contable</button>
                 <button class="nav-btn" onclick="toggleModal('modal-manage-suppliers'); loadManageSuppliers();">🏢 Proveedores</button>
                 <button class="nav-btn" data-target="expenses-report">📈 Reporte Gastos</button>
 
@@ -470,83 +473,330 @@
         </div>
 
         <!-- MODAL EDITAR CAJA -->
-<div id="modal-edit-cash" class="modal-overlay hidden">
-    <div class="modal-content glass-panel" style="max-width: 450px;">
+        <div id="modal-edit-cash" class="modal-overlay hidden">
+            <div class="modal-content glass-panel" style="max-width: 650px;">
+                <div class="modal-header">
+                    <h2>Editar Registro de Caja</h2>
+                    <button class="close-btn" onclick="toggleModal('modal-edit-cash')">×</button>
+                </div>
 
-        <div class="modal-header">
-            <h2>Editar Registro de Caja</h2>
-            <button class="close-btn" onclick="toggleModal('modal-edit-cash')">×</button>
+                <form id="edit-cash-form">
+                    <input type="hidden" id="edit-cash-id">
+
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1rem;">
+                        <div class="input-group">
+                            <label>Fecha</label>
+                            <input type="date" id="edit-cash-date" required>
+                        </div>
+                        <div class="input-group">
+                            <label>Día</label>
+                            <input type="text" id="edit-cash-weekday" readonly>
+                        </div>
+                    </div>
+
+                    <!-- TURNOS MAÑANA Y TARDE -->
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1rem;">
+                        <div class="turn-card">
+                            <div class="turn-title">☀️ Turno Mañana</div>
+                            <div class="input-group">
+                                <label>Efectivo ($)</label>
+                                <input type="number" step="0.01" id="edit-cash-morning-ef" value="0" oninput="calculateTotalCash('edit')">
+                            </div>
+                            <div class="input-group">
+                                <label>QR / Transf ($)</label>
+                                <input type="number" step="0.01" id="edit-cash-morning-qr" value="0" oninput="calculateTotalCash('edit')">
+                            </div>
+                            <div class="input-group">
+                                <label style="font-weight:700;">Total Mañana ($)</label>
+                                <input type="number" step="0.01" id="edit-cash-morning" readonly value="0" style="background:rgba(255,255,255,0.05); font-weight:700;">
+                            </div>
+                        </div>
+
+                        <div class="turn-card">
+                            <div class="turn-title">🌙 Turno Tarde</div>
+                            <div class="input-group">
+                                <label>Efectivo ($)</label>
+                                <input type="number" step="0.01" id="edit-cash-afternoon-ef" value="0" oninput="calculateTotalCash('edit')">
+                            </div>
+                            <div class="input-group">
+                                <label>QR / Transf ($)</label>
+                                <input type="number" step="0.01" id="edit-cash-afternoon-qr" value="0" oninput="calculateTotalCash('edit')">
+                            </div>
+                            <div class="input-group">
+                                <label style="font-weight:700;">Total Tarde ($)</label>
+                                <input type="number" step="0.01" id="edit-cash-afternoon" readonly value="0" style="background:rgba(255,255,255,0.05); font-weight:700;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TOTALES DEL DÍA -->
+                    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 1.2rem; background:rgba(0,0,0,0.25); padding:0.8rem; border-radius:10px;">
+                        <div>
+                            <label style="font-size:0.75rem;">Total EF</label>
+                            <input type="number" step="0.01" id="edit-cash-total-ef" readonly value="0" style="width:100%; font-weight:600; font-size:0.9rem;">
+                        </div>
+                        <div>
+                            <label style="font-size:0.75rem;">Total QR</label>
+                            <input type="number" step="0.01" id="edit-cash-total-qr" readonly value="0" style="width:100%; font-weight:600; font-size:0.9rem;">
+                        </div>
+                        <div>
+                            <label style="font-size:0.75rem;">Total Ventas</label>
+                            <input type="number" step="0.01" id="edit-cash-cash" readonly value="0" style="width:100%; font-weight:700; color:var(--primary-color); font-size:0.9rem;">
+                        </div>
+                        <div>
+                            <label style="font-size:0.75rem;">Total Gastos</label>
+                            <input type="number" step="0.01" id="edit-cash-expenses" readonly value="0" style="width:100%; font-weight:700; color:var(--danger-color); font-size:0.9rem;">
+                        </div>
+                    </div>
+
+                    <!-- CARGAR GASTOS -->
+                    <div class="input-group" style="margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem;">
+                        <h4 style="margin-bottom: 0.6rem;">Cargar Gastos / Egresos del Día</h4>
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-bottom:8px;">
+                            <select id="edit-cash-expense-category" onchange="toggleExpenseFields('edit')">
+                                <option value="PROVEEDORES">🏢 PROVEEDORES (Mercadería)</option>
+                                <option value="GASTOS OPERATIVOS">📦 GASTOS OPERATIVOS (Bolsas, film, insumos)</option>
+                                <option value="GASTOS FIJOS">💡 GASTOS FIJOS (Alquiler, luz, local)</option>
+                                <option value="SUELDOS">👥 SUELDOS (Personal)</option>
+                                <option value="RETIROS PERSONALES">💼 RETIROS PERSONALES (Dueño)</option>
+                                <option value="GASTOS HOGAR">🏠 GASTOS HOGAR</option>
+                            </select>
+
+                            <select id="edit-cash-supplier-select">
+                                <option value="">Seleccionar proveedor...</option>
+                            </select>
+
+                            <input type="text" id="edit-cash-expense-desc" placeholder="Detalle / Concepto del gasto..." class="hidden">
+                        </div>
+
+                        <div style="display:flex; gap:8px; margin-bottom:10px;">
+                            <select id="edit-cash-expense-method" style="width:140px;">
+                                <option value="EFECTIVO">💵 Efectivo</option>
+                                <option value="QR / TRANSF">📱 QR / Transf</option>
+                            </select>
+                            <input type="number" step="0.01" id="edit-cash-supplier-amount" placeholder="Monto ($)" style="flex:1;">
+                            <button type="button" class="btn btn-primary" onclick="addCashExpense('edit')">+ Agregar</button>
+                        </div>
+
+                        <table class="table" style="font-size:0.85rem;">
+                            <thead>
+                                <tr><th>Categoría</th><th>Concepto / Proveedor</th><th>Medio</th><th>Monto</th><th>Acción</th></tr>
+                            </thead>
+                            <tbody id="edit-cash-expenses-list"></tbody>
+                        </table>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Notas / Observaciones</label>
+                        <input type="text" id="edit-cash-notes" placeholder="Observaciones del día...">
+                    </div>
+
+                    <div style="display:flex; gap:10px; margin-top: 1rem;">
+                        <button type="button" class="btn btn-secondary" onclick="toggleModal('modal-edit-cash')">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" style="flex:1;">Guardar Cambios</button>
+                    </div>
+                </form>
+            </div>
         </div>
 
-        <form id="edit-cash-form" class="cash-grid">
+        <!-- MODAL REGISTRAR COMPRA DIFERIDA (PROVEEDOR) -->
+        <div id="modal-add-supplier-debt" class="modal-overlay hidden">
+            <div class="modal-content glass-panel" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h2>📦 Nueva Recepción / Compra Diferida</h2>
+                    <button class="close-btn" onclick="toggleModal('modal-add-supplier-debt')">×</button>
+                </div>
+                <form id="add-supplier-debt-form">
+                    <div class="input-group">
+                        <label>Proveedor</label>
+                        <select id="sd-supplier" required>
+                            <option value="">Seleccionar proveedor...</option>
+                        </select>
+                    </div>
 
-            <input type="hidden" id="edit-cash-id">
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                        <div class="input-group">
+                            <label>Fecha de Recepción</label>
+                            <input type="date" id="sd-reception-date" required>
+                        </div>
+                        <div class="input-group">
+                            <label>N° Remito / Factura</label>
+                            <input type="text" id="sd-invoice-num" placeholder="Ej: R-00045">
+                        </div>
+                    </div>
 
-            <div class="input-group">
-                <label>Fecha</label>
-                <input type="date" id="edit-cash-date" required>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                        <div class="input-group">
+                            <label>Monto Total ($)</label>
+                            <input type="number" step="0.01" id="sd-total-amount" required placeholder="0.00">
+                        </div>
+                        <div class="input-group">
+                            <label>Fecha Límite Pago (Opcional)</label>
+                            <input type="date" id="sd-due-date">
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Notas / Detalle mercadería</label>
+                        <input type="text" id="sd-notes" placeholder="Detalle de la mercadería recibida...">
+                    </div>
+
+                    <div style="display:flex; gap:10px; margin-top: 1.5rem;">
+                        <button type="button" class="btn btn-secondary" onclick="toggleModal('modal-add-supplier-debt')">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" style="flex:1;">Registrar Compra</button>
+                    </div>
+                </form>
             </div>
+        </div>
 
-            <div class="input-group">
-                <label>Día</label>
-                <input type="text" id="edit-cash-weekday" readonly>
+        <!-- MODAL REGISTRAR PAGO A PROVEEDOR (CUOTA) -->
+        <div id="modal-pay-supplier-debt" class="modal-overlay hidden">
+            <div class="modal-content glass-panel" style="max-width: 450px;">
+                <div class="modal-header">
+                    <h2>💵 Registrar Pago a Proveedor</h2>
+                    <button class="close-btn" onclick="toggleModal('modal-pay-supplier-debt')">×</button>
+                </div>
+                <form id="pay-supplier-debt-form">
+                    <input type="hidden" id="sd-pay-debt-id">
+                    
+                    <div style="background:rgba(255,255,255,0.05); padding:0.8rem; border-radius:8px; margin-bottom:1rem; font-size:0.9rem;">
+                        <div>Proveedor: <b id="sd-pay-supplier-name" style="color:var(--primary-color);">-</b></div>
+                        <div>Remito/Factura: <b id="sd-pay-invoice-num">-</b></div>
+                        <div>Saldo Pendiente Actual: <b id="sd-pay-current-balance" style="color:var(--danger-color);">-</b></div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Fecha del Pago</label>
+                        <input type="date" id="sd-pay-date" required>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Monto a Pagar ($)</label>
+                        <input type="number" step="0.01" id="sd-pay-amount" required placeholder="0.00">
+                    </div>
+
+                    <div class="input-group">
+                        <label>Medio de Pago</label>
+                        <select id="sd-pay-method">
+                            <option value="EFECTIVO">💵 Efectivo de Caja</option>
+                            <option value="TRANSFERENCIA">📱 Transferencia Bancaria / QR</option>
+                            <option value="CHEQUE">📑 Cheque</option>
+                            <option value="OTRO">Otro</option>
+                        </select>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Observaciones / N° Comprobante</label>
+                        <input type="text" id="sd-pay-notes" placeholder="Ej: Pago parcial 1 de 2, transf N°...">
+                    </div>
+
+                    <div style="display:flex; gap:10px; margin-top: 1.5rem;">
+                        <button type="button" class="btn btn-secondary" onclick="toggleModal('modal-pay-supplier-debt')">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" style="flex:1;">Confirmar Pago</button>
+                    </div>
+                </form>
             </div>
+        </div>
 
-            <div class="input-group">
-                <label>Ventas Mañana ($)</label>
-                <input type="number" step="0.01" id="edit-cash-morning" required value="0" oninput="calculateTotalCash('edit')">
-            </div>
-
-            <div class="input-group">
-                <label>Ventas Tarde ($)</label>
-                <input type="number" step="0.01" id="edit-cash-afternoon" required value="0" oninput="calculateTotalCash('edit')">
-            </div>
-
-            <div class="input-group">
-                <label>Ventas Totales ($)</label>
-                <input type="number" step="0.01" id="edit-cash-cash" required readonly value="0">
-            </div>
-
-            <div class="input-group">
-                <label>Gastos ($)</label>
-                <input type="number" step="0.01" id="edit-cash-expenses" readonly value="0">
-            </div>
-
-            <div class="input-group" style="grid-column: 1 / -1; margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem;">
-                <h4 style="margin-bottom: 0.5rem;">Detalle de Gastos por Proveedor</h4>
-                <div style="display:flex; gap:10px; margin-bottom:10px;">
-                    <select id="edit-cash-supplier-select" style="flex:1; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:var(--glass-bg); color:var(--text-color); padding:0.5rem;">
-                        <option value="">Seleccionar proveedor...</option>
-                    </select>
-                    <input type="number" step="0.01" id="edit-cash-supplier-amount" placeholder="Monto ($)" style="width:120px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:var(--glass-bg); color:var(--text-color); padding:0.5rem;">
-                    <button type="button" class="btn btn-primary" onclick="addCashExpense('edit')">+ Agregar</button>
+        <!-- MODAL VER HISTORIAL DE CUOTAS / PAGOS DE UNA COMPRA -->
+        <div id="modal-view-supplier-payments" class="modal-overlay hidden">
+            <div class="modal-content glass-panel" style="max-width: 600px;">
+                <div class="modal-header">
+                    <h2>📜 Historial de Pagos Realizados</h2>
+                    <button class="close-btn" onclick="toggleModal('modal-view-supplier-payments')">×</button>
+                </div>
+                <div style="margin-bottom:1rem; font-size:0.95rem;">
+                    Proveedor: <b id="view-pmts-supplier">-</b> | Factura/Remito: <b id="view-pmts-invoice">-</b>
                 </div>
                 <table class="table" style="font-size:0.9rem;">
                     <thead>
-                        <tr><th>Proveedor</th><th>Monto</th><th>Acción</th></tr>
+                        <tr><th>Fecha Pago</th><th>Monto</th><th>Medio</th><th>Nota</th><th>Acción</th></tr>
                     </thead>
-                    <tbody id="edit-cash-expenses-list"></tbody>
+                    <tbody id="view-pmts-table-body"></tbody>
                 </table>
             </div>
+        </div>
 
-            <div class="input-group" style="grid-column: 1 / -1;">
-                <label>Notas / Observaciones</label>
-                <input type="text" id="edit-cash-notes" placeholder="Observaciones del día...">
+        <!-- MODAL NUEVO VENCIMIENTO DEL HOGAR -->
+        <div id="modal-add-household-bill" class="modal-overlay hidden">
+            <div class="modal-content glass-panel" style="max-width: 480px;">
+                <div class="modal-header">
+                    <h2>🏠 Nuevo Vencimiento de la Casa</h2>
+                    <button class="close-btn" onclick="toggleModal('modal-add-household-bill')">×</button>
+                </div>
+                <form id="add-household-bill-form">
+                    <div class="input-group">
+                        <label>Concepto / Entidad</label>
+                        <input type="text" id="hb-concept" required placeholder="Ej: Crédito Banco Galicia, Edesur Casa, Metrogas...">
+                    </div>
+
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                        <div class="input-group">
+                            <label>Categoría</label>
+                            <select id="hb-category" required>
+                                <option value="SERVICIO">💡 Servicio (Luz, Gas, Agua, Internet)</option>
+                                <option value="IMPUESTO">🏛️ Impuesto (Inmobiliario, Patente, ABL)</option>
+                                <option value="CREDITO">🏦 Crédito / Préstamo Bancario</option>
+                                <option value="TARJETA">💳 Tarjeta de Crédito</option>
+                                <option value="ALQUILER">🔑 Alquiler / Expensas</option>
+                                <option value="OTRO">Otro</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Monto Estimado / Final ($)</label>
+                            <input type="number" step="0.01" id="hb-amount" required placeholder="0.00">
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Fecha de Vencimiento</label>
+                        <input type="date" id="hb-due-date" required>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Notas / N° de Referencia de Pago</label>
+                        <input type="text" id="hb-notes" placeholder="Código de pago link, código banelco...">
+                    </div>
+
+                    <div style="display:flex; gap:10px; margin-top: 1.5rem;">
+                        <button type="button" class="btn btn-secondary" onclick="toggleModal('modal-add-household-bill')">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" style="flex:1;">Guardar Vencimiento</button>
+                    </div>
+                </form>
             </div>
+        </div>
 
-            <div style="display:flex; gap:10px; margin-top: 1rem; grid-column: 1 / -1;">
-                <button type="button" class="btn btn-secondary" onclick="toggleModal('modal-edit-cash')">
-                    Cancelar
-                </button>
-                <button type="submit" class="btn btn-primary" style="flex:1;">
-                    Guardar Cambios
-                </button>
+        <!-- MODAL CONFIGURACIÓN TELEGRAM -->
+        <div id="modal-telegram-config" class="modal-overlay hidden">
+            <div class="modal-content glass-panel" style="max-width: 520px;">
+                <div class="modal-header">
+                    <h2>🔔 Configuración de Avisos por Telegram</h2>
+                    <button class="close-btn" onclick="toggleModal('modal-telegram-config')">×</button>
+                </div>
+                <div style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1.2rem; line-height:1.4; background:rgba(0,0,0,0.25); padding:0.8rem; border-radius:8px;">
+                    <b>¿Cómo vincular Telegram en 2 minutos?</b><br>
+                    1. En Telegram buscá a <b>@BotFather</b> y enviá <code>/newbot</code>. Te dará un <b>Bot Token</b>.<br>
+                    2. Escribile un mensaje a tu nuevo bot en Telegram.<br>
+                    3. Buscá a <b>@userinfobot</b> en Telegram para ver tu <b>Id (Chat ID)</b> numérico.<br>
+                    4. Pegá ambos datos abajo y hacé clic en "Enviar Prueba".
+                </div>
+                <form id="telegram-config-form">
+                    <div class="input-group">
+                        <label>Telegram Bot Token</label>
+                        <input type="password" id="tg-bot-token" placeholder="Ej: 123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ">
+                    </div>
+                    <div class="input-group">
+                        <label>Tu Chat ID (Número)</label>
+                        <input type="text" id="tg-chat-id" placeholder="Ej: 987654321">
+                    </div>
+
+                    <div style="display:flex; gap:10px; margin-top: 1.5rem;">
+                        <button type="button" class="btn btn-secondary" onclick="testTelegramAlert()">🧪 Probar Envío</button>
+                        <button type="submit" class="btn btn-primary" style="flex:1;">Guardar Configuración</button>
+                    </div>
+                </form>
             </div>
-
-        </form>
-
-    </div>
-</div>
+        </div>
 
 
         <!-- MODAL AJUSTE MASIVO -->
@@ -851,105 +1101,374 @@
             </section>
 
             <!-- CAJA -->
-<section id="cash" class="view hidden">
+            <section id="cash" class="view hidden">
+                <header class="cash-header">
+                    <h1>Caja Diaria</h1>
+                    <p>Registro de ingresos por turno (EF / QR), egresos clasificados y totales del día</p>
+                </header>
 
-    <header class="cash-header">
-        <h1>Caja Diaria</h1>
-        <p>Registro de ingresos, egresos y totales del día</p>
-    </header>
+                <!-- FORMULARIO NUEVO CIERRE -->
+                <div class="glass-panel cash-form-box" style="margin-bottom: 2rem;">
+                    <h3>Nuevo Cierre de Caja</h3>
 
-    <!-- FORMULARIO NUEVO CIERRE -->
-    <div class="glass-panel cash-form-box">
-        <h3>Nuevo Cierre de Caja</h3>
+                    <form id="cash-form">
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1rem;">
+                            <div class="input-group">
+                                <label>Fecha</label>
+                                <input type="date" id="cash-date" required>
+                            </div>
+                            <div class="input-group">
+                                <label>Día</label>
+                                <input type="text" id="cash-weekday" readonly>
+                            </div>
+                        </div>
 
-        <form id="cash-form" class="cash-grid">
+                        <!-- TURNOS MAÑANA Y TARDE -->
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 1.2rem;">
+                            <div class="turn-card">
+                                <div class="turn-title">☀️ Turno Mañana</div>
+                                <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                    <div class="input-group">
+                                        <label>Efectivo ($)</label>
+                                        <input type="number" step="0.01" id="cash-morning-ef" value="0" oninput="calculateTotalCash('new')">
+                                    </div>
+                                    <div class="input-group">
+                                        <label>QR / Transf ($)</label>
+                                        <input type="number" step="0.01" id="cash-morning-qr" value="0" oninput="calculateTotalCash('new')">
+                                    </div>
+                                </div>
+                                <div class="input-group" style="margin-top: 0.5rem;">
+                                    <label style="font-weight:700;">Total Mañana ($)</label>
+                                    <input type="number" step="0.01" id="cash-morning" readonly value="0" style="background:rgba(255,255,255,0.05); font-weight:700; color:#fbbf24;">
+                                </div>
+                            </div>
 
-            <div class="input-group">
-                <label>Fecha</label>
-                <input type="date" id="cash-date" required>
-            </div>
+                            <div class="turn-card">
+                                <div class="turn-title">🌙 Turno Tarde</div>
+                                <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                    <div class="input-group">
+                                        <label>Efectivo ($)</label>
+                                        <input type="number" step="0.01" id="cash-afternoon-ef" value="0" oninput="calculateTotalCash('new')">
+                                    </div>
+                                    <div class="input-group">
+                                        <label>QR / Transf ($)</label>
+                                        <input type="number" step="0.01" id="cash-afternoon-qr" value="0" oninput="calculateTotalCash('new')">
+                                    </div>
+                                </div>
+                                <div class="input-group" style="margin-top: 0.5rem;">
+                                    <label style="font-weight:700;">Total Tarde ($)</label>
+                                    <input type="number" step="0.01" id="cash-afternoon" readonly value="0" style="background:rgba(255,255,255,0.05); font-weight:700; color:#fbbf24;">
+                                </div>
+                            </div>
+                        </div>
 
-            <div class="input-group">
-                <label>Día</label>
-                <input type="text" id="cash-weekday" readonly>
-            </div>
+                        <!-- TOTALES RESUMEN DEL DÍA -->
+                        <div style="display:grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 1.5rem; background:rgba(0,0,0,0.3); padding:1rem; border-radius:12px; border:1px solid rgba(255,255,255,0.08);">
+                            <div>
+                                <label style="font-size:0.75rem; color:#94a3b8;">Total Efectivo (Caja)</label>
+                                <input type="number" step="0.01" id="cash-total-ef" readonly value="0" style="width:100%; font-weight:600; font-size:0.95rem;">
+                            </div>
+                            <div>
+                                <label style="font-size:0.75rem; color:#94a3b8;">Total QR / Digital</label>
+                                <input type="number" step="0.01" id="cash-total-qr" readonly value="0" style="width:100%; font-weight:600; font-size:0.95rem;">
+                            </div>
+                            <div>
+                                <label style="font-size:0.75rem; color:#94a3b8;">Total Ventas</label>
+                                <input type="number" step="0.01" id="cash-cash" readonly value="0" style="width:100%; font-weight:700; color:var(--primary-color); font-size:1rem;">
+                            </div>
+                            <div>
+                                <label style="font-size:0.75rem; color:#94a3b8;">Total Gastos</label>
+                                <input type="number" step="0.01" id="cash-expenses" readonly value="0" style="width:100%; font-weight:700; color:var(--danger-color); font-size:1rem;">
+                            </div>
+                            <div>
+                                <label style="font-size:0.75rem; color:#94a3b8;">Saldo Neto</label>
+                                <input type="number" step="0.01" id="cash-net-total" readonly value="0" style="width:100%; font-weight:700; color:var(--success-color); font-size:1rem;">
+                            </div>
+                        </div>
 
-            <div class="input-group">
-                <label>Ventas Mañana ($)</label>
-                <input type="number" step="0.01" id="cash-morning" required value="0" oninput="calculateTotalCash('new')">
-            </div>
+                        <!-- CARGAR GASTOS DEL DÍA -->
+                        <div class="input-group" style="margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1.2rem;">
+                            <h4 style="margin-bottom: 0.6rem;">Cargar Gastos / Egresos del Día</h4>
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
+                                <select id="new-cash-expense-category" onchange="toggleExpenseFields('new')">
+                                    <option value="PROVEEDORES">🏢 PROVEEDORES (Mercadería)</option>
+                                    <option value="GASTOS OPERATIVOS">📦 GASTOS OPERATIVOS (Bolsas, film, insumos)</option>
+                                    <option value="GASTOS FIJOS">💡 GASTOS FIJOS (Alquiler, luz, local)</option>
+                                    <option value="SUELDOS">👥 SUELDOS (Personal)</option>
+                                    <option value="RETIROS PERSONALES">💼 RETIROS PERSONALES (Dueño)</option>
+                                    <option value="GASTOS HOGAR">🏠 GASTOS HOGAR</option>
+                                </select>
 
-            <div class="input-group">
-                <label>Ventas Tarde ($)</label>
-                <input type="number" step="0.01" id="cash-afternoon" required value="0" oninput="calculateTotalCash('new')">
-            </div>
+                                <select id="new-cash-supplier-select">
+                                    <option value="">Seleccionar proveedor...</option>
+                                </select>
 
-            <div class="input-group">
-                <label>Ventas Totales ($)</label>
-                <input type="number" step="0.01" id="cash-cash" required readonly value="0">
-            </div>
+                                <input type="text" id="new-cash-expense-desc" placeholder="Detalle / Concepto del gasto..." class="hidden">
+                            </div>
 
-            <div class="input-group">
-                <label>Gastos ($)</label>
-                <input type="number" step="0.01" id="cash-expenses" readonly value="0">
-            </div>
+                            <div style="display:flex; gap:10px; margin-bottom:10px;">
+                                <select id="new-cash-expense-method" style="width:160px;">
+                                    <option value="EFECTIVO">💵 Efectivo</option>
+                                    <option value="QR / TRANSF">📱 QR / Transf</option>
+                                </select>
+                                <input type="number" step="0.01" id="new-cash-supplier-amount" placeholder="Monto ($)" style="flex:1;">
+                                <button type="button" class="btn btn-primary" onclick="addCashExpense('new')">+ Agregar Gasto</button>
+                            </div>
 
-            <div class="input-group" style="grid-column: 1 / -1; margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem;">
-                <h4 style="margin-bottom: 0.5rem;">Cargar Gastos del Día</h4>
-                <div style="display:flex; gap:10px; margin-bottom:10px;">
-                    <select id="new-cash-supplier-select" style="flex:1; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:var(--glass-bg); color:var(--text-color); padding:0.5rem;">
-                        <option value="">Seleccionar proveedor...</option>
-                    </select>
-                    <input type="number" step="0.01" id="new-cash-supplier-amount" placeholder="Monto ($)" style="width:120px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); background:var(--glass-bg); color:var(--text-color); padding:0.5rem;">
-                    <button type="button" class="btn btn-primary" onclick="addCashExpense('new')">+ Agregar</button>
+                            <table class="table" style="font-size:0.85rem;">
+                                <thead>
+                                    <tr><th>Categoría</th><th>Concepto / Proveedor</th><th>Medio</th><th>Monto</th><th>Acción</th></tr>
+                                </thead>
+                                <tbody id="new-cash-expenses-list"></tbody>
+                            </table>
+                        </div>
+
+                        <div class="input-group">
+                            <label>Notas / Observaciones del Cierre</label>
+                            <input type="text" id="cash-notes" placeholder="Observaciones o notas del día...">
+                        </div>
+
+                        <div class="input-group flex-end" style="justify-content: flex-end; margin-top: 1rem;">
+                            <button type="submit" class="btn btn-primary" style="padding: 0.6rem 1.5rem; font-size: 0.95rem; font-weight:700;">💾 Guardar Cierre de Caja</button>
+                        </div>
+                    </form>
                 </div>
-                <table class="table" style="font-size:0.9rem;">
-                    <thead>
-                        <tr><th>Proveedor</th><th>Monto</th><th>Acción</th></tr>
-                    </thead>
-                    <tbody id="new-cash-expenses-list"></tbody>
-                </table>
-            </div>
 
-            <div class="input-group" style="grid-column: 1 / -1;">
-                <label>Notas / Observaciones</label>
-                <input type="text" id="cash-notes" placeholder="Observaciones o notas del día...">
-            </div>
+                <!-- HISTORIAL RECIENTE -->
+                <div class="glass-panel cash-history-box">
+                    <h3>Historial de Cajas Diarias</h3>
+                    <div style="overflow-x:auto;">
+                        <table class="table cash-table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Día</th>
+                                    <th>Mañana (EF / QR)</th>
+                                    <th>Tarde (EF / QR)</th>
+                                    <th>Total Ventas</th>
+                                    <th>Gastos</th>
+                                    <th>Saldo Neto</th>
+                                    <th>Notas</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cash-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
 
-            <div class="input-group flex-end" style="grid-column: 1 / -1; justify-content: flex-end;">
-                <button type="submit" class="btn btn-primary" style="padding: 0.3rem 0.8rem; font-size: 0.8rem; width: auto;">Guardar Cierre</button>
-            </div>
+            <!-- PAGOS A PROVEEDORES DIFERIDOS -->
+            <section id="supplier-debts" class="view hidden">
+                <header class="dash-header flex-between" style="margin-bottom: 1.5rem;">
+                    <div>
+                        <h1>🚚 Pagos a Proveedores Diferidos</h1>
+                        <p>Control de recepciones con pago diferido, cuotas y saldos pendientes</p>
+                    </div>
+                    <div class="actions">
+                        <button class="btn btn-primary" onclick="openAddSupplierDebtModal()">➕ Nueva Recepción / Factura</button>
+                    </div>
+                </header>
 
-        </form>
-    </div>
+                <!-- KPIS PROVEEDORES DIFERIDOS -->
+                <div class="kpi-grid-modern pretty-kpi-grid" style="margin-bottom: 2rem;">
+                    <div class="kpi-card-modern pretty-kpi">
+                        <div class="kpi-icon">⏳</div>
+                        <div class="kpi-info">
+                            <h3>Saldo Pendiente Total</h3>
+                            <div class="kpi-value" id="kpi-debt-balance" style="color:var(--danger-color);">$0.00</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card-modern pretty-kpi">
+                        <div class="kpi-icon">✅</div>
+                        <div class="kpi-info">
+                            <h3>Total Pagado Acumulado</h3>
+                            <div class="kpi-value" id="kpi-debt-paid" style="color:var(--success-color);">$0.00</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card-modern pretty-kpi highlight">
+                        <div class="kpi-icon">📦</div>
+                        <div class="kpi-info">
+                            <h3>Total Compras Registradas</h3>
+                            <div class="kpi-value" id="kpi-debt-total">$0.00</div>
+                        </div>
+                    </div>
+                </div>
 
-    <!-- HISTORIAL -->
-    <div class="glass-panel cash-history-box">
-        <h3>Historial Reciente</h3>
+                <div class="glass-panel">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:1rem;">
+                        <h3 style="margin:0;">Listado de Compras Diferidas</h3>
+                        <input type="text" id="supplier-debt-search" placeholder="🔍 Buscar por proveedor o remito..." oninput="filterSupplierDebts()" style="max-width:300px;">
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table class="table" id="supplier-debts-table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha Recep.</th>
+                                    <th>Proveedor</th>
+                                    <th>Remito / Factura</th>
+                                    <th>Monto Total</th>
+                                    <th>Pagado</th>
+                                    <th>Saldo Pendiente</th>
+                                    <th>Vencimiento</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="supplier-debts-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
 
-        <table class="table cash-table">
-            <thead>
-                <tr>
-                    <th>Fecha</th>
-                    <th>Día</th>
-                    <th>Ventas</th>
-                    <th>Gastos</th>
-                    <th>Ingresos Netos</th>
-                    <th>Notas</th>
-                    <th>Acción</th>
-                </tr>
-            </thead>
+            <!-- VENCIMIENTOS DEL HOGAR -->
+            <section id="household-bills" class="view hidden">
+                <header class="dash-header flex-between" style="margin-bottom: 1.5rem;">
+                    <div>
+                        <h1>🏠 Vencimientos y Pagos de la Casa</h1>
+                        <p>Control independiente de créditos, impuestos y servicios personales</p>
+                    </div>
+                    <div class="actions" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                        <button class="btn btn-secondary" onclick="toggleModal('modal-telegram-config'); loadTelegramConfig();">⚙️ Telegram</button>
+                        <button class="btn btn-secondary" onclick="triggerTelegramAlerts()">🔔 Enviar Avisos</button>
+                        <button class="btn btn-primary" onclick="toggleModal('modal-add-household-bill')">➕ Nuevo Vencimiento</button>
+                    </div>
+                </header>
 
-            <tbody id="cash-table-body">
-                <!-- Llenado por JS -->
-            </tbody>
-        </table>
-    </div>
+                <!-- KPIS VENCIMIENTOS -->
+                <div class="kpi-grid-modern pretty-kpi-grid" style="margin-bottom: 2rem;">
+                    <div class="kpi-card-modern pretty-kpi">
+                        <div class="kpi-icon">🔴</div>
+                        <div class="kpi-info">
+                            <h3>Vencidos o Vencen Hoy</h3>
+                            <div class="kpi-value" id="kpi-bills-due-today" style="color:var(--danger-color); font-size:1.8rem;">0</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card-modern pretty-kpi">
+                        <div class="kpi-icon">🟡</div>
+                        <div class="kpi-info">
+                            <h3>Por Vencer (5 días)</h3>
+                            <div class="kpi-value" id="kpi-bills-due-soon" style="color:var(--primary-color); font-size:1.8rem;">0</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card-modern pretty-kpi highlight">
+                        <div class="kpi-icon">💵</div>
+                        <div class="kpi-info">
+                            <h3>Total Pendiente ($)</h3>
+                            <div class="kpi-value" id="kpi-bills-total-pending">$0.00</div>
+                        </div>
+                    </div>
+                </div>
 
-</section>
+                <div class="glass-panel">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:1rem;">
+                        <div style="display:flex; gap:0.5rem;">
+                            <button class="btn btn-secondary bill-filter-btn active" data-filter="pending" onclick="filterHouseholdBills('pending')">Pendientes</button>
+                            <button class="btn btn-secondary bill-filter-btn" data-filter="all" onclick="filterHouseholdBills('all')">Todos</button>
+                            <button class="btn btn-secondary bill-filter-btn" data-filter="paid" onclick="filterHouseholdBills('paid')">Pagados</button>
+                        </div>
+                        <input type="text" id="household-bills-search" placeholder="🔍 Buscar servicio, impuesto..." oninput="renderHouseholdBillsTable()" style="max-width:300px;">
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table class="table" id="household-bills-table">
+                            <thead>
+                                <tr>
+                                    <th>Vencimiento</th>
+                                    <th>Categoría</th>
+                                    <th>Concepto / Entidad</th>
+                                    <th>Monto</th>
+                                    <th>Estado / Semáforo</th>
+                                    <th>Notas / Referencia</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="household-bills-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
 
-<!-- REPORTE DE GASTOS -->
-<section id="expenses-report" class="view" style="display: none;">
+            <!-- BALANCE CONTABLE INTEGRAL -->
+            <section id="accounting-report" class="view hidden">
+                <header class="dash-header flex-between" style="margin-bottom: 2rem;">
+                    <div>
+                        <h1>⚖️ Balance Contable Integral</h1>
+                        <p>Resumen consolidado de ventas EF/QR, egresos clasificados y márgenes reales</p>
+                    </div>
+                    <div class="filter-group" style="display: flex; align-items: center; gap: 0.5rem;">
+                        <label for="accounting-month-filter" style="font-weight: 600; font-size: 0.95rem; color: var(--text-color);">Filtrar Mes:</label>
+                        <select id="accounting-month-filter" class="select-modern" onchange="loadAccountingReport()" style="padding: 0.4rem 0.8rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: var(--text-color); font-weight: 500; outline: none; cursor: pointer;"></select>
+                    </div>
+                </header>
+
+                <!-- KPIS CONTABLES PRINCIPALES -->
+                <div class="kpi-grid-modern pretty-kpi-grid" style="margin-bottom: 2rem;">
+                    <div class="kpi-card-modern pretty-kpi">
+                        <div class="kpi-icon">💰</div>
+                        <div class="kpi-info">
+                            <h3>Ventas Totales</h3>
+                            <div class="kpi-value" id="acc-kpi-sales">$0.00</div>
+                            <div style="font-size:0.8rem; color:#94a3b8; margin-top:4px;">EF: <span id="acc-kpi-sales-ef">$0</span> | QR: <span id="acc-kpi-sales-qr">$0</span></div>
+                        </div>
+                    </div>
+                    <div class="kpi-card-modern pretty-kpi">
+                        <div class="kpi-icon">🏬</div>
+                        <div class="kpi-info">
+                            <h3>Gastos Negocio</h3>
+                            <div class="kpi-value" id="acc-kpi-business-exp" style="color:var(--danger-color);">$0.00</div>
+                            <div style="font-size:0.8rem; color:#94a3b8; margin-top:4px;">Prov + Operat + Fijos + Sueldos</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card-modern pretty-kpi highlight">
+                        <div class="kpi-icon">📈</div>
+                        <div class="kpi-info">
+                            <h3>Ganancia Negocio</h3>
+                            <div class="kpi-value" id="acc-kpi-business-profit" style="color:var(--success-color);">$0.00</div>
+                            <div style="font-size:0.8rem; color:#94a3b8; margin-top:4px;">Rendimiento puro del comercio</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TABLA DESGLOSE CONTABLE -->
+                <div class="glass-panel" style="margin-bottom: 2rem;">
+                    <h3 style="margin-bottom: 1rem;">📋 Desglose de Ingresos y Egresos por Rubro</h3>
+                    <div style="overflow-x:auto;">
+                        <table class="table" style="font-size:0.95rem;">
+                            <thead>
+                                <tr>
+                                    <th>Rubro Contable</th>
+                                    <th>Tipo</th>
+                                    <th>Monto ($)</th>
+                                    <th>% S/ Ventas</th>
+                                </tr>
+                            </thead>
+                            <tbody id="accounting-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- RESULTADOS FINALES -->
+                <div class="glass-panel summary-box pretty-box">
+                    <h3 class="section-title">💼 Flujo Final & Retiros Personales</h3>
+                    <div class="summary-grid pretty-grid">
+                        <div class="summary-item pretty-item">
+                            <label>Ganancia Neta Comercial</label>
+                            <span id="acc-summary-business-profit" style="color:var(--success-color); font-weight:bold;">$0.00</span>
+                        </div>
+                        <div class="summary-item pretty-item">
+                            <label>Retiros Titular + Gastos Hogar</label>
+                            <span id="acc-summary-personal-exp" style="color:var(--primary-color); font-weight:bold;">$0.00</span>
+                        </div>
+                        <div class="summary-item pretty-item">
+                            <label>Saldo Neto Final en Mano</label>
+                            <span id="acc-summary-final-pocket" style="color:#38bdf8; font-weight:bold; font-size:1.4rem;">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- REPORTE DE GASTOS -->
+            <section id="expenses-report" class="view" style="display: none;">
     <header class="dash-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem;">
         <div>
             <h1>📈 Reporte de Gastos</h1>
