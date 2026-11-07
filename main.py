@@ -1238,9 +1238,8 @@ def update_product(product_id: int, payload: ProductUpdatePayload, db: Session =
     cost_matiz = payload.cost_matiz if payload.cost_matiz is not None else (product["cost_matiz"] if product["cost_matiz"] is not None else cost1)
     cost_raices = payload.cost_raices if payload.cost_raices is not None else (product["cost_raices"] if product["cost_raices"] is not None else cost2)
 
-    existing_cost = float(product["cost"]) if product["cost"] is not None else 0.0
     payload_cost = float(payload.cost) if payload.cost is not None else 0.0
-    cost = max(cost1, cost2, cost3, cost_matiz, cost_raices, payload_cost, existing_cost)
+    cost = max(cost1, cost2, cost3, cost_matiz, cost_raices, payload_cost)
     prices = calculate_prices(cost, margin)
 
     old_price_kg = product["old_price_kg"] if product["old_price_kg"] is not None else 0.0
