@@ -308,13 +308,21 @@
         }
 
         function getSupplierCost(p) {
-            const cost = parseFloat(p.cost) || 0;
             const c1 = parseFloat(p.cost1) || 0;
             const c2 = parseFloat(p.cost2) || 0;
             const c3 = parseFloat(p.cost3) || 0;
             const cm = parseFloat(p.cost_matiz) || 0;
             const cr = parseFloat(p.cost_raices) || 0;
-            return Math.max(cost, c1, c2, c3, cm, cr, 0);
+            const maxSup = Math.max(c1, c2, c3, cm, cr);
+            if (maxSup > 0) return maxSup;
+
+            // Si los proveedores están definidos pero en 0, el costo de proveedor es 0
+            if (p.supplier1_id || p.supplier2_id || p.supplier3_id ||
+                p.cost1 !== undefined || p.cost2 !== undefined || p.cost3 !== undefined) {
+                return 0;
+            }
+
+            return parseFloat(p.cost) || 0;
         }
 
         function formatPriceCell(val) {
