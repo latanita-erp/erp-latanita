@@ -307,6 +307,22 @@
             return Number(val).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
 
+        function getSupplierCost(p) {
+            const cost = parseFloat(p.cost) || 0;
+            const c1 = parseFloat(p.cost1) || 0;
+            const c2 = parseFloat(p.cost2) || 0;
+            const c3 = parseFloat(p.cost3) || 0;
+            const cm = parseFloat(p.cost_matiz) || 0;
+            const cr = parseFloat(p.cost_raices) || 0;
+            return Math.max(cost, c1, c2, c3, cm, cr, 0);
+        }
+
+        function formatPriceCell(val) {
+            const num = parseFloat(val);
+            if (isNaN(num) || num <= 0) return "-";
+            return "$" + formatMoney(num);
+        }
+
         async function loadPrices() {
             // Cargar preferencia guardada si existe
             const savedSize = localStorage.getItem('print_price_size');
@@ -332,8 +348,13 @@
                 });
                 let products = await res.json();
                 
-                // Omitir productos con precio 0
-                products = products.filter(p => (p.price_kg || 0) > 0 || (p.price_100g || 0) > 0);
+                // Omitir productos donde el precio de proveedor sea 0 o no tengan precio de venta válido
+                products = products.filter(p => {
+                    const supCost = getSupplierCost(p);
+                    const priceKg = parseFloat(p.price_kg) || 0;
+                    const price100 = parseFloat(p.price_100g) || 0;
+                    return supCost > 0 && (priceKg > 0 || price100 > 0);
+                });
                 
                 // Agrupar por tipo
                 const grouped = {};
@@ -367,10 +388,10 @@
                             html += `
                                 <tr>
                                     <td class="name-col"><strong>${p.name}</strong></td>
-                                    <td class="price-col">$${formatMoney(p.price_kg)}</td>
-                                    <td class="price-col">$${formatMoney(p.price_100g)}</td>
-                                    <td class="price-col">$${formatMoney(p.price_150g)}</td>
-                                    <td class="price-col">$${formatMoney(p.price_250g)}</td>
+                                    <td class="price-col">${formatPriceCell(p.price_kg)}</td>
+                                    <td class="price-col">${formatPriceCell(p.price_100g)}</td>
+                                    <td class="price-col">${formatPriceCell(p.price_150g)}</td>
+                                    <td class="price-col">${formatPriceCell(p.price_250g)}</td>
                                 </tr>
                             `;
                         });

@@ -307,6 +307,16 @@
             return Number(val).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
 
+        function getSupplierCost(p) {
+            const cost = parseFloat(p.cost) || 0;
+            const c1 = parseFloat(p.cost1) || 0;
+            const c2 = parseFloat(p.cost2) || 0;
+            const c3 = parseFloat(p.cost3) || 0;
+            const cm = parseFloat(p.cost_matiz) || 0;
+            const cr = parseFloat(p.cost_raices) || 0;
+            return Math.max(cost, c1, c2, c3, cm, cr, 0);
+        }
+
         async function loadPrices() {
             // Cargar preferencia guardada si existe
             const savedSize = localStorage.getItem('print_price_size');
@@ -332,11 +342,12 @@
                 });
                 const products = await res.json();
 
-                // Filtrar fiambres y quesos y omitir los que tengan precio 0
+                // Filtrar fiambres y quesos, omitir los que tengan precio 0 o costo de proveedor 0
                 const filtered = products.filter(p => {
                     const t = (p.type || "").toLowerCase();
                     const isFiamQueso = t.includes("fiam") || t.includes("ques");
-                    return isFiamQueso && (p.price_100g || 0) > 0;
+                    const supCost = getSupplierCost(p);
+                    return isFiamQueso && (p.price_100g || 0) > 0 && supCost > 0;
                 });
 
                 // Agrupar por tipo
